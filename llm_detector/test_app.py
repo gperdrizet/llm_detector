@@ -7,7 +7,7 @@ import urllib.request
 URL='http://192.168.1.148:5000/llm_detector'
 
 # Define and encode the test string
-TEST_STRING='this is the test string with some special symbols: +, \n, \''
+TEST_STRING='This a a sentence written by a human being designed to test the llm detector.'
 
 # Assemble the payload
 payload={'string': TEST_STRING}
