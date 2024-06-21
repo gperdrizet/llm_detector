@@ -18,7 +18,7 @@ def setup():
 
     return app
 
-def start(app) -> None:
+def start(app, ip_address, port) -> None:
     '''Starts flask app'''
 
-    app.run(host='192.168.1.148', port=5000)
+    app.run(host=ip_address, port=port)
