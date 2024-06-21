@@ -73,10 +73,12 @@ if __name__ == '__main__':
             # Get the string from the in put queue
             suspect_string=input_queue.get()
 
+            # Call the scoring function
             score=scoring_funcs.score_string(
                 observer_model,
                 performer_model,
                 suspect_string
             )
 
+            # Send the score back to flask
             output_queue.put(score[0])
