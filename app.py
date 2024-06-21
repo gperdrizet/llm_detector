@@ -1,11 +1,11 @@
-'''Simple test of flask development server'''
+'''Internal LLM detector API.'''
 
-from flask import Flask # type: ignore
+from flask import Flask, request # type: ignore
 
 app = Flask(__name__)
 
-@app.route("/")
-def hello_world():
-    '''Shows simple greeting on homepage'''
+@app.get('/llm_detector/<string>')
+def echo_text(string):
+    '''Returns user provided string as JSON.'''
 
-    return "<p>Hello, World!</p>"
+    return {'suspect text': string}
