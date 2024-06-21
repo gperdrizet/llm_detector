@@ -1,6 +1,6 @@
 # Project set-up notes
 
-## Flask
+## Flask: development server
 
 Following the instructions from the Flask documentation's [install guide](https://flask.palletsprojects.com/en/3.0.x/installation/):
 
