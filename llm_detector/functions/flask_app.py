@@ -25,9 +25,10 @@ def setup(input_queue: Callable, output_queue: Callable) -> Callable:
         while output_queue.empty():
             time.sleep(1)
 
-        result = output_queue.get()
+        # Get the result once it's ready
+        result=output_queue.get()
 
-        return {'result': result}
+        return {'score': result}
 
     return app
 
