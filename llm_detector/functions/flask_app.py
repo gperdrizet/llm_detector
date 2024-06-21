@@ -1,12 +1,15 @@
 '''Internal LLM detector API.'''
 
+from typing import Callable
 from flask import Flask, request # type: ignore
 
-def setup():
+def setup() -> Callable:
     '''Define the flask app'''
 
+    # Initialize flask app
     app=Flask(__name__)
 
+    # Set listener for text strings via POST
     @app.route('/llm_detector', methods=['POST'])
     def echo_text():
         '''Returns user provided string as JSON.'''
@@ -18,7 +21,7 @@ def setup():
 
     return app
 
-def start(app, ip_address, port) -> None:
+def start(app: Callable, ip_address: str, port: int) -> None:
     '''Starts flask app'''
 
     app.run(host=ip_address, port=port)
