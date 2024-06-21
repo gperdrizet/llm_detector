@@ -28,7 +28,7 @@ def setup(input_queue: Callable, output_queue: Callable) -> Callable:
         # Get the result once it's ready
         result=output_queue.get()
 
-        return {'score': result}
+        return result
 
     return app
 

@@ -6,23 +6,32 @@ import urllib.request
 # LLM detector endpoint URL
 URL='http://192.168.1.148:5000/llm_detector'
 
-# Define and encode the test string
-TEST_STRING='This a a sentence written by a human being designed to test the llm detector.'
+# Define some test strings
+TEST_STRINGS=[
+    'This a a sentence written by a human being designed to test the llm detector.',
+    'This is another text fragment also written by a human to test the llm detector API',
+    'This is a string to test what happens when the API receives requests in succession',
+    'This a a sentence written by a human being designed to test the llm detector.',
+    'This is another text fragment also written by a human to test the llm detector API',
+    'This is a string to test what happens when the API receives requests in succession'
+]
 
-# Assemble the payload
-payload={'string': TEST_STRING}
-json_payload=json.dumps(payload) # Explicitly converts to json
-json_bytes_payload=json_payload.encode('utf-8') # Encodes to bytes
+# Loop on the test strings
+for test_string in TEST_STRINGS:
 
-# Setup the request
-req = urllib.request.Request(URL)
-req.add_header('Content-Type', 'application/json; charset=utf-8')
-req.add_header('Content-Length', len(json_bytes_payload))
+    # Assemble the payload
+    payload={'string': test_string}
+    json_payload=json.dumps(payload) # Explicitly converts to json
+    json_bytes_payload=json_payload.encode('utf-8') # Encodes to bytes
 
-# Submit the request
-body=urllib.request.urlopen(req, json_bytes_payload).read()
-contents=json.loads(body)
+    # Setup the request
+    req = urllib.request.Request(URL)
+    req.add_header('Content-Type', 'application/json; charset=utf-8')
+    req.add_header('Content-Length', len(json_bytes_payload))
 
-# Print the response
-print(f'Reply is: {type(contents)}')
-print(contents)
+    # Submit the request
+    body=urllib.request.urlopen(req, json_bytes_payload).read()
+    contents=json.loads(body)
+
+    # Print the response
+    print(contents)

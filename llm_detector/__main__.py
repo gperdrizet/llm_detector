@@ -80,5 +80,10 @@ if __name__ == '__main__':
                 suspect_string
             )
 
-            # Send the score back to flask
-            output_queue.put(score[0])
+            # Send the score and string back to flask
+            result={
+                'score': score[0],
+                'text': suspect_string
+            }
+
+            output_queue.put(result)
