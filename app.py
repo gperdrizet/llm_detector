@@ -1,11 +1,14 @@
 '''Internal LLM detector API.'''
 
-from flask import Flask # type: ignore
+from flask import Flask, request # type: ignore
 
 app = Flask(__name__)
 
-@app.get('/llm_detector/<string>')
-def echo_text(string):
+@app.route('/llm_detector', methods=['POST'])
+def echo_text():
     '''Returns user provided string as JSON.'''
 
-    return {'suspect text': string}
+    # Get and return the suspect text string from the
+    # request data
+    request_data = request.get_json()
+    return {'suspect text': request_data['string']}
