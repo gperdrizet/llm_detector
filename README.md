@@ -1,2 +1,3 @@
-# llm_detector
-Synthetic text detection API
+# LLM_Detector
+
+Synthetic text detection API using Flask and HuggingFace.
