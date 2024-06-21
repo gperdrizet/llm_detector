@@ -2,7 +2,6 @@
 
 from flask import Flask, request # type: ignore
 
-
 def setup():
     '''Define the flask app'''
 
@@ -16,5 +15,10 @@ def setup():
         # request data
         request_data = request.get_json()
         return {'suspect text': request_data['string']}
-    
+
     return app
+
+def start(app) -> None:
+    '''Starts flask app'''
+
+    app.run(host='192.168.1.148', port=5000)
