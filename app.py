@@ -1,6 +1,6 @@
 '''Internal LLM detector API.'''
 
-from flask import Flask, request # type: ignore
+from flask import Flask # type: ignore
 
 app = Flask(__name__)
 
