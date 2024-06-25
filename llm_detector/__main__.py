@@ -1,13 +1,13 @@
 '''Main module to launch flask app and scoring backend'''
 
-import queue
+# import queue
 from threading import Thread
-import torch
-import llm_detector.classes.llm as llm_class
-import llm_detector.configuration as config
-import llm_detector.functions.flask_app as flask_app
+# import torch
+# import llm_detector.classes.llm as llm_class
+# import llm_detector.configuration as config
+import llm_detector.functions.flask_app as app_funcs
 import llm_detector.functions.helper as helper_funcs
-import llm_detector.functions.scoring as scoring_funcs
+# import llm_detector.functions.scoring as scoring_funcs
 
 if __name__ == '__main__':
 
@@ -15,75 +15,95 @@ if __name__ == '__main__':
     logger=helper_funcs.start_logger()
     logger.info('Starting LLM detector')
 
-    # Set-up queues to pass string from flask
-    # to the scoring loop and the result back
-    # from the scoring loop to flask
-    input_queue=queue.Queue()
-    output_queue=queue.Queue()
+    # Initialize Flask Celery app
+    flask_app=app_funcs.create_flask_celery_app()
+    celery_app=flask_app.extensions["celery"]
+    logger.info('Flask Celery app initialized')
 
-    # Initialize the flask app
-    app=flask_app.setup(input_queue, output_queue)
+    # # Start Flask Celery app main process
+    # args = ['worker', '--loglevel=INFO']
+    # celery_app.worker_main(argv=args)
+    # logger.info('Flask Celery app started')
 
-    # Put the flask app into a thread
-    flask_app_thread=Thread(
-        target=flask_app.start,
-        args=[app,config.IP_ADDRESS,config.PORT]
+    # Put the Celery Flask app into a thread
+    celery_app_thread=Thread(
+        target=celery_app.worker_main,
+        args=[['worker', '--loglevel=INFO']]
     )
 
-    # Start the flask app thread
-    flask_app_thread.start()
-    logger.info('Flask app started')
+    # Start the Celery Flask app thread
+    celery_app_thread.start()
+    logger.info('Flask Celery app MainProcess started in thread')
 
-    # Set available CPU cores - doing this from the LLM class does not seem to work
-    torch.set_num_threads(16)
+    # # Set-up queues to pass string from flask
+    # # to the scoring loop and the result back
+    # # from the scoring loop to flask
+    # input_queue=queue.Queue()
+    # output_queue=queue.Queue()
 
-    # Instantiate two instances of the model, one base for the observer
-    # and one instruct for the performer. Use different GPUs.
-    observer_model=llm_class.Llm(
-        hf_model_string='meta-llama/Meta-Llama-3-8B',
-        device_map='cuda:1',
-        logger=logger
-    )
+    # # Initialize the flask app
+    # app=flask_app.setup(input_queue, output_queue)
 
-    performer_model=llm_class.Llm(
-        hf_model_string='meta-llama/Meta-Llama-3-8B-instruct',
-        device_map='cuda:2',
-        logger=logger
-    )
+    # # Put the flask app into a thread
+    # flask_app_thread=Thread(
+    #     target=flask_app.start,
+    #     args=[app,config.IP_ADDRESS,config.PORT]
+    # )
 
-    # Load the models
-    observer_model.load()
-    performer_model.load()
+    # # Start the flask app thread
+    # flask_app_thread.start()
+    # logger.info('Flask app started')
 
-    # Set the models to evaluation mode to deactivate any dropout modules
-    # the is done to ensure reproducibility of results during evaluation
-    observer_model.model.eval()
-    performer_model.model.eval()
+    # # Set available CPU cores - doing this from the LLM class does not seem to work
+    # torch.set_num_threads(16)
 
-    # Add end of sequence for the pad token if one has not been defined
-    if not observer_model.tokenizer.pad_token:
-        observer_model.tokenizer.pad_token=observer_model.tokenizer.eos_token
+    # # Instantiate two instances of the model, one base for the observer
+    # # and one instruct for the performer. Use different GPUs.
+    # observer_model=llm_class.Llm(
+    #     hf_model_string='meta-llama/Meta-Llama-3-8B',
+    #     device_map='cuda:1',
+    #     logger=logger
+    # )
 
-    # Start main scoring loop
-    while True:
+    # performer_model=llm_class.Llm(
+    #     hf_model_string='meta-llama/Meta-Llama-3-8B-instruct',
+    #     device_map='cuda:2',
+    #     logger=logger
+    # )
 
-        # Check the input queue for a string to score
-        if input_queue.empty() is False:
+    # # Load the models
+    # observer_model.load()
+    # performer_model.load()
 
-            # Get the string from the in put queue
-            suspect_string=input_queue.get()
+    # # Set the models to evaluation mode to deactivate any dropout modules
+    # # the is done to ensure reproducibility of results during evaluation
+    # observer_model.model.eval()
+    # performer_model.model.eval()
 
-            # Call the scoring function
-            score=scoring_funcs.score_string(
-                observer_model,
-                performer_model,
-                suspect_string
-            )
+    # # Add end of sequence for the pad token if one has not been defined
+    # if not observer_model.tokenizer.pad_token:
+    #     observer_model.tokenizer.pad_token=observer_model.tokenizer.eos_token
 
-            # Send the score and string back to flask
-            result={
-                'score': score[0],
-                'text': suspect_string
-            }
+    # # Start main scoring loop
+    # while True:
 
-            output_queue.put(result)
+    #     # Check the input queue for a string to score
+    #     if input_queue.empty() is False:
+
+    #         # Get the string from the in put queue
+    #         suspect_string=input_queue.get()
+
+    #         # Call the scoring function
+    #         score=scoring_funcs.score_string(
+    #             observer_model,
+    #             performer_model,
+    #             suspect_string
+    #         )
+
+    #         # Send the score and string back to flask
+    #         result={
+    #             'score': score[0],
+    #             'text': suspect_string
+    #         }
+
+    #         output_queue.put(result)

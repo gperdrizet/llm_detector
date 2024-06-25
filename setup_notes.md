@@ -146,6 +146,12 @@ cd redis-stable
 make
 ```
 
+Then install the Redis python package in the project's virtual environment:
+
+```text
+pip install Redis
+```
+
 Make finished without issues, but make test gave the following error: *You need tcl 8.5 or newer in order to run the Redis test*.
 
 Not sure how important this is really, but here is the fix:
@@ -198,3 +204,14 @@ This on should be pretty easy using the default config:
 ```text
 pip install celery
 ```
+
+While first playing around with Celery, a depreciation warnings were encountered:
+
+```text
+PendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+whether broker connection retries are made during startup in Celery 6.0 and above.
+If you wish to retain the existing behavior for retrying connections on startup,
+you should set broker_connection_retry_on_startup to True.
+```
+
+Following the instructions given in the warning via the Celery configuration dict. in the Flask app set-up function clears the warning.

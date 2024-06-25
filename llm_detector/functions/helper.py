@@ -16,11 +16,11 @@ def start_logger():
             os.remove(file)
 
     # Create logger
-    logger = logging.getLogger('llama3')
+    logger = logging.getLogger('llm_detector')
     logger.setLevel(config.LOG_LEVEL)
 
     handler = RotatingFileHandler(
-        f'{config.LOG_PATH}/llama3.log',
+        f'{config.LOG_PATH}/llm_detector.log',
         encoding='utf-8',
         maxBytes=32 * 1024 * 1024,  # 32 MiB,
         backupCount=5
