@@ -77,6 +77,10 @@ class Llm:
             quantization_config=self.quantization_config
         )
 
+        # Set the model to evaluation mode to deactivate any dropout modules
+        # the is done to ensure reproducibility of results during evaluation
+        self.model.eval()
+
         # Save the freshly loaded model-default generation configuration for later
         self.default_generation_config = GenerationConfig.from_model_config(self.model.config)
 

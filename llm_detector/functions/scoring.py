@@ -19,16 +19,18 @@ def scoring_loop(scoring_loop_queue: Callable, logger: Callable) -> None:
         hf_model_string='meta-llama/Meta-Llama-3-8B',
         device_map='cuda:1',
         logger=logger
-    ).load()
+    )
 
+    observer_model.load()
     logger.info('Loaded observer model')
 
     performer_model=llm_class.Llm(
         hf_model_string='meta-llama/Meta-Llama-3-8B-instruct',
         device_map='cuda:2',
         logger=logger
-    ).load()
+    )
 
+    performer_model.load()
     logger.info('Loaded performer model')
 
 def score_string(observer_model: Callable, performer_model: Callable, string: str=None) -> float:

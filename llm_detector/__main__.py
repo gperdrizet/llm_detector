@@ -21,11 +21,6 @@ if __name__ == '__main__':
     celery_app=flask_app.extensions["celery"]
     logger.info('Celery app initialized')
 
-    # # Start Flask Celery app main process
-    # args = ['worker', '--loglevel=INFO']
-    # celery_app.worker_main(argv=args)
-    # logger.info('Flask Celery app started')
-
     # Put the Celery into a thread
     celery_app_thread=Thread(
         target=celery_app.worker_main,
