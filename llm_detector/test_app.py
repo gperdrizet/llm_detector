@@ -4,7 +4,7 @@ import json
 import urllib.request
 
 # LLM detector endpoint URL
-URL='http://192.168.1.148:5000/llm_detector'
+URL='http://192.168.1.148:5000/submit_text'
 
 # Define some test strings
 TEST_STRINGS=[

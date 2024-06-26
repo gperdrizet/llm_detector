@@ -4,7 +4,7 @@
 from threading import Thread
 # import torch
 # import llm_detector.classes.llm as llm_class
-# import llm_detector.configuration as config
+import llm_detector.configuration as config
 import llm_detector.functions.flask_app as app_funcs
 import llm_detector.functions.helper as helper_funcs
 # import llm_detector.functions.scoring as scoring_funcs
@@ -15,25 +15,35 @@ if __name__ == '__main__':
     logger=helper_funcs.start_logger()
     logger.info('Starting LLM detector')
 
-    # Initialize Flask Celery app
+    # Initialize Flask & Celery app
     flask_app=app_funcs.create_flask_celery_app()
     celery_app=flask_app.extensions["celery"]
-    logger.info('Flask Celery app initialized')
+    logger.info('Flask & Celery apps initialized')
 
     # # Start Flask Celery app main process
     # args = ['worker', '--loglevel=INFO']
     # celery_app.worker_main(argv=args)
     # logger.info('Flask Celery app started')
 
-    # Put the Celery Flask app into a thread
+    # Put the Celery into a thread
     celery_app_thread=Thread(
         target=celery_app.worker_main,
         args=[['worker', '--loglevel=INFO']]
     )
 
-    # Start the Celery Flask app thread
+    # Start the Celery app thread
     celery_app_thread.start()
-    logger.info('Flask Celery app MainProcess started in thread')
+    logger.info('Celery app MainProcess started in thread')
+
+    # Put the flask app into a thread
+    flask_app_thread=Thread(
+        target=app_funcs.start,
+        args=[flask_app,config.IP_ADDRESS,config.PORT]
+    )
+
+    # Start the flask app thread
+    flask_app_thread.start()
+    logger.info('Flask app started in thread')
 
     # # Set-up queues to pass string from flask
     # # to the scoring loop and the result back

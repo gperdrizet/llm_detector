@@ -3,7 +3,8 @@
 import time
 from typing import Callable
 from flask import Flask, request # type: ignore
-from celery import Celery, Task # type: ignore
+from celery import Celery, Task, shared_task # type: ignore
+from celery.result import AsyncResult
 import llm_detector.configuration as config
 # pylint: disable=W0223
 
@@ -26,8 +27,10 @@ def create_celery_app(app: Flask) -> Celery:
 def create_flask_celery_app() -> Flask:
     '''Creates Flask app for use with Celery'''
 
-    app = Flask(__name__)
+    # Make the app
+    app=Flask(__name__)
 
+    # Set the Celery configuration
     app.config.from_mapping(
         CELERY=dict(
             broker_url=config.REDIS_URL,
@@ -38,7 +41,45 @@ def create_flask_celery_app() -> Flask:
     )
 
     app.config.from_prefixed_env()
+
+    # Make the celery app
     create_celery_app(app)
+
+    @shared_task(ignore_result=False)
+    def score_text(text_string: str) -> str:
+        '''Main function to score text string'''
+
+        return {'score': 999, 'text': text_string}
+
+    # Set listener for text strings via POST
+    @app.post('/submit_text')
+    def submit_text() -> dict:
+        '''Submits text for scoring. Returns dict. containing 
+        result id.'''
+
+        # Get the suspect text string from the request data
+        request_data=request.get_json()
+        text_string=request_data['string']
+
+        # Submit the text for scoring
+        result=score_text.delay(text_string)
+
+        return {"result_id": result.id}
+
+    @app.get("/result/<id>")
+    def task_result(result_id: str) -> dict:
+        '''Gets result by result id. Returns dict.
+        with task status'''
+
+        # Get the result
+        result=AsyncResult(result_id)
+
+        # Return status and result if ready
+        return {
+            "ready": result.ready(),
+            "successful": result.successful(),
+            "value": result.result if result.ready() else None,
+        }
 
     return app
 
