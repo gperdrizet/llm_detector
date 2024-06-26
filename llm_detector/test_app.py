@@ -1,6 +1,7 @@
 '''Simple utility to test LLM detector API.'''
 
 import json
+import time
 import urllib.request
 
 # LLM detector endpoint URL
@@ -61,3 +62,6 @@ while len(result_ids) > 0:
             tmp_result_ids.remove(result_id)
 
     result_ids=tmp_result_ids
+
+    # Wait 5 seconds before checking again
+    time.sleep(5)
