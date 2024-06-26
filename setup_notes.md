@@ -235,3 +235,7 @@ If we do want to expose the API directly to the public rather than via a messagi
 4. Documentation
 
 At this point, the README needs a good working over too and we should probably dockerize the whole thing.
+
+## Gunicorn
+
+Gunicorn will be our deployment WSGI server for Flask. Set it up following the Gunicorn instructions in the [Deploying to Production](https://flask.palletsprojects.com/en/3.0.x/deploying/gunicorn/) section of the Flask documentation.
