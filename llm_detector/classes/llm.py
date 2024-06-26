@@ -90,6 +90,10 @@ class Llm:
             cache_dir=self.cache_dir
         )
 
+        # Add end of sequence for the pad token if one has not been defined
+        if not self.tokenizer.pad_token:
+            self.tokenizer.pad_token=self.tokenizer.eos_token
+
     def clear(self) -> None:
         '''Removes model and tokenizer, clears GPU memory'''
 
