@@ -66,7 +66,7 @@ def create_flask_celery_app() -> Flask:
 
         return {"result_id": result.id}
 
-    @app.get("/result/<id>")
+    @app.get("/result/<result_id>")
     def task_result(result_id: str) -> dict:
         '''Gets result by result id. Returns dict.
         with task status'''
