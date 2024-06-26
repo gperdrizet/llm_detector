@@ -4,6 +4,32 @@ from typing import Callable
 import numpy as np
 import torch
 import transformers
+import llm_detector.classes.llm as llm_class
+
+def scoring_loop(scoring_loop_queue: Callable, logger: Callable) -> None:
+    '''Main loop to score text. Takes text as string from queue and
+    returns result to queue.'''
+
+    # Set available CPU cores - doing this from the LLM class does not seem to work
+    torch.set_num_threads(16)
+
+    # Configure and load two instances of the model, one base for the observer
+    # and one instruct for the performer. Use different GPUs.
+    observer_model=llm_class.Llm(
+        hf_model_string='meta-llama/Meta-Llama-3-8B',
+        device_map='cuda:1',
+        logger=logger
+    ).load()
+
+    logger.info('Loaded observer model')
+
+    performer_model=llm_class.Llm(
+        hf_model_string='meta-llama/Meta-Llama-3-8B-instruct',
+        device_map='cuda:2',
+        logger=logger
+    ).load()
+
+    logger.info('Loaded performer model')
 
 def score_string(observer_model: Callable, performer_model: Callable, string: str=None) -> float:
     '''Takes a string, computes and returns llm detector score'''

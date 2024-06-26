@@ -20,7 +20,7 @@ def create_celery_app(app: Flask) -> Celery:
     # Create Celery app
     celery_app = Celery(app.name, task_cls=FlaskTask)
 
-    # Add configuration from Flask app Celery config. dict
+    # Add configuration from Flask app's Celery config. dict
     celery_app.config_from_object(app.config["CELERY"])
 
     # Configure logging
