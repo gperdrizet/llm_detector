@@ -16,15 +16,15 @@ class Llm:
 
     def __init__(
         self,
-        cache_dir: str=config.CACHE_DIR,
-        hf_model_string: str=config.HF_MODEL_STRING,
-        model_name: str=config.MODEL_NAME,
-        device_map: str=config.DEVICE_MAP,
-        quantization: str=config.QUANTIZATION,
-        decoding_strategy: str=config.DECODING_STRATEGY,
-        bnb_4bit_compute_dtype: str=config.BNB_4BIT_COMPUTE_DTYPE,
-        max_new_tokens: str=config.MAX_NEW_TOKENS,
-        cpu_cores: int=config.CPU_CORES,
+        cache_dir: str=config.DEFAULT_CACHE_DIR,
+        hf_model_string: str=config.DEFAULT_HF_MODEL_STRING,
+        model_name: str=config.DEFAULT_MODEL_NAME,
+        device_map: str=config.DEFAULT_DEVICE_MAP,
+        quantization: str=config.DEFAULT_QUANTIZATION,
+        decoding_strategy: str=config.DEFAULT_DECODING_STRATEGY,
+        bnb_4bit_compute_dtype: str=config.DEFAULT_BNB_4BIT_COMPUTE_DTYPE,
+        max_new_tokens: str=config.DEFAULT_MAX_NEW_TOKENS,
+        cpu_cores: int=config.DEFAULT_CPU_CORES,
         logger: Callable=None
     ) -> None:
 
