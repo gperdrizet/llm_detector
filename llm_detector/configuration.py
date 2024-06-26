@@ -25,24 +25,33 @@ IP_ADDRESS='192.168.1.148'
 PORT=5000
 REDIS_URL='redis://192.168.1.148'
 
+# Models to use for scoring
+OBSERVER_MODEL='meta-llama/Meta-Llama-3-8B'
+OBSERVER_DEVICE='cuda:1'
+
+PERFORMER_MODEL='meta-llama/Meta-Llama-3-8B-instruct'
+PERFORMER_DEVICE='cuda:2'
+
+CALCULATION_DEVICE='cuda:0'
+
 ######################################################################
-# Default model parameters ###########################################
+# NON-HF default model parameters ####################################
 ######################################################################
 
 # Loading details
-CACHE_DIR='/mnt/fast_scratch/huggingface_transformers_cache'
-HF_MODEL_STRING='meta-llama/Meta-Llama-3-8B'
-MODEL_NAME='LLaMA3'
-DEVICE_MAP='cuda:0'
-CPU_CORES=16
-AVAILABLE_GPUS=['cuda:0', 'cuda:1', 'cuda:2']
+DEFAULT_CACHE_DIR='/mnt/fast_scratch/huggingface_transformers_cache'
+DEFAULT_HF_MODEL_STRING='meta-llama/Meta-Llama-3-8B'
+DEFAULT_MODEL_NAME='LLaMA3'
+DEFAULT_DEVICE_MAP='cuda:0'
+DEFAULT_CPU_CORES=16
+DEFAULT_AVAILABLE_GPUS=['cuda:0', 'cuda:1', 'cuda:2']
 
 # Quantization configuration defaults
-QUANTIZATION='4-bit'
-BNB_4BIT_COMPUTE_DTYPE=torch.float16
+DEFAULT_QUANTIZATION='4-bit'
+DEFAULT_BNB_4BIT_COMPUTE_DTYPE=torch.float16
 
 # Generation configuration defaults
-MAX_NEW_TOKENS=32
+DEFAULT_MAX_NEW_TOKENS=32
 
 # Decoding strategy
-DECODING_STRATEGY=None
+DEFAULT_DECODING_STRATEGY=None

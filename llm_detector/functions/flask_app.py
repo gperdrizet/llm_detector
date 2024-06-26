@@ -94,7 +94,7 @@ def create_flask_celery_app(observer_model: Callable, performer_model: Callable)
 
     @app.get("/result/<result_id>")
     def task_result(result_id: str) -> dict:
-        '''Gets result by result id. Returns dict.
+        '''Gets result by result id. Returns dictionary
         with task status'''
 
         # Get the result

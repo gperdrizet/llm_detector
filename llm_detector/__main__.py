@@ -1,4 +1,4 @@
-'''Main module to launch flask app and scoring backend'''
+'''Main module to initialize LLMs, set-up and launch Celery-Flask app.'''
 
 from threading import Thread
 import llm_detector.configuration as config
@@ -14,8 +14,8 @@ if __name__ == '__main__':
     # Configure and load two instances of the model, one base for the observer
     # and one instruct for the performer. Use different GPUs.
     observer_model=llm_class.Llm(
-        hf_model_string='meta-llama/Meta-Llama-3-8B',
-        device_map='cuda:1',
+        hf_model_string=config.OBSERVER_MODEL,
+        device_map=config.OBSERVER_DEVICE,
         logger=logger
     )
 
@@ -23,8 +23,8 @@ if __name__ == '__main__':
     logger.info('Loaded observer model')
 
     performer_model=llm_class.Llm(
-        hf_model_string='meta-llama/Meta-Llama-3-8B-instruct',
-        device_map='cuda:2',
+        hf_model_string=config.PERFORMER_MODEL,
+        device_map=config.PERFORMER_DEVICE,
         logger=logger
     )
 
@@ -36,13 +36,13 @@ if __name__ == '__main__':
     logger.info('Flask app initialized')
 
     # Get the Celery app
-    celery_app=flask_app.extensions["celery"]
+    celery_app=flask_app.extensions['celery']
     logger.info('Celery app initialized')
 
     # Put the Celery into a thread
     celery_app_thread=Thread(
         target=celery_app.worker_main,
-        args=[['worker', '--pool=solo', '--loglevel=INFO']]
+        args=[['worker', '--pool=solo', f'--loglevel={config.LOG_LEVEL}']]
     )
 
     logger.info('Celery app MainProcess thread initialized')

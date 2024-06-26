@@ -4,6 +4,7 @@ from typing import Callable
 import numpy as np
 import torch
 import transformers
+import llm_detector.configuration as config
 
 def score_string(observer_model: Callable, performer_model: Callable, string: str=None) -> float:
     '''Takes a string, computes and returns llm detector score'''
@@ -24,23 +25,23 @@ def score_string(observer_model: Callable, performer_model: Callable, string: st
 
     # Calculate cross perplexity
     x_ppl=entropy(
-        observer_logits.to('cuda:0'),
-        performer_logits.to('cuda:0'),
-        encodings.to('cuda:0'),
+        observer_logits.to(config.CALCULATION_DEVICE),
+        performer_logits.to(config.CALCULATION_DEVICE),
+        encodings.to(config.CALCULATION_DEVICE),
         observer_model.tokenizer.pad_token_id
     )
 
-    binoculars_scores = ppl / x_ppl
-    binoculars_scores = binoculars_scores.tolist()
+    scores=ppl / x_ppl
+    scores=scores.tolist()
 
-    return binoculars_scores
+    return scores
 
 
 # Take some care with '.sum(1)).detach().cpu().float().numpy()'. Had errors as cribbed from
 # the above repo. Order matters? I don't know, current solution is very 'kitchen sink'
 
-ce_loss_fn = torch.nn.CrossEntropyLoss(reduction="none")
-softmax_fn = torch.nn.Softmax(dim=-1)
+ce_loss_fn=torch.nn.CrossEntropyLoss(reduction="none")
+softmax_fn=torch.nn.Softmax(dim=-1)
 
 def perplexity(
     encoding: transformers.BatchEncoding,

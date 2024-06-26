@@ -219,3 +219,19 @@ Following the instructions given in the warning via the Celery configuration dic
 ## Next steps
 
 OK, we have the basic API working. One important GOTCHA to note for later. CUDA complains about being reinitialized in Celery workers (fork vs spawn). The solution was to start the Celery worker with *--pool=solo* this makes tasks blocking and causes them to run in-line (ie in the same process as the worker). So, bye-bye concurrency for now. This is OK for the time being, because we don't have the compute resources to compute scores for more than one string at a time, so this behavior is what we want. If we were to scale this, however, the execution and job scheduling strategy would need a revisit.
+
+A few other more pressing items to handle:
+
+1. Run flask with Gunicorn
+2. Daemonize/dockerize Redis
+3. Decide if we are going to publicly expose the API directly
+4. Start working on the interface
+
+If we do want to expose the API directly to the public rather than via a messaging app only, there are a few further things to figure out:
+
+1. Rate limit
+2. NGINX configuration
+3. Data privacy
+4. Documentation
+
+At this point, the README needs a good working over too and we should probably dockerize the whole thing.
