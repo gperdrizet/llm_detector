@@ -33,6 +33,30 @@ def scoring_loop(scoring_loop_queue: Callable, logger: Callable) -> None:
     performer_model.load()
     logger.info('Loaded performer model')
 
+    # Start main scoring loop
+    while True:
+
+        # Check the input queue for a string to score
+        if scoring_loop_queue.empty() is False:
+
+            # Get the string from the in put queue
+            suspect_string=scoring_loop_queue.get()
+
+            # Call the scoring function
+            score=score_string(
+                observer_model,
+                performer_model,
+                suspect_string
+            )
+
+            # Send the score and string back to flask
+            result={
+                'score': score[0],
+                'text': suspect_string
+            }
+
+            scoring_loop_queue.put(result)
+
 def score_string(observer_model: Callable, performer_model: Callable, string: str=None) -> float:
     '''Takes a string, computes and returns llm detector score'''
 

@@ -64,36 +64,6 @@ if __name__ == '__main__':
     # flask_app_thread.start()
     # logger.info('Flask app started')
 
-    # # Set available CPU cores - doing this from the LLM class does not seem to work
-    # torch.set_num_threads(16)
-
-    # # Instantiate two instances of the model, one base for the observer
-    # # and one instruct for the performer. Use different GPUs.
-    # observer_model=llm_class.Llm(
-    #     hf_model_string='meta-llama/Meta-Llama-3-8B',
-    #     device_map='cuda:1',
-    #     logger=logger
-    # )
-
-    # performer_model=llm_class.Llm(
-    #     hf_model_string='meta-llama/Meta-Llama-3-8B-instruct',
-    #     device_map='cuda:2',
-    #     logger=logger
-    # )
-
-    # # Load the models
-    # observer_model.load()
-    # performer_model.load()
-
-    # # Set the models to evaluation mode to deactivate any dropout modules
-    # # the is done to ensure reproducibility of results during evaluation
-    # observer_model.model.eval()
-    # performer_model.model.eval()
-
-    # # Add end of sequence for the pad token if one has not been defined
-    # if not observer_model.tokenizer.pad_token:
-    #     observer_model.tokenizer.pad_token=observer_model.tokenizer.eos_token
-
     # # Start main scoring loop
     # while True:
 
