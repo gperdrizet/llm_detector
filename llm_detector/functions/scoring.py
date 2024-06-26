@@ -1,76 +1,9 @@
 '''Collection of functions to score strings'''
 
 from typing import Callable
-import time
 import numpy as np
 import torch
 import transformers
-import llm_detector.classes.llm as llm_class
-
-def scoring_loop(
-    scoring_loop_input_queue: Callable,
-    scoring_loop_output_queue: Callable,
-    logger: Callable
-) -> None:
-
-    '''Main loop to score text. Takes text as string from queue and
-    returns result to queue.'''
-
-    # Set available CPU cores - doing this from the LLM class does not seem to work
-    torch.set_num_threads(16)
-
-    # Configure and load two instances of the model, one base for the observer
-    # and one instruct for the performer. Use different GPUs.
-    observer_model=llm_class.Llm(
-        hf_model_string='meta-llama/Meta-Llama-3-8B',
-        device_map='cuda:1',
-        logger=logger
-    )
-
-    observer_model.load()
-    logger.info('Loaded observer model')
-
-    performer_model=llm_class.Llm(
-        hf_model_string='meta-llama/Meta-Llama-3-8B-instruct',
-        device_map='cuda:2',
-        logger=logger
-    )
-
-    performer_model.load()
-    logger.info('Loaded performer model')
-
-    # Start main scoring loop
-    logger.info('Scoring loop starting')
-
-    while True:
-
-        # Check the input queue for a string to score
-        if scoring_loop_input_queue.empty() is True:
-            logger.info('Scoring loop input queue is empty')
-
-        elif scoring_loop_input_queue.empty() is False:
-
-            # Get the string from the in put queue
-            suspect_string=scoring_loop_input_queue.get()
-            logger.info(f'Scoring loop got string to score: {suspect_string}')
-
-            # Call the scoring function
-            score=score_string(
-                observer_model,
-                performer_model,
-                suspect_string
-            )
-
-            # Send the score and string back to flask
-            result={
-                'score': score[0],
-                'text': suspect_string
-            }
-
-            scoring_loop_output_queue.put(result)
-
-        # Wait before we check the queue again
-        time.sleep(1)
 
 def score_string(observer_model: Callable, performer_model: Callable, string: str=None) -> float:
     '''Takes a string, computes and returns llm detector score'''
