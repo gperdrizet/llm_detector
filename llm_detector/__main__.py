@@ -28,7 +28,7 @@ if __name__ == '__main__':
     # Put the Celery into a thread
     celery_app_thread=Thread(
         target=celery_app.worker_main,
-        args=[['worker', '--loglevel=INFO']]
+        args=[['worker', '--loglevel=INFO', '-f', 'llm_detector/logs/celery.log']]
     )
 
     # Start the Celery app thread
