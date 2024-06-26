@@ -42,6 +42,8 @@ def scoring_loop(
     # Start main scoring loop
     while True:
 
+        logger.info('Scoring loop started')
+
         # Check the input queue for a string to score
         if scoring_loop_input_queue.empty() is False:
 
@@ -63,8 +65,8 @@ def scoring_loop(
 
             scoring_loop_output_queue.put(result)
 
-    # Wait before we check the queue again
-    time.sleep(1)
+        # Wait before we check the queue again
+        time.sleep(1)
 
 def score_string(observer_model: Callable, performer_model: Callable, string: str=None) -> float:
     '''Takes a string, computes and returns llm detector score'''

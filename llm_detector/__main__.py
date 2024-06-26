@@ -53,7 +53,7 @@ if __name__ == '__main__':
     # Put the main scoring loop in a thread
     scoring_loop_thread=Thread(
         target=scoring_funcs.scoring_loop,
-        args=[scoring_loop_input_queue,scoring_loop_output_queue]
+        args=[scoring_loop_input_queue,scoring_loop_output_queue,logger]
     )
 
     logger.info('Scoring loop thread initialized')
