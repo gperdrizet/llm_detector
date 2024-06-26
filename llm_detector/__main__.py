@@ -13,12 +13,13 @@ if __name__ == '__main__':
 
     # Start logger
     logger=helper_funcs.start_logger()
-    logger.info('Starting LLM detector')
 
     # Initialize Flask & Celery app
     flask_app=app_funcs.create_flask_celery_app()
+    logger.info('Flask app initialized')
+
     celery_app=flask_app.extensions["celery"]
-    logger.info('Flask & Celery apps initialized')
+    logger.info('Celery app initialized')
 
     # # Start Flask Celery app main process
     # args = ['worker', '--loglevel=INFO']
@@ -28,12 +29,14 @@ if __name__ == '__main__':
     # Put the Celery into a thread
     celery_app_thread=Thread(
         target=celery_app.worker_main,
-        args=[['worker', '--loglevel=INFO', '-f', 'llm_detector/logs/celery.log']]
+        args=[['worker', '--loglevel=INFO']]#, '-f', 'llm_detector/logs/celery.log']]
     )
+
+    logger.info('Celery app MainProcess thread initialized')
 
     # Start the Celery app thread
     celery_app_thread.start()
-    logger.info('Celery app MainProcess started in thread')
+    logger.info('Celery app MainProcess thread started')
 
     # Put the flask app into a thread
     flask_app_thread=Thread(
@@ -41,9 +44,11 @@ if __name__ == '__main__':
         args=[flask_app,config.IP_ADDRESS,config.PORT]
     )
 
+    logger.info('Flask app thread initialized')
+
     # Start the flask app thread
     flask_app_thread.start()
-    logger.info('Flask app started in thread')
+    logger.info('Flask app thread started')
 
     # # Set-up queues to pass string from flask
     # # to the scoring loop and the result back
