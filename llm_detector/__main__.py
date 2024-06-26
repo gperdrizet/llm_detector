@@ -53,8 +53,8 @@ if __name__ == '__main__':
 
     # Put the flask app into a thread
     flask_app_thread=Thread(
-        target=app_funcs.start,
-        args=[flask_app,config.IP_ADDRESS,config.PORT]
+        target=flask_app.run,
+        kwargs={'host':config.IP_ADDRESS,'port':config.PORT}
     )
 
     logger.info('Flask app thread initialized')

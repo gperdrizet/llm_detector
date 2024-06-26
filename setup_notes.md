@@ -205,7 +205,7 @@ This on should be pretty easy using the default config:
 pip install celery
 ```
 
-While first playing around with Celery, a depreciation warnings were encountered:
+While first playing around with Celery, a depreciation warning was encountered:
 
 ```text
 PendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
@@ -214,4 +214,8 @@ If you wish to retain the existing behavior for retrying connections on startup,
 you should set broker_connection_retry_on_startup to True.
 ```
 
-Following the instructions given in the warning via the Celery configuration dict. in the Flask app set-up function clears the warning.
+Following the instructions given in the warning via the Celery configuration dictionary in the Flask app set-up function clears the warning.
+
+## Next steps
+
+OK, we have the basic API working. One important GOTCHA to note for later. CUDA complains about being reinitialized in Celery workers (fork vs spawn). The solution was to start the Celery worker with *--pool=solo* this makes tasks blocking and causes them to run in-line (ie in the same process as the worker). So, bye-bye concurrency for now. This is OK for the time being, because we don't have the compute resources to compute scores for more than one string at a time, so this behavior is what we want. If we were to scale this, however, the execution and job scheduling strategy would need a revisit.

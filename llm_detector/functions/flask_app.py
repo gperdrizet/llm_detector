@@ -108,8 +108,3 @@ def create_flask_celery_app(observer_model: Callable, performer_model: Callable)
         }
 
     return app
-
-def start(app: Callable, ip_address: str, port: int) -> None:
-    '''Starts flask app'''
-
-    app.run(host=ip_address, port=port)
