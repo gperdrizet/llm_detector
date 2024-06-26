@@ -57,9 +57,13 @@ while len(result_ids) > 0:
         # Read and parse the results
         contents=json.loads(body)
 
-        if contents['ready'] is True and contents['successful'] is True:
+        if contents['ready'] is True:
+
             print(f"Score: {contents['value']['score']}")
             tmp_result_ids.remove(result_id)
+
+        else:
+            print(f"{result_id}: Ready = {contents['ready']}")
 
     result_ids=tmp_result_ids
 

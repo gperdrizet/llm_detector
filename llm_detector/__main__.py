@@ -1,25 +1,39 @@
 '''Main module to launch flask app and scoring backend'''
 
-import queue
 from threading import Thread
 # import torch
-# import llm_detector.classes.llm as llm_class
+import llm_detector.classes.llm as llm_class
 import llm_detector.configuration as config
 import llm_detector.functions.flask_app as app_funcs
 import llm_detector.functions.helper as helper_funcs
-import llm_detector.functions.scoring as scoring_funcs
 
 if __name__ == '__main__':
 
     # Start logger
     logger=helper_funcs.start_logger()
 
-    # Set-up queues to pass text to and from the scoring loop
-    scoring_loop_input_queue=queue.Queue()
-    scoring_loop_output_queue=queue.Queue()
+    # Configure and load two instances of the model, one base for the observer
+    # and one instruct for the performer. Use different GPUs.
+    observer_model=llm_class.Llm(
+        hf_model_string='meta-llama/Meta-Llama-3-8B',
+        device_map='cuda:1',
+        logger=logger
+    )
+
+    observer_model.load()
+    logger.info('Loaded observer model')
+
+    performer_model=llm_class.Llm(
+        hf_model_string='meta-llama/Meta-Llama-3-8B-instruct',
+        device_map='cuda:2',
+        logger=logger
+    )
+
+    performer_model.load()
+    logger.info('Loaded performer model')
 
     # Initialize Flask app
-    flask_app=app_funcs.create_flask_celery_app(scoring_loop_input_queue,scoring_loop_output_queue)
+    flask_app=app_funcs.create_flask_celery_app(observer_model, performer_model)
     logger.info('Flask app initialized')
 
     # Get the Celery app
@@ -29,7 +43,7 @@ if __name__ == '__main__':
     # Put the Celery into a thread
     celery_app_thread=Thread(
         target=celery_app.worker_main,
-        args=[['worker', '--loglevel=INFO']]
+        args=[['worker', '--pool=solo', '--loglevel=INFO']]
     )
 
     logger.info('Celery app MainProcess thread initialized')
@@ -50,17 +64,17 @@ if __name__ == '__main__':
     flask_app_thread.start()
     logger.info('Flask app thread started')
 
-    # Put the main scoring loop in a thread
-    scoring_loop_thread=Thread(
-        target=scoring_funcs.scoring_loop,
-        args=[scoring_loop_input_queue,scoring_loop_output_queue,logger]
-    )
+    # # Put the main scoring loop in a thread
+    # scoring_loop_thread=Thread(
+    #     target=scoring_funcs.scoring_loop,
+    #     args=[scoring_loop_input_queue,scoring_loop_output_queue,logger]
+    # )
 
-    logger.info('Scoring loop thread initialized')
+    # logger.info('Scoring loop thread initialized')
 
-    # Start the flask app thread
-    scoring_loop_thread.start()
-    logger.info('Scoring loop thread started')
+    # # Start the flask app thread
+    # scoring_loop_thread.start()
+    # logger.info('Scoring loop thread started')
 
 
     # # Initialize the flask app

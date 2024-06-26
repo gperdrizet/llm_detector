@@ -5,7 +5,9 @@ from typing import Callable
 from flask import Flask, request # type: ignore
 from celery import Celery, Task, shared_task # type: ignore
 from celery.result import AsyncResult
+from celery.utils.log import get_task_logger
 import llm_detector.configuration as config
+import llm_detector.functions.scoring as scoring_funcs
 # pylint: disable=W0223
 
 def create_celery_app(app: Flask) -> Celery:
@@ -36,7 +38,7 @@ def create_celery_app(app: Flask) -> Celery:
 
     return celery_app
 
-def create_flask_celery_app(scoring_loop_input_queue: Callable, scoring_loop_output_queue: Callable) -> Flask:
+def create_flask_celery_app(observer_model: Callable, performer_model: Callable) -> Flask:
     '''Creates Flask app for use with Celery'''
 
     # Make the app
@@ -57,19 +59,24 @@ def create_flask_celery_app(scoring_loop_input_queue: Callable, scoring_loop_out
     # Make the celery app
     create_celery_app(app)
 
+    # Get task logger
+    logger = get_task_logger(__name__)
+
     @shared_task(ignore_result=False)
-    def score_text(text_string: str) -> str:
+    def score_text(suspect_string: str) -> str:
         '''Submits text string for scoring'''
 
-        # Put the text to be score into the scoring loop input queue
-        scoring_loop_input_queue.put(text_string)
+        logger.info(f'Submitting for score: {suspect_string}')
 
-        # Wait for the score to show up in the output queue
-        while scoring_loop_output_queue.empty() is True:
-            time.sleep(1)
+        # Call the scoring function
+        score=scoring_funcs.score_string(
+            observer_model,
+            performer_model,
+            suspect_string
+        )
 
         # Return the result from the output queue
-        return scoring_loop_output_queue.get()
+        return {'score': score[0], 'text': suspect_string}
 
     # Set listener for text strings via POST
     @app.post('/submit_text')

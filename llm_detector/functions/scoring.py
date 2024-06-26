@@ -40,15 +40,19 @@ def scoring_loop(
     logger.info('Loaded performer model')
 
     # Start main scoring loop
+    logger.info('Scoring loop starting')
+
     while True:
 
-        logger.info('Scoring loop started')
-
         # Check the input queue for a string to score
-        if scoring_loop_input_queue.empty() is False:
+        if scoring_loop_input_queue.empty() is True:
+            logger.info('Scoring loop input queue is empty')
+
+        elif scoring_loop_input_queue.empty() is False:
 
             # Get the string from the in put queue
             suspect_string=scoring_loop_input_queue.get()
+            logger.info(f'Scoring loop got string to score: {suspect_string}')
 
             # Call the scoring function
             score=score_string(
