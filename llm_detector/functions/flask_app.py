@@ -36,7 +36,7 @@ def create_celery_app(app: Flask) -> Celery:
 
     return celery_app
 
-def create_flask_celery_app() -> Flask:
+def create_flask_celery_app(scoring_loop_input_queue: Callable, scoring_loop_output_queue: Callable) -> Flask:
     '''Creates Flask app for use with Celery'''
 
     # Make the app
@@ -59,9 +59,17 @@ def create_flask_celery_app() -> Flask:
 
     @shared_task(ignore_result=False)
     def score_text(text_string: str) -> str:
-        '''Main function to score text string'''
+        '''Submits text string for scoring'''
 
-        return {'score': 999, 'text': text_string}
+        # Put the text to be score into the scoring loop input queue
+        scoring_loop_input_queue.put(text_string)
+
+        # Wait for the score to show up in the output queue
+        while scoring_loop_output_queue.empty() is True:
+            time.sleep(1)
+
+        # Return the result from the output queue
+        return scoring_loop_output_queue.get()
 
     # Set listener for text strings via POST
     @app.post('/submit_text')

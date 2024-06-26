@@ -1,12 +1,18 @@
 '''Collection of functions to score strings'''
 
 from typing import Callable
+import time
 import numpy as np
 import torch
 import transformers
 import llm_detector.classes.llm as llm_class
 
-def scoring_loop(scoring_loop_queue: Callable, logger: Callable) -> None:
+def scoring_loop(
+    scoring_loop_input_queue: Callable,
+    scoring_loop_output_queue: Callable,
+    logger: Callable
+) -> None:
+
     '''Main loop to score text. Takes text as string from queue and
     returns result to queue.'''
 
@@ -37,10 +43,10 @@ def scoring_loop(scoring_loop_queue: Callable, logger: Callable) -> None:
     while True:
 
         # Check the input queue for a string to score
-        if scoring_loop_queue.empty() is False:
+        if scoring_loop_input_queue.empty() is False:
 
             # Get the string from the in put queue
-            suspect_string=scoring_loop_queue.get()
+            suspect_string=scoring_loop_input_queue.get()
 
             # Call the scoring function
             score=score_string(
@@ -55,7 +61,10 @@ def scoring_loop(scoring_loop_queue: Callable, logger: Callable) -> None:
                 'text': suspect_string
             }
 
-            scoring_loop_queue.put(result)
+            scoring_loop_output_queue.put(result)
+
+    # Wait before we check the queue again
+    time.sleep(1)
 
 def score_string(observer_model: Callable, performer_model: Callable, string: str=None) -> float:
     '''Takes a string, computes and returns llm detector score'''
