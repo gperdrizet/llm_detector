@@ -17,8 +17,20 @@ def create_celery_app(app: Flask) -> Celery:
             with app.app_context():
                 return self.run(*args, **kwargs)
 
+    # Create Celery app
     celery_app = Celery(app.name, task_cls=FlaskTask)
+
+    # Add configuration from Flask app Celery config. dict
     celery_app.config_from_object(app.config["CELERY"])
+
+    # Configure logging
+    celery_app.log.setup(
+        loglevel='INFO',
+        logfile=f'{config.LOG_PATH}/celery.log',
+        colorize=None
+    )
+
+    # Set as default and add to extensions
     celery_app.set_default()
     app.extensions["celery"] = celery_app
 
