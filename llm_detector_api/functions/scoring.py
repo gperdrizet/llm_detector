@@ -4,7 +4,7 @@ from typing import Callable
 import numpy as np
 import torch
 import transformers
-import llm_detector.configuration as config
+import llm_detector_api.configuration as config
 
 def score_string(observer_model: Callable, performer_model: Callable, string: str=None) -> float:
     '''Takes a string, computes and returns llm detector score'''

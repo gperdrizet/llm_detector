@@ -5,8 +5,8 @@ from flask import Flask, request # type: ignore
 from celery import Celery, Task, shared_task # type: ignore
 from celery.result import AsyncResult
 from celery.utils.log import get_task_logger
-import llm_detector.configuration as config
-import llm_detector.functions.scoring as scoring_funcs
+import llm_detector_api.configuration as config
+import llm_detector_api.functions.scoring as scoring_funcs
 # pylint: disable=W0223
 
 def create_celery_app(app: Flask) -> Celery:

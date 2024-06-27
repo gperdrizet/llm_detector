@@ -7,8 +7,8 @@ import glob
 import logging
 from threading import Thread
 from logging.handlers import RotatingFileHandler
-import llm_detector.configuration as config
-import llm_detector.classes.llm as llm_class
+import llm_detector_api.configuration as config
+import llm_detector_api.classes.llm as llm_class
 
 def start_logger() -> Callable:
     '''Sets up logging, returns logger'''

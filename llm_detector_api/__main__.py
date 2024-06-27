@@ -1,8 +1,8 @@
 '''Main module to initialize LLMs, set-up and launch Celery & Flask apps
 using either Gunicorn or the Flask development server'''
 
-import llm_detector.functions.flask_app as app_funcs
-import llm_detector.functions.helper as helper_funcs
+import llm_detector_api.functions.flask_app as app_funcs
+import llm_detector_api.functions.helper as helper_funcs
 
 # Start the logger
 logger=helper_funcs.start_logger()
