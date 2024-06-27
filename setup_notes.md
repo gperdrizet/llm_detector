@@ -239,3 +239,10 @@ At this point, the README needs a good working over too and we should probably d
 ## Gunicorn
 
 Gunicorn will be our deployment WSGI server for Flask. Set it up following the Gunicorn instructions in the [Deploying to Production](https://flask.palletsprojects.com/en/3.0.x/deploying/gunicorn/) section of the Flask documentation.
+
+```text
+pip install gunicorn
+gunicorn -w 1 --bind 192.168.1.148:5000 'llm_detector.__main__:flask_app'
+```
+
+Done!
