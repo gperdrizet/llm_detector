@@ -171,7 +171,7 @@ Redis defaults to port 6379, os open that and then start the server.
 
 ```text
 $ sudo ufw allow 6379
-$ src/redis-server
+$ src/redis-server --protected-mode no
 
                 _._                                                  
            _.-``__ ''-._                                             
