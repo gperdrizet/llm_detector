@@ -1,10 +1,12 @@
 # Project set-up notes
 
-## Flask: development server
+## Backend set-up
+
+### Flask: development server
 
 Following the instructions from the Flask documentation's [install guide](https://flask.palletsprojects.com/en/3.0.x/installation/):
 
-### Make virtual environment
+#### Make virtual environment
 
 ```text
 python3 -m venv .venv
@@ -14,14 +16,14 @@ pip install --upgrade pip
 
 Add *.venv* to *.gitignore* if it's not there already.
 
-### Install flask
+#### Install flask
 
 ```text
 pip install flask
 pip freeze > requirements.txt
 ```
 
-### Test it out
+#### Test it out
 
 Place the following in *app.py*:
 
@@ -49,7 +51,7 @@ flask run --host=192.168.1.148
 
 A simple 'hello, World!' landing page should now be visible via a web-browser at <http://192.168.1.148:5000> from any machine on the LAN.
 
-## HuggingFace Transformers
+### HuggingFace Transformers
 
 Set the *HF_HOME* environment variable via *.venv/bin/activate* to some fast storage:
 
@@ -68,7 +70,7 @@ pip install accelerate      # Needed for model quantization
 
 Note: According to [the pytorch site](https://pytorch.org/get-started/previous-versions/) 1.13.1 is compatible with CUDA 11.7 and 11.6, but in my testing it's the most recent version which works with my setup - CUDA 11.4 & NVIDIA driver 470 on a pair of Tesla K80s.
 
-## Bitsandbytes
+### Bitsandbytes
 
 To fit most 7-8 billion parameter sized models (including LLaMA3) we need to quantize with Bitsandbytes - do this from the parent directory. I don't think it actually matters where the source is, as long as we are in the venv when pip installing. For organizational reasons, keep a correctly versioned bitsandbytes around above the project level:
 
@@ -136,7 +138,7 @@ I'm sure there is a hundred ways to do this kind of thing, but I'm hoping that w
 
 Ok, enough rambling for now - all of that means we need to set a few more things up.
 
-## Redis
+### Redis
 
 ```text
 curl -O http://download.redis.io/redis-stable.tar.gz
@@ -197,7 +199,7 @@ $ src/redis-server --protected-mode no
 
 I'm sure theres a lot more setup we could do and we probably want to put it in a docker container, but let's go with that for now. Leave it in a screen and move on.
 
-## Celery
+### Celery
 
 This on should be pretty easy using the default config:
 
@@ -236,7 +238,7 @@ If we do want to expose the API directly to the public rather than via a messagi
 
 At this point, the README needs a good working over too and we should probably dockerize the whole thing.
 
-## Gunicorn
+### Gunicorn
 
 Gunicorn will be our deployment WSGI server for Flask. Set it up following the Gunicorn instructions in the [Deploying to Production](https://flask.palletsprojects.com/en/3.0.x/deploying/gunicorn/) section of the Flask documentation.
 
@@ -246,3 +248,60 @@ gunicorn -w 1 --bind 192.168.1.148:5000 'llm_detector.__main__:flask_app'
 ```
 
 Done!
+
+## Benchmarking set-up
+
+In parallel to the development of the backend and UI, let's do some benchmarking too. Most of this will involve some long running calculations, so we should be able to work on both at the same time. Here are a few more things we need for benchmarking and optimization with LLMs.
+
+### Jupyter notebooks
+
+I like to do plotting and analysis in Jupyter notebooks, so let's set that up for VSCode now. First, install jupyter & matplotlib in the venv:
+
+```text
+pip install ipykernel
+pip install ipywidgets
+pip install matplotlib
+pip install pandas
+```
+
+Now we can create an new notebook using the VSCode command pallet (ctrl+shift+p). Make sure to set the python interpreter via VSCode (ctrl+shift+p -> *Python: Select Interpreter*) and then select the same for the kernel in the Jupyter notebook (ctrl+shit+p -> *Notebook: Select Notebook Kernel*). Every once in a while, this seems to stop working. Fix is usually to nuke .vscode-server-insiders directory in the server's home directory, then update the local VSCode install.
+
+Also nice to have when working in notebooks: bind ctrl+shift+r to restart the notebook kernel and run all cells. Add the following to *keybindings.json* (ctrl+shift+p -> *Preferences: Open Keyboard Shortcuts (JSON)*):
+
+```json
+[
+// ...
+    {
+        "key": "ctrl+shift+r",
+        "command": "jupyter.restartkernelandrunallcells"
+    }
+]
+```
+
+### Ramdisk model cache
+
+Let's set-up a basic RAM disk to cache the model(s) we are working with. My hunch is that we can save ourselves some time in startup, especially since as we are developing, testing and troubleshooting we will probably be starting and restarting over and over. Quick look on the fast scratch disk says the vanilla LLaMA3 is 15 GB on disk. Let's go with 32 GB:
+
+```text
+$ sudo mkdir /mnt/ramdisk
+$ sudo mount -o size=32G -t tmpfs none /mnt/ramdisk
+$ sudo chown siderealyear:siderealyear /mnt/ramdisk
+$ mkdir /mnt/ramdisk/huggingface_transformers_cache
+$ df -h
+
+Filesystem                                 Size  Used Avail Use% Mounted on
+udev                                        63G     0   63G   0% /dev
+tmpfs                                       13G  1.9M   13G   1% /run
+/dev/sda2                                  440G   67G  351G  16% /
+tmpfs                                       63G     0   63G   0% /dev/shm
+tmpfs                                      5.0M     0  5.0M   0% /run/lock
+tmpfs                                       63G     0   63G   0% /sys/fs/cgroup
+/dev/nvme0n1                               916G  402G  468G  47% /mnt/fast_scratch
+192.168.1.123:/home/siderealyear/ark       3.6T  1.6T  1.9T  45% /mnt/ark
+192.168.2.1:/mnt/arkk                       15T  8.6T  6.1T  59% /mnt/arkk
+192.168.1.123:/home/siderealyear/big_itch  3.6T  2.4T  1.1T  69% /mnt/big_itch
+tmpfs                                       13G     0   13G   0% /run/user/1000
+none                                        32G     0   32G   0% /mnt/ramdisk
+```
+
+OK, cool. Now we just need that test harness so we can load the models a few times from the fast_scratch cache and the ramdisk to see if it actually saves us any time.
