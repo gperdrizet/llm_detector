@@ -574,3 +574,54 @@ def two_by_two_error_bar_two_factors(
     )
 
     return plt
+
+def single_errorbar(
+    figure_title: str=None,
+    data: pd.DataFrame=None,
+    series_factor: str=None,
+    independent_var: str=None,
+    dependent_var: str=None
+) -> plt.Axes:
+
+    '''Generalized single error bar plot with one additional factor for data series.'''
+
+    # Get the factor levels
+    factor_levels=data[series_factor].unique()
+
+    # Loop on factor levels to draw data series
+    for factor_level in factor_levels:
+
+        # Extract data for this factor level
+        series_df=data[data[series_factor] == factor_level]
+
+        # Get replicate means
+        means=series_df.groupby(
+            [independent_var],
+            as_index=False
+        )[dependent_var].mean()
+
+        # Get replicate errors
+        errors=series_df.groupby(
+            [independent_var],
+            as_index=False
+        )[dependent_var].std()
+
+        # Plot the series
+        plt.errorbar(
+            means[independent_var],
+            means[dependent_var],
+            yerr=errors[dependent_var],
+            capsize=5,
+            label=factor_level,
+            linestyle='dotted',
+            marker='o'
+        )
+
+    # Annotate plot
+    plt.title(figure_title)
+    plt.legend(loc='best')
+    plt.xlabel(independent_var)
+    plt.ylabel(dependent_var)
+
+    # Return plot
+    return plt
