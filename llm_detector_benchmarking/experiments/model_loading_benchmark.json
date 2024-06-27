@@ -1,0 +1,16 @@
+{
+    "experiment_name": "model_loading_benchmark",
+    "experiment_description": "Model loading time as a function of cache location, device map and CPU cores",
+    "dependent_vars": {"load_time": []},
+    "independent_vars": {
+        "iteration": [0,1,2],
+        "cache_dir": [
+            "/mnt/ramdisk/huggingface_transformers_cache",
+            "/mnt/fast_scratch/huggingface_transformers_cache",
+            "/home/siderealyear/huggingface_transformers_cache",
+            "/mnt/arkk/huggingface_transformers_cache"
+        ],
+        "cpu_cores": [1,2,4,8,16],
+        "device_map": ["auto","sequential","cuda:0","cuda:1","cpu"]
+    }
+}
