@@ -6,6 +6,46 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+def load_datasets(
+    datasets: dict[str: pd.DataFrame]=None,
+    column_renaming_dict: dict[str: str]=None,
+    value_renaming_dict: dict[str: str]=None,
+    data_path: str=None
+) -> dict[str: pd.DataFrame]:
+
+    '''Loads and prepares JSON datasets for plotting. Fixes string OOM and NA values.
+    Translates column names and string values for pretty plotting. Takes a dict of
+    dataset name and file, returns a dict of dataset name and dataframe.'''
+
+    # Empty dict to hold results
+    results={}
+
+    # Loop on input dicts
+    for dataset_name, dataset_file in datasets.items():
+
+        # load the data
+        dataframe=pd.read_json(f'{data_path}/{dataset_file}')
+
+        # Format/translate values and column names for pretty printing in plot
+        dataframe=replace_strings(
+            df=dataframe,
+            column_renaming_dict=column_renaming_dict,
+            value_renaming_dict=value_renaming_dict
+        )
+
+        # Convert string 'OOM' and 'NAN' to np.nan
+        dataframe=clean_nan_oom(dataframe)
+
+        # Drop rows with np.nan
+        # pylint: disable=E1101
+        dataframe.dropna(inplace=True)
+        # pylint: enable=E1101
+
+        # Add cleaned dataframe to results
+        results[dataset_name]=dataframe
+
+    return results
+
 def clean_nan_oom(df: pd.DataFrame=None) -> pd.DataFrame:
     '''Replaces string NAN and OOM values with np.nan'''
 
@@ -16,18 +56,18 @@ def clean_nan_oom(df: pd.DataFrame=None) -> pd.DataFrame:
 
 def replace_strings(
     df: pd.DataFrame=None,
-    value_translation_dict: dict=None,
-    column_name_translation_dict: dict=None
+    column_renaming_dict: dict=None,
+    value_renaming_dict: dict=None
 ) -> pd.DataFrame:
 
     '''Takes pandas df with loading time data, replaces string variable
     names and values with more human readable strings.'''
 
-    # Do the value substitutions
-    df.replace(value_translation_dict, regex=True, inplace=True)
-
     # Do the column name substitutions
-    df.rename(columns=column_name_translation_dict, inplace=True)
+    df.rename(columns=column_renaming_dict, inplace=True)
+
+    # Do the value substitutions
+    df.replace(value_renaming_dict, regex=True, inplace=True)
 
     return df
 
