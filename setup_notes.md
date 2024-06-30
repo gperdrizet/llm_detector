@@ -305,3 +305,9 @@ none                                        32G     0   32G   0% /mnt/ramdisk
 ```
 
 OK, cool. Now we just need that test harness so we can load the models a few times from the fast_scratch cache and the ramdisk to see if it actually saves us any time.
+
+### Other benchmarking and analysis tools
+
+```text
+pip install scikit-learn
+```
