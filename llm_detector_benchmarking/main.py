@@ -90,3 +90,15 @@ if __name__ == "__main__":
             experiment_config_file=args.logits_cpu_benchmark,
             logger=logger
         )
+
+    # Run binoculars model benchmark
+    if args.binoculars_model_benchmark != 'False':
+
+        logger.info('Starting binoculars model benchmark')
+
+        benchmark_funcs.benchmark(
+            benchmark_func=benchmark_funcs.binoculars_model,
+            resume=args.resume,
+            experiment_config_file=args.binoculars_model_benchmark,
+            logger=logger
+        )

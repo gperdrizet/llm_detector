@@ -4,6 +4,8 @@ from __future__ import annotations
 from typing import Callable
 
 import time
+import json
+import random
 import tracemalloc
 from random import sample
 from multiprocessing import Process, Queue
@@ -11,6 +13,7 @@ import torch
 import configuration as config
 import classes.llm as llm_class
 import classes.experiment as experiment_class
+from functions.metrics import perplexity, entropy
 
 def benchmark(
     benchmark_func: Callable=None,
@@ -378,3 +381,153 @@ def logits_cpu(
     experiment.dependent_vars['tokens'].append(fragment_length)
     experiment.dependent_vars['logits_time'].append(logits_time)
     experiment.dependent_vars['rate'].append(rate)
+
+
+def binoculars_model(
+    experiment: Callable=None,
+    observer_model: Callable=None
+) -> None:
+
+    '''Main function to run binoculars score benchmark'''
+
+    # Load the data
+    input_file=f'{config.BINOCULARS_DATA_PATH}/aggregated_hans_data.json'
+
+    with open(input_file, encoding="utf-8") as file:
+        data=json.load(file)
+
+    # Find out how many records we have for use later
+    num_records=len(list(data.keys))
+
+    # Set reuseable devices - using both chips on a single K80 for now
+    observer_device='cuda:1'
+    performer_device='cuda:2'
+
+    # Set available CPU cores - doing this from the LLM class does not seem to work
+    torch.set_num_threads(16)
+
+    # Load two instances of the model, one we already have from the main loop so just
+    # make sure it goes to the right device before loading it. The other we need to instantiate.
+    observer_model.device_map=observer_device
+
+    performer_model=llm_class.Llm(
+        hf_model_string=f'{observer_model.hf_model_string}-instruct',
+        device_map=performer_device
+    )
+
+    # Load the models
+    observer_model.load()
+    performer_model.load()
+
+    # Set the models to evaluation mode to deactivate any dropout modules
+    # the is done to ensure reproducibility of results during evaluation
+    observer_model.model.eval()
+    performer_model.model.eval()
+
+    # Add end of sequence for the pad token if one has not been defined
+    if not observer_model.tokenizer.pad_token:
+        observer_model.tokenizer.pad_token=observer_model.tokenizer.eos_token
+
+    # Sample the data 1000 times
+    fragment_count=0
+    texts={}
+
+    while fragment_count < 1000:
+
+        # Pick a random record number
+        record_id=random.randint(0, num_records - 1)
+
+        # Pull the record and get the human and synthetic texts
+        record=data[record_id]
+        texts['human']=record['Human text']
+        texts['synthetic']=record['Synthetic text']
+
+        # Score both
+        for text_source, text in texts.items():
+
+            # Split text to list
+            text_list=text.split(' ')
+
+            # Get the total length
+            total_length=len(text_list)
+
+            # Set counters for the fragment start and end
+            i,j=0,0
+
+            # Loop until the right edge is past the end
+            while j < total_length:
+
+                # Count the fragment
+                fragment_count+=1
+
+                # Pick a random length between 50 and 500 tokens
+                slice_length=random.randint(100, 700)
+
+                # If the slice length is greater than the length
+                # of the input tokens, use all of them
+                if slice_length > total_length:
+                    slice_length=total_length
+
+                # Set the window
+                j=i + slice_length
+
+                # Grab the slice
+                text_list_slice=text_list[i:j]
+
+                # Make it a string
+                text_string_slice=' '.join(text_list_slice)
+
+                # Fence to catch CUDA OOM
+                try:
+                    # Encode
+                    encodings=observer_model.tokenizer(
+                        text_string_slice,
+                        return_tensors="pt",
+                        return_token_type_ids=False
+                    ).to(observer_device)
+
+                    observer_logits=observer_model.model(**encodings).logits
+                    performer_logits=performer_model.model(**encodings).logits
+
+                    # logger.info('Slice encoded')
+                    # logger.info('Slice length: %s', encodings["input_ids"].shape[1])
+                    # logger.info('Logits length: %s', {performer_logits.shape})
+
+                    ppl=perplexity(encodings, performer_logits)
+                    # logger.info('Have slice perplexity')
+
+                    x_ppl=entropy(
+                        observer_logits.to('cuda:0'),
+                        performer_logits.to('cuda:0'),
+                        encodings.to('cuda:0'),
+                        observer_model.tokenizer.pad_token_id
+                    )
+
+                    # logger.info('Have cross perplexity')
+
+                    binoculars_scores = ppl / x_ppl
+                    binoculars_scores = binoculars_scores.tolist()
+                    # logger.info('Binoculars score: %s', binoculars_scores[0])
+
+                except RuntimeError as runtime_error:
+
+                    # logger.error(runtime_error)
+
+                    # For out of memory enter OOM
+                    if 'CUDA out of memory' in str(runtime_error):
+                        error_string='OOM'
+
+                    # Otherwise enter NAN:
+                    else:
+                        error_string='NAN'
+
+                    ppl=error_string
+                    x_ppl=error_string
+                    binoculars_scores=error_string
+
+                # Record the results
+                experiment.dependent_vars['logits_time'].append(logits_time)
+
+                # Reset for the next loop
+                i=j
+

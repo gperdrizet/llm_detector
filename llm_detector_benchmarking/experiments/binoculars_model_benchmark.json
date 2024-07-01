@@ -1,0 +1,22 @@
+{
+    "experiment_name": "binoculars_model_benchmark",
+    "experiment_description": "Binoculars score calculation using different models",
+    "dependent_vars": {
+        "binoculars_score": [],
+        "perplexity": [],
+        "cross-perplexity": [],
+        "length_words": [],
+        "length_tokens": [],
+        "data_source": [],
+        "generating_model": [],
+        "human_text": []
+    },
+    "independent_vars": {
+        "hf_model_string": [
+            "meta-llama/Meta-Llama-3-8B",
+            "tiiuae/falcon-7b",
+            "mistralai/Mistral-7B-v0.3",
+            "meta-llama/Llama-2-7b-hf"
+        ]
+    }
+}
