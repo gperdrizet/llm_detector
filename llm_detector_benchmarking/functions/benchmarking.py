@@ -397,7 +397,7 @@ def binoculars_model(
         data=json.load(file)
 
     # Find out how many records we have for use later
-    num_records=len(list(data.keys))
+    num_records=len(list(data.keys()))
 
     # Set reuseable devices - using both chips on a single K80 for now
     observer_device='cuda:1'
@@ -432,13 +432,13 @@ def binoculars_model(
     fragment_count=0
     texts={}
 
-    while fragment_count < 1000:
+    while fragment_count < 5:
 
         # Pick a random record number
         record_id=random.randint(0, num_records - 1)
 
         # Pull the record and get the human and synthetic texts
-        record=data[record_id]
+        record=data[str(record_id)]
         texts['human']=record['Human text']
         texts['synthetic']=record['Synthetic text']
 
@@ -461,7 +461,7 @@ def binoculars_model(
                 fragment_count+=1
 
                 # Pick a random length between 50 and 500 tokens
-                slice_length=random.randint(100, 700)
+                slice_length=random.randint(100, 300)
 
                 # If the slice length is greater than the length
                 # of the input tokens, use all of them
@@ -486,15 +486,19 @@ def binoculars_model(
                         return_token_type_ids=False
                     ).to(observer_device)
 
+                    # Get input ids only as list for later logging/data collection
+                    fragment_length_tokens=encodings['input_ids'].shape[1]
+
+                    # Calculate logits
                     observer_logits=observer_model.model(**encodings).logits
                     performer_logits=performer_model.model(**encodings).logits
 
-                    # logger.info('Slice encoded')
-                    # logger.info('Slice length: %s', encodings["input_ids"].shape[1])
-                    # logger.info('Logits length: %s', {performer_logits.shape})
+                    observer_model.logger.info('Slice encoded')
+                    observer_model.logger.info('Encoded slice length: %s', encodings["input_ids"].shape[1])
+                    observer_model.logger.info('Logits length: %s', {performer_logits.shape})
 
                     ppl=perplexity(encodings, performer_logits)
-                    # logger.info('Have slice perplexity')
+                    observer_model.logger.info('Have slice perplexity')
 
                     x_ppl=entropy(
                         observer_logits.to('cuda:0'),
@@ -503,15 +507,15 @@ def binoculars_model(
                         observer_model.tokenizer.pad_token_id
                     )
 
-                    # logger.info('Have cross perplexity')
+                    observer_model.logger.info('Have cross perplexity')
 
                     binoculars_scores = ppl / x_ppl
                     binoculars_scores = binoculars_scores.tolist()
-                    # logger.info('Binoculars score: %s', binoculars_scores[0])
+                    observer_model.logger.info('Binoculars score: %s', binoculars_scores[0])
 
                 except RuntimeError as runtime_error:
 
-                    # logger.error(runtime_error)
+                    observer_model.logger.error(runtime_error)
 
                     # For out of memory enter OOM
                     if 'CUDA out of memory' in str(runtime_error):
@@ -521,12 +525,23 @@ def binoculars_model(
                     else:
                         error_string='NAN'
 
-                    ppl=error_string
-                    x_ppl=error_string
-                    binoculars_scores=error_string
+                    ppl=[error_string]
+                    x_ppl=[error_string]
+                    binoculars_scores=[error_string]
 
                 # Record the results
-                experiment.dependent_vars['logits_time'].append(logits_time)
+                experiment.dependent_vars['binoculars_score'].append(str(binoculars_scores[0]))
+                experiment.dependent_vars['perplexity'].append(str(ppl[0]))
+                experiment.dependent_vars['cross-perplexity'].append(str(x_ppl[0]))
+                experiment.dependent_vars['length_words'].append(slice_length)
+                experiment.dependent_vars['length_tokens'].append(fragment_length_tokens)
+                experiment.dependent_vars['data_source'].append(record['Data source'])
+                experiment.dependent_vars['generating_model'].append(record['Generation model'])
+
+                if text_source == 'human':
+                    experiment.dependent_vars['human_text'].append(True)
+                else:
+                    experiment.dependent_vars['human_text'].append(False)
 
                 # Reset for the next loop
                 i=j
