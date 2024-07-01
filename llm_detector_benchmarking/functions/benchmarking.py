@@ -410,8 +410,21 @@ def binoculars_model(
     # make sure it goes to the right device before loading it. The other we need to instantiate.
     observer_model.device_map=observer_device
 
+    # Pick the correct instruct model based on the observer model we are running
+    if observer_model.hf_model_string == 'meta-llama/Meta-Llama-3-8B':
+        performer_model_hf_string='meta-llama/Meta-Llama-3-8B-instruct'
+
+    elif observer_model.hf_model_string == 'tiiuae/falcon-7b':
+        performer_model_hf_string='tiiuae/falcon-7b-instruct'
+
+    elif observer_model.hf_model_string == 'mistralai/Mistral-7B-v0.3':
+        performer_model_hf_string='mistralai/Mistral-7B-Instruct-v0.3'
+
+    elif observer_model.hf_model_string == "meta-llama/Llama-2-7b-hf":
+        performer_model_hf_string='meta-llama/Llama-2-7b-chat-hf'
+
     performer_model=llm_class.Llm(
-        hf_model_string=f'{observer_model.hf_model_string}-instruct',
+        hf_model_string=performer_model_hf_string,
         device_map=performer_device
     )
 
@@ -432,7 +445,7 @@ def binoculars_model(
     fragment_count=0
     texts={}
 
-    while fragment_count < 5:
+    while fragment_count < 200:
 
         # Pick a random record number
         record_id=random.randint(0, num_records - 1)
@@ -494,7 +507,7 @@ def binoculars_model(
                     performer_logits=performer_model.model(**encodings).logits
 
                     observer_model.logger.info('Slice encoded')
-                    observer_model.logger.info('Encoded slice length: %s', encodings["input_ids"].shape[1])
+                    observer_model.logger.info('Encoded slice length: %s', fragment_length_tokens)
                     observer_model.logger.info('Logits length: %s', {performer_logits.shape})
 
                     ppl=perplexity(encodings, performer_logits)
