@@ -6,12 +6,13 @@ from typing import Tuple
 import json
 from statistics import mean, stdev
 import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer # type: ignore
 
 def parse_hans_data(
-    hans_datasets: dict,
-    hans_data: dict,
-    hans_metadata,
-    binoculars_data_path
+    hans_datasets: dict=None,
+    hans_data: dict=None,
+    hans_metadata: dict=None,
+    binoculars_data_path: str=None
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     '''Parses and collects datasets from Hans et al (2024) Binocular publication. 
@@ -71,7 +72,6 @@ def parse_hans_data(
                         record_count+=1
 
                         # Add data from this record to the collected data result
-                        hans_data['Record ID'].append(record_count)
                         hans_data['Generation model'].append(generation_model)
                         hans_data['Data source'].append(data_source)
                         hans_data['Human text length (words)'].append(human_text_length)
@@ -96,3 +96,31 @@ def parse_hans_data(
     hans_metadata_df=pd.DataFrame.from_dict(hans_metadata)
 
     return hans_metadata_df, hans_data_df
+
+
+def tf_idf(data_df: pd.DataFrame=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    '''Calculates TF-IDF for human and synthetic texts from Hans data'''
+
+    # Get lists of human and synthetic text
+    human_texts=list(data_df['Human text'])
+    synthetic_texts=list(data_df['Synthetic text'])
+
+    # Set-up sklearn TFIDF vectorizer
+    tfidf_vectorizer=TfidfVectorizer(input='content')
+
+    # Get human and synthetic TFIDF values and convert to dataframe
+    human_tfidf_vector=tfidf_vectorizer.fit_transform(human_texts)
+
+    human_tfidf_df=pd.DataFrame(
+        human_tfidf_vector.toarray(),
+        columns=tfidf_vectorizer.get_feature_names_out()
+    )
+
+    synthetic_tfidf_vector=tfidf_vectorizer.fit_transform(synthetic_texts)
+
+    synthetic_tfidf_df=pd.DataFrame(
+        synthetic_tfidf_vector.toarray(),
+        columns=tfidf_vectorizer.get_feature_names_out()
+    )
+
+    return human_tfidf_df, synthetic_tfidf_df
