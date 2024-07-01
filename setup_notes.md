@@ -66,6 +66,7 @@ Install Transformers and some dependencies:
 pip install transformers
 pip install torch==1.13.1   # Specific version for NVIDIA K80 with CUDA 11.4
 pip install accelerate      # Needed for model quantization
+pip install sentencepiece   # Needed for some tokenizers
 ```
 
 Note: According to [the pytorch site](https://pytorch.org/get-started/previous-versions/) 1.13.1 is compatible with CUDA 11.7 and 11.6, but in my testing it's the most recent version which works with my setup - CUDA 11.4 & NVIDIA driver 470 on a pair of Tesla K80s.
