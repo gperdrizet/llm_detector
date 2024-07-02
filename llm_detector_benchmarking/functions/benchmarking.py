@@ -458,7 +458,7 @@ def binoculars_model(
     fragment_count=0
     texts={}
 
-    while fragment_count < 5:
+    while fragment_count < 500:
 
         # Pick a random record number
         record_id=random.randint(0, num_records - 1)
@@ -481,7 +481,7 @@ def binoculars_model(
             i,j=0,0
 
             # Loop until the right edge is past the end
-            while j < total_length and fragment_count < 5:
+            while j < total_length and fragment_count < 500:
 
                 # Count the fragment
                 fragment_count+=1
