@@ -390,6 +390,10 @@ def binoculars_model(
 
     '''Main function to run binoculars score benchmark'''
 
+    # Need to drop the last value for hf_model_string in the results - it was added
+    # by the main loop and we want to collect all data here for this benchmark
+    del experiment.independent_vars['hf_model_string'][-1]
+
     # Load the data
     input_file=f'{config.BINOCULARS_DATA_PATH}/aggregated_hans_data.json'
 
@@ -420,8 +424,17 @@ def binoculars_model(
     elif observer_model.hf_model_string == 'mistralai/Mistral-7B-v0.3':
         performer_model_hf_string='mistralai/Mistral-7B-Instruct-v0.3'
 
-    elif observer_model.hf_model_string == "meta-llama/Llama-2-7b-hf":
+    elif observer_model.hf_model_string == 'meta-llama/Llama-2-7b-hf':
         performer_model_hf_string='meta-llama/Llama-2-7b-chat-hf'
+
+    elif observer_model.hf_model_string == 'google/gemma-2-9b':
+        performer_model_hf_string='google/gemma-2-9b-it'
+
+    elif observer_model.hf_model_string == 'google/recurrentgemma-2b':
+        performer_model_hf_string='google/recurrentgemma-2b-it'
+
+    elif observer_model.hf_model_string == 'Qwen/Qwen2-7B':
+        performer_model_hf_string='Qwen/Qwen2-7B-Instruct'
 
     performer_model=llm_class.Llm(
         hf_model_string=performer_model_hf_string,
@@ -445,7 +458,7 @@ def binoculars_model(
     fragment_count=0
     texts={}
 
-    while fragment_count < 200:
+    while fragment_count < 5:
 
         # Pick a random record number
         record_id=random.randint(0, num_records - 1)
@@ -468,13 +481,14 @@ def binoculars_model(
             i,j=0,0
 
             # Loop until the right edge is past the end
-            while j < total_length:
+            while j < total_length and fragment_count < 5:
 
                 # Count the fragment
                 fragment_count+=1
+                observer_model.logger.info(f'Fragment count: {fragment_count}')
 
-                # Pick a random length between 50 and 500 tokens
-                slice_length=random.randint(100, 300)
+                # Pick a random length between 100 and 300 tokens
+                slice_length=random.randint(50, 300)
 
                 # If the slice length is greater than the length
                 # of the input tokens, use all of them
@@ -511,7 +525,7 @@ def binoculars_model(
                     observer_model.logger.info('Logits length: %s', {performer_logits.shape})
 
                     ppl=perplexity(encodings, performer_logits)
-                    observer_model.logger.info('Have slice perplexity')
+                    observer_model.logger.info(f'Have slice perplexity: {ppl}')
 
                     x_ppl=entropy(
                         observer_logits.to('cuda:0'),
@@ -520,7 +534,7 @@ def binoculars_model(
                         observer_model.tokenizer.pad_token_id
                     )
 
-                    observer_model.logger.info('Have cross perplexity')
+                    observer_model.logger.info(f'Have cross perplexity: {x_ppl}')
 
                     binoculars_scores = ppl / x_ppl
                     binoculars_scores = binoculars_scores.tolist()
@@ -542,7 +556,14 @@ def binoculars_model(
                     x_ppl=[error_string]
                     binoculars_scores=[error_string]
 
+                    # Subtract one from the fragment count so we are
+                    # not including the one that just caused an error
+                    # in the sample size
+                    fragment_count -= 1
+
                 # Record the results
+                hf_model_string=observer_model.hf_model_string
+                experiment.independent_vars['hf_model_string'].append(hf_model_string)
                 experiment.dependent_vars['binoculars_score'].append(str(binoculars_scores[0]))
                 experiment.dependent_vars['perplexity'].append(str(ppl[0]))
                 experiment.dependent_vars['cross-perplexity'].append(str(x_ppl[0]))
@@ -558,4 +579,3 @@ def binoculars_model(
 
                 # Reset for the next loop
                 i=j
-
