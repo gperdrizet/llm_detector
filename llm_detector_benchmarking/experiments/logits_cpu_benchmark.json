@@ -9,7 +9,7 @@
     },
     "independent_vars": {
         "hf_model_string": ["meta-llama/Meta-Llama-3-8B","tiiuae/falcon-7b","mistralai/Mistral-7B-v0.3","meta-llama/Llama-2-7b-hf"],
-        "iteration": [0,1,2],
+        "iteration": 3,
         "input_length": [50,100,200,300,400,500,600,700,800,900,1000],
         "device_map": ["cpu","sequential"]
     }

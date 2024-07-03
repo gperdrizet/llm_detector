@@ -7,7 +7,7 @@
         "generation_rate": []
     },
     "independent_vars": {
-        "iteration": [0,1,2],
+        "iteration": 3,
         "quantization": ["4-bit"],
         "cpu_cores": [8],
         "device_map": ["cuda:0","cuda:1"],

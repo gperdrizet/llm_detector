@@ -6,7 +6,7 @@ from typing import Callable
 import gc
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
-import configuration as config
+import llm_detector_benchmarking.configuration as config
 
 class Llm:
     '''LLM class to bundle configuration options, model and tokenizer

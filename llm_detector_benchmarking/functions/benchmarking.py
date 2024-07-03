@@ -22,7 +22,7 @@ def benchmark(
     logger: Callable=None
 ) -> None:
 
-    '''Generalized function for benchmarking time or resource utilization'''
+    '''Generalized function for benchmarking experiments'''
 
     # Instantiate experiment class instance
     experiment=experiment_class.Experiment(

@@ -115,7 +115,15 @@ class Experiment:
 
         # Loop on independent variable dictionary and add each
         # list of values to the result
-        for independent_var_list in self.independent_vars.values():
+        for independent_var, independent_var_list in self.independent_vars.items():
+
+            # Handel 'iteration' as a special case - in the config file
+            # it contains a single int specifying the number of iterations
+            # to run, so use it to construct a list containing iteration
+            # numbers to loop on during the run
+            if independent_var == 'iteration':
+                independent_var_list=list(range(independent_var_list))
+
             independent_var_lists.append(independent_var_list)
 
         # Take the product of the expanded list of lists - this

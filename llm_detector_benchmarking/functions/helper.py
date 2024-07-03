@@ -5,7 +5,7 @@ import glob
 import argparse
 import logging
 from logging.handlers import RotatingFileHandler
-import configuration as config
+import llm_detector_benchmarking.configuration as config
 
 def parse_args() -> dict:
     '''Make argparse parser, set arguments, get and parse values

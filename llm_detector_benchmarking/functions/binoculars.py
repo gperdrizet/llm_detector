@@ -7,10 +7,10 @@ from typing import Callable
 import json
 import random
 import torch
-import configuration as config
-import functions.helper as helper_funcs
-from functions.metrics import perplexity, entropy
-import classes.llm as llm_class
+import llm_detector_benchmarking.configuration as config
+import llm_detector_benchmarking.functions.helper as helper_funcs
+from llm_detector_benchmarking.functions.metrics import perplexity, entropy
+import llm_detector_benchmarking.classes.llm as llm_class
 
 def binoculars():
     '''Computes binoculars score on test string.'''
