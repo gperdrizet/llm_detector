@@ -8,8 +8,7 @@ import os
 import json
 import itertools
 import llm_detector_benchmarking.configuration as config
-# Comment ##############################################################
-# Code ########################################################################
+
 class Experiment:
     '''Has generalized data structure for collecting data from experiments
     using two dicts for independent and dependent variables. Also holds
@@ -43,8 +42,8 @@ class Experiment:
         # to use for looping during the run
         self.conditions = self.collect_independent_vars()
 
-        # Now that we have captured the condition list, flush the 
-        # independent variables dict so that we can use the same data 
+        # Now that we have captured the condition list, flush the
+        # independent variables dict so that we can use the same data
         # structure to record conditions as we complete them during the run
         self.flush_independent_vars()
 
@@ -66,7 +65,7 @@ class Experiment:
                 old_results = json.load(input_file)
                 self.logger.info('Read old run data')
 
-            # Get the values of completed independent variable 
+            # Get the values of completed independent variable
             # conditions into a list of lists
 
             # Loop on keys in the results dict
@@ -95,11 +94,11 @@ class Experiment:
             # completed run matching the format of our run condition list
             completed_conditions = list(zip(*completed_conditions))
 
-            self.logger.info('Collected ' 
+            self.logger.info('Collected '
                              f'{len(completed_conditions)} '
                              'completed run tuples')
 
-        # Then loop on the full conditions list and add only those 
+        # Then loop on the full conditions list and add only those
         # conditions which have not already been completed to a new list
         new_conditions = []
 
@@ -109,7 +108,7 @@ class Experiment:
 
         self.logger.info('Created list of conditions left to run')
 
-        # Finally, overwrite the conditions list with the list of new 
+        # Finally, overwrite the conditions list with the list of new
         # conditions which still need to be completed
         self.conditions = new_conditions
 
@@ -118,8 +117,8 @@ class Experiment:
         dictionary as list of lists'''
 
         # Make sure the iteration value is last in the independent_vars
-        # dict, this will place iteration numbers last in the list of 
-        # lists so than when looping, all iterations of a given 
+        # dict, this will place iteration numbers last in the list of
+        # lists so than when looping, all iterations of a given
         # condition will be sequential
 
         self.independent_vars[
@@ -134,7 +133,7 @@ class Experiment:
                 self.independent_vars.items():
 
             # Handel 'iteration' as a special case - in the config file
-            # it contains a single int specifying the number of 
+            # it contains a single int specifying the number of
             # iterations to run, so use it to construct a list
             # containing iteration numbers to loop on during the run
             if independent_var == 'iteration':
