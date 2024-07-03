@@ -91,7 +91,7 @@ def parse_args() -> dict:
 
     return args
 
-def start_logger():
+def start_logger(logfile_name):
     '''Sets up logging, returns logger'''
 
     # Clear logs if asked
@@ -104,7 +104,7 @@ def start_logger():
     logger.setLevel(config.LOG_LEVEL)
 
     handler = RotatingFileHandler(
-        f'{config.LOG_PATH}/llama3.log',
+        f'{config.LOG_PATH}/{logfile_name}',
         encoding='utf-8',
         maxBytes=32 * 1024 * 1024,  # 32 MiB,
         backupCount=5
@@ -115,7 +115,7 @@ def start_logger():
     logger.addHandler(handler)
 
     logger.info('############################################### ')
-    logger.info('############## Starting LLaMA3 ################ ')
+    logger.info('########### Starting LLM detector ############# ')
     logger.info('############################################### ')
 
     return logger

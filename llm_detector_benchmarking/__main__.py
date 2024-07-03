@@ -10,7 +10,7 @@ if __name__ == "__main__":
     args=helper_funcs.parse_args()
 
     # Start the logger
-    logger=helper_funcs.start_logger()
+    logger=helper_funcs.start_logger('llm_detector.log')
 
     # Run binoculars
     if args.binoculars != 'False':
@@ -76,7 +76,7 @@ if __name__ == "__main__":
             benchmark_func=benchmark_funcs.logits_calculation,
             resume=args.resume,
             experiment_config_file=args.logits_calculation_benchmark,
-            logger=logger
+            logger=helper_funcs.start_logger('logits_calculation_benchmark.log')
         )
 
     # Run binoculars model benchmark
