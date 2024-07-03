@@ -1,7 +1,7 @@
 '''Main function to run jobs based on command line arguments'''
 
 import benchmarking.functions.helper as helper_funcs
-import benchmarking.functions.benchmarking as benchmark_funcs
+import benchmarking.functions.benchmark as benchmark_funcs
 import benchmarking.functions.binoculars as binocular_funcs
 
 if __name__ == "__main__":
