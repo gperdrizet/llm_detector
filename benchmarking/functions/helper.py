@@ -7,7 +7,7 @@ import glob
 import argparse
 import logging
 from logging.handlers import RotatingFileHandler
-import llm_detector_benchmarking.configuration as config
+import benchmarking.configuration as config
 
 # Comment ##############################################################
 # Code ########################################################################

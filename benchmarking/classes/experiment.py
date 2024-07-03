@@ -7,9 +7,9 @@ from __future__ import annotations
 import os
 import json
 import itertools
-import llm_detector_benchmarking.configuration as config
-import llm_detector_benchmarking.functions.benchmarking as benchmark_funcs
-import llm_detector_benchmarking.functions.helper as helper_funcs
+import benchmarking.configuration as config
+import benchmarking.functions.benchmarking as benchmark_funcs
+import benchmarking.functions.helper as helper_funcs
 
 class Experiment:
     '''Has generalized data structure for collecting data from experiments

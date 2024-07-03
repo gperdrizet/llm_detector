@@ -10,10 +10,10 @@ import tracemalloc
 from random import sample
 from multiprocessing import Process, Queue
 import torch
-import llm_detector_benchmarking.configuration as config
-import llm_detector_benchmarking.classes.llm as llm_class
-import llm_detector_benchmarking.classes.experiment as experiment_class
-from llm_detector_benchmarking.functions.metrics import perplexity, entropy
+import benchmarking.configuration as config
+import benchmarking.classes.llm as llm_class
+import benchmarking.classes.experiment as experiment_class
+from benchmarking.functions.metrics import perplexity, entropy
 
 # Comment ##############################################################
 # Code ########################################################################
@@ -147,7 +147,7 @@ def run_batch(
     try:
         llm.load()
 
-    # If anything weird happens, we need to skip this batch. Log the 
+    # If anything weird happens, we need to skip this batch. Log the
     # error and enter appropriate error string in the dependent
     # variables then return
     except RuntimeError as runtime_error:
@@ -166,7 +166,7 @@ def run_batch(
         # Loop on the conditions in this batch
         for i, condition in enumerate(conditions_batch, start=1):
 
-            # Loop on the names and values of the independent variables 
+            # Loop on the names and values of the independent variables
             # for this run
             for var_name, value in zip(independent_var_names, condition):
 
@@ -235,7 +235,7 @@ def model_loading_benchmark(
     # Since we are benchmarking the load time here - we need to clear
     # then llm so we can reload it while timing. Not great, since doing
     # it this way causes an extra load per batch, but this set-up is
-    # much better for the many other benchmarks that use this test 
+    # much better for the many other benchmarks that use this test
     # harness
     llm.clear()
 
@@ -483,8 +483,8 @@ def binoculars_model_benchmark(
     observer_model.load()
     performer_model.load()
 
-    # Set the models to evaluation mode to deactivate any dropout 
-    # modules the is done to ensure reproducibility of results during 
+    # Set the models to evaluation mode to deactivate any dropout
+    # modules the is done to ensure reproducibility of results during
     # evaluation
     observer_model.model.eval()
     performer_model.model.eval()
@@ -579,7 +579,7 @@ def binoculars_model_benchmark(
 
                     binoculars_scores = ppl / x_ppl
                     binoculars_scores = binoculars_scores.tolist()
-                    observer_model.logger.info('Binoculars score: %s', 
+                    observer_model.logger.info('Binoculars score: %s',
                                                binoculars_scores[0])
 
                 except RuntimeError as runtime_error:
@@ -598,8 +598,8 @@ def binoculars_model_benchmark(
                     x_ppl = [error_string]
                     binoculars_scores = [error_string]
 
-                    # Subtract one from the fragment count so we are not 
-                    # including the one that just caused an error in the 
+                    # Subtract one from the fragment count so we are not
+                    # including the one that just caused an error in the
                     # sample size
                     fragment_count -= 1
 
@@ -607,25 +607,25 @@ def binoculars_model_benchmark(
                 hf_model_string = observer_model.hf_model_string
                 experiment.independent_vars[
                     'hf_model_string'].append(hf_model_string)
-                
+
                 experiment.dependent_vars[
                     'binoculars_score'].append(str(binoculars_scores[0]))
-                
+
                 experiment.dependent_vars[
                     'perplexity'].append(str(ppl[0]))
-                
+
                 experiment.dependent_vars[
                     'cross-perplexity'].append(str(x_ppl[0]))
-                
+
                 experiment.dependent_vars[
                     'length_words'].append(slice_length)
-                
+
                 experiment.dependent_vars[
                     'length_tokens'].append(fragment_length_tokens)
-                
+
                 experiment.dependent_vars[
                     'data_source'].append(record['Data source'])
-                
+
                 experiment.dependent_vars[
                     'generating_model'].append(record['Generation model'])
 
