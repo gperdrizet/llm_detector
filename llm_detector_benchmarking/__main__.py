@@ -67,7 +67,7 @@ if __name__ == "__main__":
             logger=logger
         )
 
-    # Run logits memory benchmark
+    # Run logits calculation benchmark
     if args.logits_calculation_benchmark != 'False':
 
         logger.info('Starting logits calculation benchmark')
@@ -76,30 +76,6 @@ if __name__ == "__main__":
             benchmark_func=benchmark_funcs.logits_calculation,
             resume=args.resume,
             experiment_config_file=args.logits_calculation_benchmark,
-            logger=logger
-        )
-
-    # Run logits memory benchmark
-    if args.logits_memory_benchmark != 'False':
-
-        logger.info('Starting logits memory benchmark')
-
-        benchmark_funcs.benchmark(
-            benchmark_func=benchmark_funcs.logits_memory,
-            resume=args.resume,
-            experiment_config_file=args.logits_memory_benchmark,
-            logger=logger
-        )
-
-    # Run logits CPU benchmark
-    if args.logits_cpu_benchmark != 'False':
-
-        logger.info('Starting logits cpu benchmark')
-
-        benchmark_funcs.benchmark(
-            benchmark_func=benchmark_funcs.logits_cpu,
-            resume=args.resume,
-            experiment_config_file=args.logits_cpu_benchmark,
             logger=logger
         )
 
