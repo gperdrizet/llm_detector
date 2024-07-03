@@ -10,10 +10,10 @@ import tracemalloc
 from random import sample
 from multiprocessing import Process, Queue
 import torch
-import configuration as config
-import classes.llm as llm_class
-import classes.experiment as experiment_class
-from functions.metrics import perplexity, entropy
+import llm_detector_benchmarking.configuration as config
+import llm_detector_benchmarking.classes.llm as llm_class
+import llm_detector_benchmarking.classes.experiment as experiment_class
+from llm_detector_benchmarking.functions.metrics import perplexity, entropy
 
 def benchmark(
     benchmark_func: Callable=None,
