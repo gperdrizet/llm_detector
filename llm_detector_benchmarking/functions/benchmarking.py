@@ -32,7 +32,7 @@ def benchmark(
         experiment_config_file,
         logger
     )
-
+    logger.info(f'Starting {experiment.experiment_name}')
     logger.info('Experiment class instance created')
 
     # Handle resuming from prior data, if needed
@@ -115,7 +115,7 @@ def benchmark(
             # triggered the run because it had a zero for it's
             # iteration number
             if i < len(experiment.conditions):
-                
+
                 conditions_batch = [condition]
 
                 logger.info(f'Added condition {i+2} of '
