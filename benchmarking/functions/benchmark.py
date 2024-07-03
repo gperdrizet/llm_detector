@@ -134,7 +134,7 @@ def run_batch(
     experiment=queue.get()
 
     # Instantiate a new llm class instance
-    llm=llm_class.Llm()
+    llm=llm_class.Llm(logger=experiment.logger)
 
     # Set the llm parameters - since all of the conditions in this
     # batch are the same except for the iteration number, we can
