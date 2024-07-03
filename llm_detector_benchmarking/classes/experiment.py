@@ -7,7 +7,7 @@ from typing import Callable
 import os
 import json
 import itertools
-import configuration as config
+import llm_detector_benchmarking.configuration as config
 
 class Experiment:
     '''Has generalized data structure for collecting data from experiments
