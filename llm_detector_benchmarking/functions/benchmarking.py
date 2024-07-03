@@ -15,17 +15,20 @@ import llm_detector_benchmarking.classes.llm as llm_class
 import llm_detector_benchmarking.classes.experiment as experiment_class
 from llm_detector_benchmarking.functions.metrics import perplexity, entropy
 
+# Comment ##############################################################
+# Code ########################################################################
+
 def benchmark(
-    benchmark_func: Callable=None,
-    resume: str='False',
-    experiment_config_file: str=None,
-    logger: Callable=None
+        benchmark_func: Callable = None,
+        resume: str = 'False',
+        experiment_config_file: str = None,
+        logger: Callable = None
 ) -> None:
 
     '''Generalized function for benchmarking experiments'''
 
     # Instantiate experiment class instance
-    experiment=experiment_class.Experiment(
+    experiment = experiment_class.Experiment(
         experiment_config_file,
         logger
     )
@@ -38,65 +41,85 @@ def benchmark(
         logger.info('Prior run resumed')
 
     # Get the independent variable names
-    independent_var_names=list(experiment.independent_vars.keys())
+    independent_var_names = list(experiment.independent_vars.keys())
 
-    # Find the index of the iteration number so we can pull it from
-    # the condition tuple
-    iteration_index=independent_var_names.index('iteration')
+    # Find the index of the iteration number so we can pull it from the
+    # condition tuple
+    iteration_index = independent_var_names.index('iteration')
 
     # Create a queue to pass the experiment class instance back and
     # forth between the main loop worker and the benchmark process
-    queue=Queue()
+    queue = Queue()
 
     # Holder to collect iterations for batch, start with the first
     # condition from the list, removing it so that it doesn't run twice
-    conditions_batch=[experiment.conditions.pop(0)]
+    conditions_batch = [experiment.conditions.pop(0)]
 
     logger.info('Starting main loop')
-    logger.info(f'Added condition 1 of {len(experiment.conditions) + 1} to bach')
+    logger.info('Added condition 1 of '
+                f'{len(experiment.conditions) + 1} to bach')
 
     # Loop on conditions
     for i, condition in enumerate(experiment.conditions):
 
-        # Check the iteration number, if it is not one, we are still
-        # in the same batch, add the condition to the batch and move on
-        # to the next
+        # Check the iteration number, if it is not one, we are still in
+        # the same batch, add the current condition to the batch and
+        # move on to the next
         if experiment.conditions[i][iteration_index] != 1:
 
-            logger.info(f'Added condition {i+2} of {len(experiment.conditions) + 1} to bach')
+            logger.info(f'Added condition {i+2} of '
+                        f'{len(experiment.conditions) + 1} to bach')
+
             conditions_batch.append(condition)
 
-        # If the iteration number is one, it's the first condition
-        # of the next batch, meaning the current batch is complete - run it
-        elif experiment.conditions[i][iteration_index] == 1:
+        # If the iteration number is one, it's the first condition of
+        # the next batch, meaning the current batch is complete. Also
+        # run if this is the last condition in the list
 
-            logger.info(f'Running batch of {len(conditions_batch)} conditions:')
+        elif (experiment.conditions[i][iteration_index] == 1
+            or i == len(experiment.conditions)):
+
+            # If this run was triggered by the last condition, add it to
+            # the list before submitting the job
+            if i == len(experiment.conditions):
+                conditions_batch.append(condition)
+
+            logger.info(f'Running batch of '
+                        f'{len(conditions_batch)} conditions:')
 
             # Put the experiment class instance in the queue
             queue.put(experiment)
 
             # Run guts of loop in subprocess
-            p=Process(target=main_loop,
-                kwargs=dict(
-                    queue=queue,
-                    benchmark_func=benchmark_func,
-                    conditions_batch=conditions_batch,
-                    independent_var_names=independent_var_names,
-                    logger=logger
+            p = Process(target = main_loop,
+                kwargs = dict(
+                    queue = queue,
+                    benchmark_func = benchmark_func,
+                    conditions_batch = conditions_batch,
+                    independent_var_names = independent_var_names,
+                    logger = logger
                 )
             )
 
+            # Run the job
             p.start()
             p.join()
 
-            # Get the experiment class instance back out of the queue and save the results
-            experiment=queue.get()
+            # Get the experiment class instance back out of the queue
+            # and save the results
+            experiment = queue.get()
             experiment.save()
 
-            # Reset the batch by initializing it with the current condition that just
-            # triggered the run because it had a zero for it's iteration number
-            conditions_batch=[condition]
-            logger.info(f'Added condition {i+2} of {len(experiment.conditions) + 1} to bach')
+            # If this was not the last conditions, reset the batch by
+            # initializing it with the current condition that just
+            # triggered the run because it had a zero for it's
+            # iteration number
+            if i < len(experiment.conditions):
+                conditions_batch = [condition]
+                logger.info(f'Added condition {i+2} of '
+                            f'{len(experiment.conditions) + 1} to bach')
+
+    logger.info(f'{experiment.experiment_name} run complete')
 
 
 def main_loop(
@@ -128,7 +151,7 @@ def main_loop(
     try:
         llm.load()
 
-    # If anything weird happens, we need to skip this batch. Log the error 
+    # If anything weird happens, we need to skip this batch. Log the error
     # and enter appropriate error string in the dependent variables then return
     except RuntimeError as runtime_error:
 
@@ -442,62 +465,64 @@ def logits_memory(
 
 
 def logits_calculation(
-    experiment: Callable=None,
-    llm: Callable=None
+        experiment: Callable = None,
+        llm: Callable = None
 ) -> None:
 
     '''Main function to run logits cpu benchmark'''
 
     # Sample the test text
-    text_list=config.ENCODING_TEST_TEXT.split(' ')
+    text_list = config.ENCODING_TEST_TEXT.split(' ')
 
-    text_list_sample=sample(
+    text_list_sample = sample(
         text_list,
         experiment.independent_vars['input_length'][-1]
     )
 
     input_text=' '.join(text_list_sample)
 
-    # Start tracking system memory
-    if experiment.independent_vars['device_map'][-1] == 'cpu':
-        tracemalloc.start()
-        
     # Encode
-    encodings=llm.tokenizer(
+    encodings = llm.tokenizer(
         input_text,
-        return_tensors="pt",
-        return_token_type_ids=False
+        return_tensors = 'pt',
+        return_token_type_ids = False
     )
 
+    # If this is not a CPU run, move encoding to GPU
     if experiment.independent_vars['device_map'][-1] != 'cpu':
-        encodings=encodings.to('cuda')
+        encodings = encodings.to('cuda')
 
     # Get encoded fragment length
-    fragment_length=encodings['input_ids'].shape[1]
+    fragment_length = encodings['input_ids'].shape[1]
 
+    # Start memory tracking using the correct strategy based on device map
     if experiment.independent_vars['device_map'][-1] != 'cpu':
 
         # Reset memory stats for all GPUs
         for device in config.AVAILABLE_GPUS:
-            torch.cuda.reset_peak_memory_stats(device=device)
+            torch.cuda.reset_peak_memory_stats(device = device)
+
+    elif experiment.independent_vars['device_map'][-1] == 'cpu':
+        tracemalloc.start()
 
     # Time the logits calculation
-    logits_start=time.time()
-    _=llm.model(**encodings).logits
-    logits_time=time.time() - logits_start
+    logits_start = time.time()
+    _ = llm.model(**encodings).logits
+    logits_time = time.time() - logits_start
 
     # Get calculation rate
     rate=fragment_length / logits_time
 
-    # Get total peak GPU memory
+    # Get max memory using the correct strategy based on device map
     if experiment.independent_vars['device_map'][-1] != 'cpu':
-        max_memory=0
+        max_memory = 0
 
         for device in config.AVAILABLE_GPUS:
-            max_memory += torch.cuda.max_memory_allocated(device=device) / (10 ** 9)
+            device_max_memory = torch.cuda.max_memory_allocated(device=device)
+            device_max_memory = device_max_memory / (10 ** 9)
+            max_memory += device_max_memory
 
-    # Get peak system memory
-    if experiment.independent_vars['device_map'][-1] == 'cpu':
+    elif experiment.independent_vars['device_map'][-1] == 'cpu':
 
         _, max_memory = tracemalloc.get_traced_memory()
         max_memory = max_memory / (10 ** 6)
