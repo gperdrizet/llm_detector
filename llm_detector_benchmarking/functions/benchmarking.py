@@ -77,7 +77,7 @@ def benchmark(
         # run if this is the last condition in the list
 
         elif (experiment.conditions[i][iteration_index] == 1
-            or i == len(experiment.conditions)):
+                or i == len(experiment.conditions)):
 
             # If this run was triggered by the last condition, add it to
             # the list before submitting the job
@@ -115,7 +115,9 @@ def benchmark(
             # triggered the run because it had a zero for it's
             # iteration number
             if i < len(experiment.conditions):
+                
                 conditions_batch = [condition]
+
                 logger.info(f'Added condition {i+2} of '
                             f'{len(experiment.conditions) + 1} to bach')
 
