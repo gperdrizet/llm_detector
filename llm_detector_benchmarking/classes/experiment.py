@@ -2,12 +2,14 @@
 and optimization experiments'''
 
 from __future__ import annotations
-from typing import Callable
+#from typing import Callable
 
 import os
 import json
 import itertools
 import llm_detector_benchmarking.configuration as config
+import llm_detector_benchmarking.functions.benchmarking as benchmark_funcs
+import llm_detector_benchmarking.functions.helper as helper_funcs
 
 class Experiment:
     '''Has generalized data structure for collecting data from experiments
@@ -16,23 +18,26 @@ class Experiment:
 
     def __init__(self,
             experiment_config_file: str = None,
-            logger: Callable = None
+            #logger: Callable = None
     ) -> None:
 
         # Load the experiment configuration file
         with open(experiment_config_file, 'r', encoding='utf-8') as input_file:
             configuration = json.load(input_file)
 
-        # Add the logger
-        self.logger = logger
-
         # Initialize experiment metadata
         self.experiment_name = configuration['experiment_name']
         self.experiment_description = configuration['experiment_description']
 
+        # Add the logger
+        self.logger = helper_funcs.start_logger(f'{self.experiment_name}.log')
+
         # Construct output data filename and path
         data_filename = f"{self.experiment_name.replace(' ', '_')}.json"
         self.data_file = f'{config.BENCHMARKING_DATA_PATH}/{data_filename}'
+
+        # Set the benchmarking function to run
+        self.benchmark_func = getattr(benchmark_funcs, self.experiment_name)
 
         # Add dicts for independent and dependent vars
         self.independent_vars = configuration['independent_vars']
@@ -87,16 +92,15 @@ class Experiment:
                 if key in self.dependent_vars.keys():
                     self.dependent_vars[key] = old_results[key]
 
-                self.logger.info(f' {key} has {len(old_results[key])} values')
+                self.logger.info(' %s has %s values', key, len(old_results[key]))
 
             # Now expand and zip the list of list containing the completed
             # conditions, this will create a list containing a tuple for each
             # completed run matching the format of our run condition list
             completed_conditions = list(zip(*completed_conditions))
 
-            self.logger.info('Collected '
-                             f'{len(completed_conditions)} '
-                             'completed run tuples')
+            self.logger.info('Collected %s completed run tuples',
+                             len(completed_conditions))
 
         # Then loop on the full conditions list and add only those
         # conditions which have not already been completed to a new list
