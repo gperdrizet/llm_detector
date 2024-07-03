@@ -40,43 +40,69 @@ def benchmark(
     # Get the independent variable names
     independent_var_names=list(experiment.independent_vars.keys())
 
+    # Find the index of the iteration number so we can pull it from
+    # the condition tuple
+    iteration_index=independent_var_names.index('iteration')
+
     # Create a queue to pass the experiment class instance back and
     # forth between the main loop worker and the benchmark process
     queue=Queue()
 
-    # Loop on conditions
+    # Holder to collect iterations for batch, start with the first
+    # condition from the list, removing it so that it doesn't run twice
+    conditions_batch=[experiment.conditions.pop(0)]
+
     logger.info('Starting main loop')
+    logger.info(f'Added condition 1 of {len(experiment.conditions) + 1} to bach')
 
-    for i, condition in enumerate(experiment.conditions, start=1):
+    # Loop on conditions
+    for i, condition in enumerate(experiment.conditions):
 
-        logger.info(f'Running condition {i} of {len(experiment.conditions)}')
+        # Check the iteration number, if it is not one, we are still
+        # in the same batch, add the condition to the batch and move on
+        # to the next
+        if experiment.conditions[i][iteration_index] != 1:
 
-        # Put the experiment class instance in the queue
-        queue.put(experiment)
+            logger.info(f'Added condition {i+2} of {len(experiment.conditions) + 1} to bach')
+            conditions_batch.append(condition)
 
-        # Run guts of loop in subprocess
-        p=Process(target=main_loop,
-            kwargs=dict(
-                queue=queue,
-                benchmark_func=benchmark_func,
-                condition=condition,
-                independent_var_names=independent_var_names,
-                logger=logger
+        # If the iteration number is one, it's the first condition
+        # of the next batch, meaning the current batch is complete - run it
+        elif experiment.conditions[i][iteration_index] == 1:
+
+            logger.info(f'Running batch of {len(conditions_batch)} conditions:')
+
+            # Put the experiment class instance in the queue
+            queue.put(experiment)
+
+            # Run guts of loop in subprocess
+            p=Process(target=main_loop,
+                kwargs=dict(
+                    queue=queue,
+                    benchmark_func=benchmark_func,
+                    conditions_batch=conditions_batch,
+                    independent_var_names=independent_var_names,
+                    logger=logger
+                )
             )
-        )
 
-        p.start()
-        p.join()
+            p.start()
+            p.join()
 
-        # Get the experiment class instance back out of the queue and save the results
-        experiment=queue.get()
-        experiment.save()
+            # Get the experiment class instance back out of the queue and save the results
+            experiment=queue.get()
+            experiment.save()
+
+            # Reset the batch by initializing it with the current condition that just
+            # triggered the run because it had a zero for it's iteration number
+            conditions_batch=[condition]
+            logger.info(f'Added condition {i+2} of {len(experiment.conditions) + 1} to bach')
 
 
 def main_loop(
     queue: Callable=None,
     benchmark_func: Callable=None,
-    condition: tuple=None,
+    conditions_batch: tuple=None,
     independent_var_names: list=None,
     logger: Callable=None
 ) -> None:
@@ -91,27 +117,23 @@ def main_loop(
     # Instantiate a new llm class instance
     llm=llm_class.Llm(logger=logger)
 
-    # Loop on the names and values of the independent variables for this run
-    for var_name, value in zip(independent_var_names, condition):
-
-        logger.info(f' {var_name}: {value}')
-
-        # Record the values in the experiment class instance
-        experiment.independent_vars[var_name].append(value)
-
-        # Set the values in the llm
+    # Set the llm parameters - since all of the conditions in this
+    # batch are the same except for the iteration number, we can
+    # use the first one as the source for our llm parameters
+    for var_name, value in zip(independent_var_names, conditions_batch[0]):
         if var_name in dir(llm):
             setattr(llm, var_name, value)
 
-    # Call the main benchmark function, catching CUDA errors
+    # Load the llm, catching CUDA errors
     try:
-        benchmark_func(experiment, llm)
+        llm.load()
 
-    # If anything weird happens, print the error and enter appropriate
-    # error string in the dependent variables
+    # If anything weird happens, we need to skip this batch. Log the error 
+    # and enter appropriate error string in the dependent variables then return
     except RuntimeError as runtime_error:
 
-        logger.error(f'{runtime_error}')
+        logger.error(' Batch failed:')
+        logger.error(f' {runtime_error}')
 
         # For out of memory enter OOM
         if 'CUDA out of memory' in str(runtime_error):
@@ -121,12 +143,62 @@ def main_loop(
         else:
             error_string='NAN'
 
-        # Enter the error string in all of the dependent variables
-        # for this run
-        for var_name in experiment.dependent_vars.keys():
-            experiment.dependent_vars[var_name].append(error_string)
+        # Loop on the conditions in this batch
+        for i, condition in enumerate(conditions_batch, start=1):
 
-    # Clean up for next run & put the experiment class instance back
+            # Loop on the names and values of the independent variables for this run
+            for var_name, value in zip(independent_var_names, condition):
+
+                # Record the values in the experiment class instance
+                experiment.independent_vars[var_name].append(value)
+
+            # Enter the error string in all of the dependent variables
+            # for this run
+            for var_name in experiment.dependent_vars.keys():
+                experiment.dependent_vars[var_name].append(error_string)
+
+        # Call off the run
+        queue.put(experiment)
+        return
+
+    # Loop on the conditions in this batch
+    for i, condition in enumerate(conditions_batch, start=1):
+
+        logger.info(f' Batch condition {i}')
+
+        # Loop on the names and values of the independent variables for this run
+        for var_name, value in zip(independent_var_names, condition):
+
+            logger.info(f'  {var_name}: {value}')
+
+            # Record the values in the experiment class instance
+            experiment.independent_vars[var_name].append(value)
+
+        # Call the run specific benchmark function, catching CUDA errors
+        try:
+            benchmark_func(experiment, llm)
+
+        # If anything weird happens, print the error and enter appropriate
+        # error string in the dependent variables
+        except RuntimeError as runtime_error:
+
+            logger.error('  Batch condition failed:')
+            logger.error(f'  {runtime_error}')
+
+            # For out of memory enter OOM
+            if 'CUDA out of memory' in str(runtime_error):
+                error_string='OOM'
+
+            # For anything else, use NAN
+            else:
+                error_string='NAN'
+
+            # Enter the error string in all of the dependent variables
+            # for this run
+            for var_name in experiment.dependent_vars.keys():
+                experiment.dependent_vars[var_name].append(error_string)
+
+    # Clean up for next batch & put the experiment class instance back
     # into the queue for the benchmark process to retrieve
     llm.clear()
     queue.put(experiment)
@@ -138,6 +210,13 @@ def load_time(
 ) -> None:
 
     '''Main benchmark function to time loading llm and tokenizer'''
+
+    # Since we are benchmarking the load time here - we need to
+    # clear then llm so we can reload it while timing. Not great,
+    # since doing it this way causes an extra load per batch, but this
+    # set-up is much better for the many other benchmarks that use
+    # this test harness
+    llm.clear()
 
     # Time the loading of the model
     loading_start_time = time.time()
@@ -256,6 +335,57 @@ def encoding_memory(
     experiment.dependent_vars['encoding_time'].append(encoding_time)
     experiment.dependent_vars['encoding_rate'].append(encoding_rate)
 
+# def logits_calculation(
+#     experiment: Callable=None,
+#     llm: Callable=None
+# ) -> None:
+
+#     '''Main function to run logits calculation benchmark'''
+
+#     # Sample the test text
+#     text_list=config.ENCODING_TEST_TEXT.split(' ')
+
+#     text_list_sample=sample(
+#         text_list,
+#         experiment.independent_vars['input_length'][-1]
+#     )
+
+#     input_text=' '.join(text_list_sample)
+
+#     # Encode
+#     encodings=llm.tokenizer(
+#         input_text,
+#         return_tensors="pt",
+#         return_token_type_ids=False
+#     ).to('cuda')
+
+#     # Get encoded fragment length
+#     fragment_length=encodings['input_ids'].shape[1]
+
+#     # Reset memory stats for all devices
+#     for device in config.AVAILABLE_GPUS:
+#         torch.cuda.reset_peak_memory_stats(device=device)
+
+#     # Time the logits calculation
+#     logits_start=time.time()
+#     _=llm.model(**encodings).logits
+#     logits_time=time.time() - logits_start
+
+#     # Get calculation rate
+#     rate=fragment_length / logits_time
+
+#     # Get total peak memory
+#     peak_memory=0
+
+#     for device in config.AVAILABLE_GPUS:
+#         peak_memory += torch.cuda.max_memory_allocated(device=device) / (10 ** 9)
+
+#     # Record the results
+#     experiment.dependent_vars['peak_memory'].append(peak_memory)
+#     experiment.dependent_vars['tokens'].append(fragment_length)
+#     experiment.dependent_vars['logits_time'].append(logits_time)
+#     experiment.dependent_vars['rate'].append(rate)
+
 def logits_memory(
     experiment: Callable=None,
     llm: Callable=None
@@ -311,7 +441,7 @@ def logits_memory(
     experiment.dependent_vars['rate'].append(rate)
 
 
-def logits_cpu(
+def logits_calculation(
     experiment: Callable=None,
     llm: Callable=None
 ) -> None:
@@ -331,10 +461,7 @@ def logits_cpu(
     # Start tracking system memory
     if experiment.independent_vars['device_map'][-1] == 'cpu':
         tracemalloc.start()
-
-    # Load the model
-    llm.load()
-
+        
     # Encode
     encodings=llm.tokenizer(
         input_text,

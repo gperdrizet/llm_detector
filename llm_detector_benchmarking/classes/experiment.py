@@ -52,6 +52,9 @@ class Experiment:
         and adds it to current results. Removes any completed conditions
         from conditions list.'''
 
+        # Holder for any completed conditions we may find
+        completed_conditions=[]
+
         # If we have data to resume from...
         if os.path.isfile(self.data_file) is True:
 
@@ -63,7 +66,6 @@ class Experiment:
                 self.logger.info('Read old run data')
 
             # Get the values of completed independent variable conditions into a list of lists
-            completed_conditions=[]
 
             # Loop on keys in the results dict
             for key in old_results.keys():
@@ -110,6 +112,12 @@ class Experiment:
         '''Returns values stored in the independent variables
         dictionary as list of lists'''
 
+        # Make sure the iteration value is last in the independent_vars
+        # dict, this will place iteration numbers last in the list of lists
+        # so than when looping, all iterations of a given condition
+        # will be sequential
+        self.independent_vars['iteration']=self.independent_vars.pop('iteration')
+
         # Empty holder to accumulate results
         independent_var_lists=[]
 
@@ -122,7 +130,7 @@ class Experiment:
             # to run, so use it to construct a list containing iteration
             # numbers to loop on during the run
             if independent_var == 'iteration':
-                independent_var_list=list(range(independent_var_list))
+                independent_var_list=list(range(1, independent_var_list + 1))
 
             independent_var_lists.append(independent_var_list)
 

@@ -62,6 +62,14 @@ def parse_args() -> dict:
     )
 
     parser.add_argument(
+        '--logits_calculation_benchmark',
+        required=False,
+        default='False',
+        help='Specify path to experiment config file to run benchmark',
+        metavar='CONFIG_FILE_PATH'
+    )
+
+    parser.add_argument(
         '--logits_memory_benchmark',
         required=False,
         default='False',

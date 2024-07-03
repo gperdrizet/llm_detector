@@ -3,7 +3,7 @@
     "experiment_description": "Model loading time as a function of cache location, device map and CPU cores",
     "dependent_vars": {"load_time": []},
     "independent_vars": {
-        "iteration": 4,
+        "iteration": 3,
         "cache_dir": [
             "/mnt/ramdisk/huggingface_transformers_cache",
             "/mnt/fast_scratch/huggingface_transformers_cache",

@@ -2,7 +2,7 @@
     "experiment_name": "logits_calculation_benchmark",
     "experiment_description": "Logits calculation GPU memory footprint and rate as a function of input length, model, device map and quantization",
     "dependent_vars": {
-        "peak_memory": [],
+        "max_memory": [],
         "tokens": [],
         "logits_time": [],
         "rate": []
