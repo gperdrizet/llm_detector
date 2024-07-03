@@ -18,7 +18,7 @@ from benchmarking.functions.metrics import perplexity, entropy
 # Comment ##############################################################
 # Code ########################################################################
 
-def benchmark(
+def run(
         resume: str = 'False',
         experiment_config_file: str = None
 ) -> None:

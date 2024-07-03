@@ -8,7 +8,7 @@ import os
 import json
 import itertools
 import benchmarking.configuration as config
-import benchmarking.functions.benchmarking as benchmark_funcs
+import benchmarking.functions.benchmark as benchmark_funcs
 import benchmarking.functions.helper as helper_funcs
 
 class Experiment:

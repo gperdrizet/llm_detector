@@ -25,7 +25,7 @@ if __name__ == "__main__":
             resume = benchmark[1]
 
             # Run the benchmark
-            benchmark_funcs.benchmark(
+            benchmark_funcs.run(
                 resume = resume,
                 experiment_config_file = config_file
             )
