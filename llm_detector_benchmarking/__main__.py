@@ -9,7 +9,7 @@ if __name__ == "__main__":
     # Parse command line arguments
     args=helper_funcs.parse_args()
 
-    # Start the logger
+    # Start the default logger
     logger=helper_funcs.start_logger('llm_detector.log')
 
     # Run binoculars
@@ -28,7 +28,7 @@ if __name__ == "__main__":
             benchmark_func=benchmark_funcs.load_time,
             resume=args.resume,
             experiment_config_file=args.model_loading_benchmark,
-            logger=logger
+            logger=helper_funcs.start_logger('loading_time_benchmark.log')
         )
 
     # Run generation rate benchmark
@@ -40,7 +40,7 @@ if __name__ == "__main__":
             benchmark_func=benchmark_funcs.generation_rate,
             resume=args.resume,
             experiment_config_file=args.generation_rate_benchmark,
-            logger=logger
+            logger=helper_funcs.start_logger('generation_rate_benchmark.log')
         )
 
     # Run decoding benchmark
@@ -52,7 +52,7 @@ if __name__ == "__main__":
             benchmark_func=benchmark_funcs.decoding_strategy,
             resume=args.resume,
             experiment_config_file=args.decoding_strategy_benchmark,
-            logger=logger
+            logger=helper_funcs.start_logger('decoding_strategy_benchmark.log')
         )
 
     # Run encoding memory benchmark
@@ -64,7 +64,7 @@ if __name__ == "__main__":
             benchmark_func=benchmark_funcs.encoding_memory,
             resume=args.resume,
             experiment_config_file=args.encoding_memory_benchmark,
-            logger=logger
+            logger=helper_funcs.start_logger('encoding_memory_benchmark.log')
         )
 
     # Run logits calculation benchmark
@@ -88,5 +88,5 @@ if __name__ == "__main__":
             benchmark_func=benchmark_funcs.binoculars_model,
             resume=args.resume,
             experiment_config_file=args.binoculars_model_benchmark,
-            logger=logger
+            logger=helper_funcs.start_logger('binoculars_model_benchmark.log')
         )
