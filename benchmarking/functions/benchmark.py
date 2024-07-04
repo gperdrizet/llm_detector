@@ -49,39 +49,48 @@ def run(
     # forth between the main loop worker and the benchmark process
     queue = Queue()
 
-    # Holder to collect iterations for batch, start with the first
-    # condition from the list, removing it so that it doesn't run twice
-    conditions_batch = [experiment.conditions.pop(0)]
+    # Holder to collect iterations for batch
+    conditions_batch = []
 
     experiment.logger.info('Starting main loop')
-    experiment.logger.info('Added condition 1 of %s to bach',
-                           len(experiment.conditions) + 1)
 
     # Loop on conditions
     for i, condition in enumerate(experiment.conditions):
 
-        # Check the iteration number, if it is not one, we are still in
-        # the same batch, add the current condition to the batch and
-        # move on to the next
-        if experiment.conditions[i][iteration_index] != 1:
+        # Tracker variables
+        last_condition = False
+        batch_complete = False
 
-            experiment.logger.info('Added condition %s of %s to bach',
-                                   i + 2, len(experiment.conditions) + 1)
+        # If we are at the last condition, mark it and set trigger
+        # the last run by setting batch_complete to true
+        if i + 1 == len(experiment.conditions):
+            last_condition = True
+            batch_complete = True
+            experiment.logger.info('Last condition of experiment')
+
+        # If this is not the last condition, check to see if the
+        # next condition's iteration number is 1, if it is, the
+        # current condition is the last one of this batch
+        elif i + 1 < len(experiment.conditions):
+            if experiment.conditions[i + 1][iteration_index] == 1:
+                batch_complete = True
+                experiment.logger.info('Last condition of batch')
+
+        # If the batch is not complete, add the current condition
+        # to the batch and move on
+        if batch_complete is False:
 
             conditions_batch.append(condition)
+            experiment.logger.info('Added condition %s of %s to bach',
+                                i + 1, len(experiment.conditions))
 
-        # If the iteration number is one, it's the first condition of
-        # the next batch, meaning the current batch is complete. Also
-        # run if this is the last condition in the list
+        # If this is the last condition, or the batch is complete
+        # add the current condition to the batch and run the batch
+        elif last_condition is True or batch_complete is True:
 
-        elif (experiment.conditions[i][iteration_index] == 1
-                or i == len(experiment.conditions)):
-
-            # If this run was triggered by the last condition, add it to
-            # the list before submitting the job
-            if i == len(experiment.conditions):
-                conditions_batch.append(condition)
-
+            conditions_batch.append(condition)
+            experiment.logger.info('Added condition %s of %s to bach',
+                                i + 1, len(experiment.conditions))
             experiment.logger.info('Running batch of %s conditions:',
                                    len(conditions_batch))
 
@@ -106,15 +115,8 @@ def run(
             experiment = queue.get()
             experiment.save()
 
-            # If this was not the last conditions, reset the batch by
-            # initializing it with the current condition that just
-            # triggered the run because it had a zero for it's
-            # iteration number
-            if i < len(experiment.conditions):
-
-                conditions_batch = [condition]
-                experiment.logger.info('Added condition %s of %s to bach',
-                                       i + 2, len(experiment.conditions) + 1)
+            # Reset the batch
+            conditions_batch = []
 
     experiment.logger.info('%s run complete', experiment.experiment_name)
 
@@ -537,6 +539,10 @@ def binoculars_model_benchmark(
         # Grab the slice
         text_fragment_list = text_list[fragment_start:fragment_start + fragment_length]
 
+        # Get the actual fragment length
+        fragment_length = len(text_fragment_list)
+        observer_model.logger.info('  Fragment length: %s',
+                                    fragment_length)
         # Make it a string
         text_fragment_string = ' '.join(text_fragment_list)
 
@@ -556,11 +562,11 @@ def binoculars_model_benchmark(
         observer_logits = observer_model.model(**encodings).logits
         performer_logits = performer_model.model(**encodings).logits
 
-        observer_model.logger.info('  Slice encoded')
-        observer_model.logger.info('  Encoded slice length: %s',
+        observer_model.logger.info('  Fragment encoded')
+        observer_model.logger.info('  Encoded fragment length: %s',
                                     fragment_length_tokens)
         observer_model.logger.info('  Logits length: %s',
-                                    performer_logits.shape(1))
+                                    performer_logits.shape[1])
 
         ppl = perplexity(encodings, performer_logits)
         observer_model.logger.info(f'  Have fragment perplexity: {ppl[0]}')
@@ -618,3 +624,4 @@ def binoculars_model_benchmark(
         'generating_model'].append(record['Generation model'])
 
     experiment.dependent_vars['author'].append(choice)
+    experiment.dependent_vars['text'].append(text_fragment_string)
