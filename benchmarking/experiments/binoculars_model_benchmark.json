@@ -9,10 +9,11 @@
         "length_tokens": [],
         "data_source": [],
         "generating_model": [],
-        "human_text": []
+        "author": []
     },
     "independent_vars": {
-        "iteration": 3,
+        "iteration": 10,
+        "device_map": ["cuda:1"],
         "hf_model_string": [
             "meta-llama/Meta-Llama-3-8B",
             "tiiuae/falcon-7b",

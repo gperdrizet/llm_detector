@@ -143,9 +143,28 @@ def run_batch(
         if var_name in dir(llm):
             setattr(llm, var_name, value)
 
+    # The binoculars benchmark needs special handling here because
+    # it uses two models - if that's what we are running, set-up a
+    # second model
+    if experiment.experiment_name == 'binoculars_model_benchmark':
+        performer_hf_model_string = choose_binoculars_performer_model(llm)
+        performer = llm_class.Llm()
+        performer.hf_model_string = performer_hf_model_string
+        performer.device_map = 'cuda:2'
+
+        # Also, load the Hans et al. (2024) data while we are at it
+        input_file = f'{config.BINOCULARS_DATA_PATH}/aggregated_hans_data.json'
+
+        with open(input_file, encoding = 'utf-8') as file:
+            data = json.load(file)
+
     # Load the llm, catching CUDA errors
     try:
         llm.load()
+
+        # And load the performer for binoculars benchmarks
+        if experiment.experiment_name == 'binoculars_model_benchmark':
+            performer.load()
 
     # If anything weird happens, we need to skip this batch. Log the
     # error and enter appropriate error string in the dependent
@@ -197,7 +216,22 @@ def run_batch(
 
         # Call the run specific benchmark function, catching CUDA errors
         try:
-            experiment.benchmark_func(experiment, llm)
+
+            # The binoculars benchmark needs special handling here because
+            # it uses two models, and takes data so we need a different
+            # function call
+            if experiment.experiment_name == 'binoculars_model_benchmark':
+
+                experiment.benchmark_func(
+                    experiment = experiment,
+                    data = data,
+                    observer_model = llm,
+                    performer_model = performer
+                )
+
+            # For all other benchmarks, use the standard function call
+            else:
+                experiment.benchmark_func(experiment, llm)
 
         # If anything weird happens, print the error and enter appropriate
         # error string in the dependent variables
@@ -418,41 +452,10 @@ def logits_calculation_benchmark(
     experiment.dependent_vars['logits_time'].append(logits_time)
     experiment.dependent_vars['rate'].append(rate)
 
+def choose_binoculars_performer_model(observer_model: Callable=None) -> str:
+    '''Picks the correct instruct model to server as the binoculars
+    score performer based on the identity of the observer model'''
 
-def binoculars_model_benchmark(
-        experiment: Callable = None,
-        observer_model: Callable = None
-) -> None:
-
-    '''Main function to run binoculars score benchmark'''
-
-    # Need to drop the last value for hf_model_string in the results. It
-    # was added by the main loop and we want to collect all data here
-    # for this benchmark
-    del experiment.independent_vars['hf_model_string'][-1]
-
-    # Load the data
-    input_file = f'{config.BINOCULARS_DATA_PATH}/aggregated_hans_data.json'
-
-    with open(input_file, encoding = 'utf-8') as file:
-        data = json.load(file)
-
-    # Find out how many records we have for use later
-    num_records = len(list(data.keys()))
-
-    # Set reuseable devices - using both chips on a single K80 for now
-    observer_device = 'cuda:1'
-    performer_device = 'cuda:2'
-
-    # Set available CPU cores
-    torch.set_num_threads(16)
-
-    # Load two instances of the model, one we already have from the main
-    # loop so just make sure it goes to the right device before loading
-    # it. The other we need to instantiate.
-    observer_model.device_map = observer_device
-
-    # Pick the correct instruct model based on the observer model
     if observer_model.hf_model_string == 'meta-llama/Meta-Llama-3-8B':
         performer_model_hf_string='meta-llama/Meta-Llama-3-8B-instruct'
 
@@ -474,14 +477,17 @@ def binoculars_model_benchmark(
     elif observer_model.hf_model_string == 'Qwen/Qwen2-7B':
         performer_model_hf_string='Qwen/Qwen2-7B-Instruct'
 
-    performer_model = llm_class.Llm(
-        hf_model_string = performer_model_hf_string,
-        device_map = performer_device
-    )
+    return performer_model_hf_string
 
-    # Load the models
-    observer_model.load()
-    performer_model.load()
+
+def binoculars_model_benchmark(
+        experiment: Callable = None,
+        data: dict = None,
+        observer_model: Callable = None,
+        performer_model: Callable = None
+) -> None:
+
+    '''Main function to run binoculars score benchmark'''
 
     # Set the models to evaluation mode to deactivate any dropout
     # modules the is done to ensure reproducibility of results during
@@ -489,150 +495,126 @@ def binoculars_model_benchmark(
     observer_model.model.eval()
     performer_model.model.eval()
 
-    # Add end of sequence for the pad token if not defined
+    # Add end of sequence to the observer's tokenizer for the pad
+    # token if not defined
     if not observer_model.tokenizer.pad_token:
         observer_model.tokenizer.pad_token = observer_model.tokenizer.eos_token
 
-    # Sample the data 1000 times
-    fragment_count = 0
-    texts = {}
+    # Find out how many records we have for use later
+    num_records = len(list(data.keys()))
 
-    while fragment_count < 500:
+    # Sample the data, repeating the sampling until
+    # we get a valid text fragment
+    text_fragment_string = None
+
+    while text_fragment_string is None:
 
         # Pick a random record number
         record_id = random.randint(0, num_records - 1)
 
         # Pull the record and get the human and synthetic texts
         record = data[str(record_id)]
-        texts['human'] = record['Human text']
+        texts = {'human': record['Human text']}
         texts['synthetic'] = record['Synthetic text']
 
-        # Score both
-        for text_source, text in texts.items():
+        # Randomly choose human or synthetic text from this record
+        choices = ['human', 'synthetic']
+        choice = random.choice(choices)
+        text = texts[choice]
 
-            # Split text to list
-            text_list = text.split(' ')
+        # Split text to list
+        text_list = text.split(' ')
 
-            # Get the total length
-            total_length = len(text_list)
+        # Get the total length
+        total_length = len(text_list)
 
-            # Set counters for the fragment start and end
-            i,j = 0,0
+        # Select random list index for fragment start
+        fragment_start = random.randint(0, total_length - 1)
 
-            # Loop until the right edge is past the end
-            while j < total_length and fragment_count < 500:
+        # Pick a random length between 50 and 300 tokens
+        fragment_length = random.randint(50, 300)
 
-                # Count the fragment
-                fragment_count += 1
-                observer_model.logger.info(f'Fragment count: {fragment_count}')
+        # Grab the slice
+        text_fragment_list = text_list[fragment_start:fragment_start + fragment_length]
 
-                # Pick a random length between 100 and 300 tokens
-                slice_length = random.randint(50, 300)
+        # Make it a string
+        text_fragment_string = ' '.join(text_fragment_list)
 
-                # If the slice length is greater than the length of the
-                # input tokens, use all of them
-                if slice_length > total_length:
-                    slice_length = total_length
+    # Fence to catch CUDA OOM
+    try:
+        # Encode
+        encodings = observer_model.tokenizer(
+            text_fragment_string,
+            return_tensors = 'pt',
+            return_token_type_ids = False
+        ).to(observer_model.device_map)
 
-                # Set the window
-                j = i + slice_length
+        # Get input ids as list for logging/data collection
+        fragment_length_tokens = encodings['input_ids'].shape[1]
 
-                # Grab the slice
-                text_list_slice = text_list[i:j]
+        # Calculate logits
+        observer_logits = observer_model.model(**encodings).logits
+        performer_logits = performer_model.model(**encodings).logits
 
-                # Make it a string
-                text_string_slice = ' '.join(text_list_slice)
+        observer_model.logger.info('  Slice encoded')
+        observer_model.logger.info('  Encoded slice length: %s',
+                                    fragment_length_tokens)
+        observer_model.logger.info('  Logits length: %s',
+                                    performer_logits.shape(1))
 
-                # Fence to catch CUDA OOM
-                try:
-                    # Encode
-                    encodings = observer_model.tokenizer(
-                        text_string_slice,
-                        return_tensors = 'pt',
-                        return_token_type_ids = False
-                    ).to(observer_device)
+        ppl = perplexity(encodings, performer_logits)
+        observer_model.logger.info(f'  Have fragment perplexity: {ppl[0]}')
 
-                    # Get input ids as list for logging/data collection
-                    fragment_length_tokens = encodings['input_ids'].shape[1]
+        x_ppl = entropy(
+            observer_logits.to('cuda:0'),
+            performer_logits.to('cuda:0'),
+            encodings.to('cuda:0'),
+            observer_model.tokenizer.pad_token_id
+        )
 
-                    # Calculate logits
-                    observer_logits = observer_model.model(**encodings).logits
-                    performer_logits = performer_model.model(**encodings).logits
+        observer_model.logger.info(f'  Have fragment cross perplexity: {x_ppl[0]}')
 
-                    observer_model.logger.info('Slice encoded')
-                    observer_model.logger.info('Encoded slice length: %s',
-                                               fragment_length_tokens)
-                    observer_model.logger.info('Logits length: %s',
-                                               performer_logits.shape)
+        binoculars_scores = ppl / x_ppl
+        binoculars_scores = binoculars_scores.tolist()
+        observer_model.logger.info('  Binoculars score: %s',
+                                    binoculars_scores[0])
 
-                    ppl = perplexity(encodings, performer_logits)
-                    observer_model.logger.info(f'Have slice perplexity: {ppl}')
+    except RuntimeError as runtime_error:
 
-                    x_ppl = entropy(
-                        observer_logits.to('cuda:0'),
-                        performer_logits.to('cuda:0'),
-                        encodings.to('cuda:0'),
-                        observer_model.tokenizer.pad_token_id
-                    )
+        observer_model.logger.error(runtime_error)
 
-                    observer_model.logger.info(f'Have cross perplexity: {x_ppl}')
+        # For out of memory enter OOM
+        if 'CUDA out of memory' in str(runtime_error):
+            error_string = 'OOM'
 
-                    binoculars_scores = ppl / x_ppl
-                    binoculars_scores = binoculars_scores.tolist()
-                    observer_model.logger.info('Binoculars score: %s',
-                                               binoculars_scores[0])
+        # Otherwise enter NAN:
+        else:
+            error_string = 'NAN'
 
-                except RuntimeError as runtime_error:
+        ppl = [error_string]
+        x_ppl = [error_string]
+        binoculars_scores = [error_string]
 
-                    observer_model.logger.error(runtime_error)
+    # Record the results
+    experiment.dependent_vars[
+        'binoculars_score'].append(str(binoculars_scores[0]))
 
-                    # For out of memory enter OOM
-                    if 'CUDA out of memory' in str(runtime_error):
-                        error_string = 'OOM'
+    experiment.dependent_vars[
+        'perplexity'].append(str(ppl[0]))
 
-                    # Otherwise enter NAN:
-                    else:
-                        error_string = 'NAN'
+    experiment.dependent_vars[
+        'cross-perplexity'].append(str(x_ppl[0]))
 
-                    ppl = [error_string]
-                    x_ppl = [error_string]
-                    binoculars_scores = [error_string]
+    experiment.dependent_vars[
+        'length_words'].append(fragment_length)
 
-                    # Subtract one from the fragment count so we are not
-                    # including the one that just caused an error in the
-                    # sample size
-                    fragment_count -= 1
+    experiment.dependent_vars[
+        'length_tokens'].append(fragment_length_tokens)
 
-                # Record the results
-                hf_model_string = observer_model.hf_model_string
-                experiment.independent_vars[
-                    'hf_model_string'].append(hf_model_string)
+    experiment.dependent_vars[
+        'data_source'].append(record['Data source'])
 
-                experiment.dependent_vars[
-                    'binoculars_score'].append(str(binoculars_scores[0]))
+    experiment.dependent_vars[
+        'generating_model'].append(record['Generation model'])
 
-                experiment.dependent_vars[
-                    'perplexity'].append(str(ppl[0]))
-
-                experiment.dependent_vars[
-                    'cross-perplexity'].append(str(x_ppl[0]))
-
-                experiment.dependent_vars[
-                    'length_words'].append(slice_length)
-
-                experiment.dependent_vars[
-                    'length_tokens'].append(fragment_length_tokens)
-
-                experiment.dependent_vars[
-                    'data_source'].append(record['Data source'])
-
-                experiment.dependent_vars[
-                    'generating_model'].append(record['Generation model'])
-
-                if text_source == 'human':
-                    experiment.dependent_vars['human_text'].append(True)
-                else:
-                    experiment.dependent_vars['human_text'].append(False)
-
-                # Reset for the next loop
-                i = j
+    experiment.dependent_vars['author'].append(choice)
