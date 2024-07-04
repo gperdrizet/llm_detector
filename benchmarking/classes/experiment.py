@@ -28,6 +28,7 @@ class Experiment:
         # Initialize experiment metadata
         self.experiment_name = configuration['experiment_name']
         self.experiment_description = configuration['experiment_description']
+        self.total_iterations = configuration['independent_vars']['iteration']
 
         # Add the logger
         self.logger = helper_funcs.start_logger(f'{self.experiment_name}.log')
@@ -79,20 +80,22 @@ class Experiment:
                 # If the key is an independent variable
                 if key in self.independent_vars.keys():
 
-                    # Add its list of values to completed conditions
+                    # Add it's list of values to completed conditions
                     completed_conditions.append(old_results[key])
 
                     # And add the data to the independent vars dict so that
                     # when the results file is overwritten on the first run
                     # the old data is not lost
                     self.independent_vars[key] = old_results[key]
+                    self.logger.info(' %s has %s values',
+                                      key, len(self.independent_vars[key]))
 
                 # If the key is a dependent variable, just write the data
                 # to the dependent variable dictionary
                 if key in self.dependent_vars.keys():
                     self.dependent_vars[key] = old_results[key]
-
-                self.logger.info(' %s has %s values', key, len(old_results[key]))
+                    self.logger.info(' %s has %s values', 
+                                     key, len(self.dependent_vars[key]))
 
             # Now expand and zip the list of list containing the completed
             # conditions, this will create a list containing a tuple for each
@@ -110,7 +113,7 @@ class Experiment:
             if condition not in completed_conditions:
                 new_conditions.append(condition)
 
-        self.logger.info('Created list of conditions left to run')
+        self.logger.info('Created list of %s conditions left to run', len(new_conditions))
 
         # Finally, overwrite the conditions list with the list of new
         # conditions which still need to be completed

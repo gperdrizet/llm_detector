@@ -9,10 +9,11 @@
         "length_tokens": [],
         "data_source": [],
         "generating_model": [],
-        "author": []
+        "author": [],
+        "text": []
     },
     "independent_vars": {
-        "iteration": 10,
+        "iteration": 100,
         "device_map": ["cuda:1"],
         "hf_model_string": [
             "meta-llama/Meta-Llama-3-8B",

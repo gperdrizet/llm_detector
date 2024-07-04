@@ -45,17 +45,22 @@ def run(
     # condition tuple
     iteration_index = independent_var_names.index('iteration')
 
+    # Get the highest iteration number for the run
+    last_iteration = experiment.total_iterations
+    experiment.logger.info('Last iteration of batch: %s', last_iteration)
+
     # Create a queue to pass the experiment class instance back and
     # forth between the main loop worker and the benchmark process
     queue = Queue()
 
     # Holder to collect iterations for batch
     conditions_batch = []
-
     experiment.logger.info('Starting main loop')
 
     # Loop on conditions
     for i, condition in enumerate(experiment.conditions):
+        experiment.logger.info('Current iteration: %s',
+                                experiment.conditions[i][iteration_index])
 
         # Tracker variables
         last_condition = False
@@ -69,10 +74,10 @@ def run(
             experiment.logger.info('Last condition of experiment')
 
         # If this is not the last condition, check to see if the
-        # next condition's iteration number is 1, if it is, the
-        # current condition is the last one of this batch
+        # condition's iteration number is is the last one, if it is, 
+        # the current condition is the last one of this batch
         elif i + 1 < len(experiment.conditions):
-            if experiment.conditions[i + 1][iteration_index] == 1:
+            if experiment.conditions[i][iteration_index] == last_iteration:
                 batch_complete = True
                 experiment.logger.info('Last condition of batch')
 
@@ -572,9 +577,9 @@ def binoculars_model_benchmark(
         observer_model.logger.info(f'  Have fragment perplexity: {ppl[0]}')
 
         x_ppl = entropy(
-            observer_logits.to('cuda:0'),
-            performer_logits.to('cuda:0'),
-            encodings.to('cuda:0'),
+            observer_logits,#.to('cuda:0'),
+            performer_logits.to(observer_model.device_map),
+            encodings,#.to('cuda:0'),
             observer_model.tokenizer.pad_token_id
         )
 
