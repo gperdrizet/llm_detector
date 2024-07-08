@@ -31,11 +31,11 @@ def parse_args() -> dict:
 
     # Add arguments
     parser.add_argument(
-        '--binoculars',
+        '--perplexity-ratio',
         required = False,
         choices = ['True', 'False'],
         default = 'False',
-        help = 'Wether or not to run binoculars',
+        help = 'Run perplexity ratio score calculation on Hans 2024 datasets',
         metavar = '<BOOL>'
     )
 

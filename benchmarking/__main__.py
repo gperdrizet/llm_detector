@@ -2,17 +2,17 @@
 
 import benchmarking.functions.helper as helper_funcs
 import benchmarking.functions.benchmark as benchmark_funcs
-import benchmarking.functions.binoculars as binocular_funcs
+import benchmarking.functions.perplexity_ratio as perplexity_funcs
 
 if __name__ == "__main__":
 
     # Parse command line arguments
-    args=helper_funcs.parse_args()
+    args = helper_funcs.parse_args()
 
     # Run binoculars
-    if args.binoculars != 'False':
+    if args.perplexity_ratio != 'False':
 
-        binocular_funcs.binoculars()
+        perplexity_funcs.perplexity_ratio_score()
 
     # Run benchmark
     if args.run_benchmark is not None:

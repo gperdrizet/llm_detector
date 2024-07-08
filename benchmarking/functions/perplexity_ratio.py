@@ -12,7 +12,7 @@ import benchmarking.functions.helper as helper_funcs
 from benchmarking.functions.metrics import perplexity, entropy
 import benchmarking.classes.llm as llm_class
 
-def binoculars():
+def perplexity_ratio_score():
     '''Computes perplexity ratio score on test string.'''
 
     # Start logger
@@ -59,7 +59,7 @@ def binoculars():
 
     ###############################################################
     # Next we are going to loop over all of the core data files   #
-    # provided in the binoculars repo and compute the perplexity, #
+    # provided in the perplexity ratio repo and compute the perplexity, #
     # cross-perplexity and perplexity ratio score on all of if so #
     # we can make some plots and get a better feel for the        #
     # distribution                                                #
@@ -72,8 +72,8 @@ def binoculars():
         'Dataset': [],
         'Source': [],
         'String': [],
-        'Observer peak memory (GB)': [],
-        'Performer peak memory (GB)': [],
+        'reader peak memory (GB)': [],
+        'Writer peak memory (GB)': [],
         'Perplexity': [],
         'Cross-perplexity': [],
         'Perplexity ratio score': [],
@@ -101,7 +101,7 @@ def binoculars():
 
                     # Now we have both the human and synthetic texts for this record.
                     # Next thing to do is break them into smaller, randomly sized chunks
-                    # for encoding and binoculars score calculation. Randomly sized so
+                    # for encoding and perplexity ratio score calculation. Randomly sized so
                     # that we can look at length as a factor later.
                     for source, text_string in texts.items():
 
@@ -146,10 +146,10 @@ def binoculars():
                                 fragment_count=fragment_count,
                                 dataset=dataset,
                                 source=source,
-                                observer_model=observer_model,
-                                performer_model=performer_model,
-                                observer_device=observer_device,
-                                performer_device=performer_device,
+                                reader_model=reader_model,
+                                writer_model=writer_model,
+                                reader_device=reader_device,
+                                writer_device=writer_device,
                                 logger=logger
                             )
 
@@ -169,28 +169,28 @@ def main_loop(
     fragment_count: int=None,
     dataset: str=None,
     source: str=None,
-    observer_model: Callable=None,
-    performer_model: Callable=None,
-    observer_device: str='cuda:1',
-    performer_device: str='cuda:2',
+    reader_model: Callable=None,
+    writer_model: Callable=None,
+    reader_device: str='cuda:1',
+    writer_device: str='cuda:2',
     logger: Callable=None
 ) -> None:
 
     '''Function to encapsulate GPU operations for
-    calculation of binoculars score on text fragment.'''
+    calculation of perplexity ratio score on text fragment.'''
 
     # Reset peak memory so we can track this iterations allocation
-    torch.cuda.reset_peak_memory_stats(device=observer_device)
-    torch.cuda.reset_peak_memory_stats(device=performer_device)
+    torch.cuda.reset_peak_memory_stats(device=reader_device)
+    torch.cuda.reset_peak_memory_stats(device=writer_device)
 
     # Fence to catch CUDA OOM
     try:
 
-        fragment_length, ppl, x_ppl, binoculars_scores=calculate_binoculars_score(
+        fragment_length, ppl, x_ppl, perplexity_ratio_scores=calculate_perplexity_ratio_score(
             text_string_slice=text_string_slice,
-            observer_model=observer_model,
-            performer_model=performer_model,
-            observer_device=observer_device,
+            reader_model=reader_model,
+            writer_model=writer_model,
+            reader_device=reader_device,
             logger=logger
         )
 
@@ -209,79 +209,79 @@ def main_loop(
         fragment_length=error_string
         ppl=[error_string]
         x_ppl=[error_string]
-        binoculars_scores=[error_string]
+        perplexity_ratio_scores=[error_string]
 
-    # Get peak memory use for observer and performer
-    performer_peak_memory=torch.cuda.max_memory_allocated(device=performer_device) / (10 ** 9)
-    observer_peak_memory=torch.cuda.max_memory_allocated(device=observer_device) / (10 ** 9)
+    # Get peak memory use for reader and writer
+    writer_peak_memory=torch.cuda.max_memory_allocated(device=writer_device) / (10 ** 9)
+    reader_peak_memory=torch.cuda.max_memory_allocated(device=reader_device) / (10 ** 9)
 
     results['Fragment'].append(str(fragment_count))
     results['Fragment length (tokens)'].append(str(fragment_length))
     results['Dataset'].append(str(dataset))
     results['Source'].append(str(source))
     results['String'].append(text_string_slice)
-    results['Observer peak memory (GB)'].append(str(observer_peak_memory))
-    results['Performer peak memory (GB)'].append(str(performer_peak_memory))
+    results['Reader peak memory (GB)'].append(str(reader_peak_memory))
+    results['Writer peak memory (GB)'].append(str(writer_peak_memory))
     results['Perplexity'].append(str(ppl[0]))
     results['Cross-perplexity'].append(str(x_ppl[0]))
-    results['Binoculars score'].append(str(binoculars_scores[0]))
+    results['Perplexity ratio score'].append(str(perplexity_ratio_scores[0]))
 
     print(f'Fragment: {fragment_count}')
     print(f'Fragment length (tokens): {fragment_length}')
     print(f'Dataset: {dataset}')
     print(f'Source: {source}')
     print(f'Text: {text_string_slice}')
-    print(f'Observer peak memory (GB): {round(observer_peak_memory, 1)}')
-    print(f'Performer peak memory (GB): {round(performer_peak_memory,1)}')
+    print(f'Reader peak memory (GB): {round(reader_peak_memory, 1)}')
+    print(f'Writer peak memory (GB): {round(writer_peak_memory,1)}')
     print(f'Perplexity: {ppl[0]}')
     print(f'Cross-perplexity: {x_ppl[0]}')
-    print(f'Binoculars score: {binoculars_scores[0]}')
+    print(f'Binoculars score: {perplexity_ratio_scores[0]}')
     print()
 
     # Put the models and results dict back in the queue
     return results
 
-def calculate_binoculars_score(
+def calculate_perplexity_ratio_score(
     text_string_slice: str=None,
-    observer_model: Callable=None,
-    performer_model: Callable=None,
-    observer_device: str='cuda:1',
+    reader_model: Callable=None,
+    writer_model: Callable=None,
+    reader_device: str='cuda:1',
     logger: Callable=None
 ):
 
-    '''Computes the binoculars score'''
+    '''Computes the perplexity ratio score'''
 
     # Encode
-    encodings=observer_model.tokenizer(
+    encodings=reader_model.tokenizer(
         text_string_slice,
         return_tensors="pt",
         return_token_type_ids=False
-    ).to(observer_device)
+    ).to(reader_device)
 
     # Get input ids only as list for later logging/data collection
     fragment_length=encodings['input_ids'].shape[1]
 
-    observer_logits=observer_model.model(**encodings).logits
-    performer_logits=performer_model.model(**encodings).logits
+    reader_logits=reader_model.model(**encodings).logits
+    writer_logits=writer_model.model(**encodings).logits
 
     logger.info('Slice encoded')
     logger.info('Slice length: %s', encodings["input_ids"].shape[1])
-    logger.info('Logits length: %s', {performer_logits.shape})
+    logger.info('Logits length: %s', {writer_logits.shape})
 
-    ppl=perplexity(encodings, performer_logits)
+    ppl=perplexity(encodings, writer_logits)
     logger.info('Have slice perplexity')
 
     x_ppl=entropy(
-        observer_logits.to('cuda:0'),
-        performer_logits.to('cuda:0'),
+        reader_logits.to('cuda:0'),
+        writer_logits.to('cuda:0'),
         encodings.to('cuda:0'),
-        observer_model.tokenizer.pad_token_id
+        reader_model.tokenizer.pad_token_id
     )
 
     logger.info('Have cross perplexity')
 
-    binoculars_scores = ppl / x_ppl
-    binoculars_scores = binoculars_scores.tolist()
-    logger.info('Binoculars score: %s', binoculars_scores[0])
+    perplexity_ratio_scores = ppl / x_ppl
+    perplexity_ratio_scores = perplexity_ratio_scores.tolist()
+    logger.info('Perplexity ratio score: %s', perplexity_ratio_scores[0])
 
-    return fragment_length, ppl, x_ppl, binoculars_scores
+    return fragment_length, ppl, x_ppl, perplexity_ratio_scores
