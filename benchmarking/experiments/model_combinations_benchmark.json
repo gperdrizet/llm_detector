@@ -1,6 +1,6 @@
 {
-    "experiment_name": "binoculars_model_benchmark",
-    "experiment_description": "Binoculars score calculation using different models",
+    "experiment_name": "model_combinations_benchmark",
+    "experiment_description": "Experiment to test the effect of using mis-matched model combinations other than base & instruct on perplexity ratio score.",
     "dependent_vars": {
         "binoculars_score": [],
         "perplexity": [],

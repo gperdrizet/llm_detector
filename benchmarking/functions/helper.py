@@ -53,7 +53,7 @@ def parse_args() -> dict:
 
     return args
 
-def start_logger(logfile_name):
+def start_logger(logfile_name: str='llm_detector.log') -> Callable:
     '''Sets up logging, returns logger'''
 
     # Clear logs if asked
@@ -62,7 +62,7 @@ def start_logger(logfile_name):
             os.remove(file)
 
     # Create logger
-    logger = logging.getLogger('llama3')
+    logger = logging.getLogger('llm_detector')
     logger.setLevel(config.LOG_LEVEL)
 
     handler = RotatingFileHandler(

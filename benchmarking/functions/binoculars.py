@@ -1,4 +1,4 @@
-'''Functions for detecting LLM generated text. Binoculars score
+'''Functions for detecting LLM generated text. Perplexity ratio score
 metric inspired by: https://arxiv.org/abs/2401.12070'''
 
 from __future__ import annotations
@@ -13,55 +13,56 @@ from benchmarking.functions.metrics import perplexity, entropy
 import benchmarking.classes.llm as llm_class
 
 def binoculars():
-    '''Computes binoculars score on test string.'''
+    '''Computes perplexity ratio score on test string.'''
 
     # Start logger
-    logger=helper_funcs.start_logger()
+    logger=helper_funcs.start_logger('hans_data_perplexity_ratio_score')
     logger.info('Starting binoculars')
 
     # Set reuseable devices - using both chips on a single K80 for now
-    observer_device='cuda:1'
-    performer_device='cuda:2'
+    reader_device='cuda:1'
+    writer_device='cuda:2'
 
     # Set available CPU cores - doing this from the LLM class does not seem to work
     torch.set_num_threads(16)
 
-    # Instantiate two instances of the model, one base for the observer
-    # and one instruct for the performer. Use different GPUs.
-    observer_model=llm_class.Llm(
+    # Instantiate two instances of the model, one base for the reader
+    # and one instruct for the writer. Use different GPUs.
+    reader_model=llm_class.Llm(
         hf_model_string='meta-llama/Meta-Llama-3-8B',
-        device_map=observer_device,
+        device_map=reader_device,
         logger=logger
     )
 
-    performer_model=llm_class.Llm(
+    writer_model=llm_class.Llm(
         hf_model_string='meta-llama/Meta-Llama-3-8B-instruct',
-        device_map=performer_device,
+        device_map=writer_device,
         logger=logger
     )
 
     # Load the models
-    observer_model.load()
-    performer_model.load()
+    reader_model.load()
+    writer_model.load()
 
     # Set the models to evaluation mode to deactivate any dropout modules
     # the is done to ensure reproducibility of results during evaluation
-    observer_model.model.eval()
-    performer_model.model.eval()
+    reader_model.model.eval()
+    writer_model.model.eval()
 
     logger.info('Models loaded')
 
     # Add end of sequence for the pad token if one has not been defined
-    if not observer_model.tokenizer.pad_token:
-        observer_model.tokenizer.pad_token=observer_model.tokenizer.eos_token
+    if not reader_model.tokenizer.pad_token:
+        reader_model.tokenizer.pad_token=reader_model.tokenizer.eos_token
 
     logger.info('Tokenizer prepared')
 
     ###############################################################
     # Next we are going to loop over all of the core data files   #
     # provided in the binoculars repo and compute the perplexity, #
-    # cross-perplexity and binocular score on all of if so we can #
-    # make some plots and get a better feel for the distribution  #
+    # cross-perplexity and perplexity ratio score on all of if so #
+    # we can make some plots and get a better feel for the        #
+    # distribution                                                #
     ###############################################################
 
     # Collector dict for results
@@ -75,17 +76,17 @@ def binoculars():
         'Performer peak memory (GB)': [],
         'Perplexity': [],
         'Cross-perplexity': [],
-        'Binoculars score': [],
+        'Perplexity ratio score': [],
     }
 
     # Output file
-    results_datafile=f'{config.BINOCULARS_DATA_PATH}/scores.json'
+    results_datafile=f'{config.HANS_DATA_PATH}/scores.json'
 
     # Counter for total text fragments scored
     fragment_count=0
 
     # Loop on JSON lines...
-    for dataset, dataset_file in config.BINOCULARS_DATA_FILES.items():
+    for dataset, dataset_file in config.HANS_DATA_FILES.items():
         with open(dataset_file, encoding='utf-8') as f:
             for line in f:
                 record=json.loads(line)

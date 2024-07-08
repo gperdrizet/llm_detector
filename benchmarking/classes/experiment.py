@@ -17,8 +17,7 @@ class Experiment:
     other experiment metadata and data manipulation methods.'''
 
     def __init__(self,
-            experiment_config_file: str = None,
-            #logger: Callable = None
+            experiment_config_file: str = None
     ) -> None:
 
         # Load the experiment configuration file
@@ -94,7 +93,7 @@ class Experiment:
                 # to the dependent variable dictionary
                 if key in self.dependent_vars.keys():
                     self.dependent_vars[key] = old_results[key]
-                    self.logger.info(' %s has %s values', 
+                    self.logger.info(' %s has %s values',
                                      key, len(self.dependent_vars[key]))
 
             # Now expand and zip the list of list containing the completed

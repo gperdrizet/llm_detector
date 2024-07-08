@@ -141,17 +141,17 @@ def run_batch(
         if var_name in dir(llm):
             setattr(llm, var_name, value)
 
-    # The binoculars benchmark needs special handling here because
-    # it uses two models - if that's what we are running, set-up a
+    # Perplexity ratio score benchmarks need special handling here because
+    # they use two models - if that's what we are running, set-up a
     # second model
-    if experiment.experiment_name == 'binoculars_model_benchmark':
-        performer_hf_model_string = choose_binoculars_performer_model(llm)
-        performer = llm_class.Llm()
-        performer.hf_model_string = performer_hf_model_string
-        performer.device_map = 'cuda:2'
+    if experiment.experiment_name == 'perplexity_ratio_model_benchmark':
+        writer_hf_model_string = choose_writer_model(llm)
+        writer_model = llm_class.Llm()
+        writer_model.hf_model_string = writer_hf_model_string
+        writer_model.device_map = 'cuda:2'
 
         # Also, load the Hans et al. (2024) data while we are at it
-        input_file = f'{config.BINOCULARS_DATA_PATH}/aggregated_hans_data.json'
+        input_file = f'{config.HANS_DATA_PATH}/aggregated_hans_data.json'
 
         with open(input_file, encoding = 'utf-8') as file:
             data = json.load(file)
@@ -160,9 +160,9 @@ def run_batch(
     try:
         llm.load()
 
-        # And load the performer for binoculars benchmarks
-        if experiment.experiment_name == 'binoculars_model_benchmark':
-            performer.load()
+        # And load the performer for perplexity ratio score benchmarks
+        if experiment.experiment_name == 'perplexity_ratio_model_benchmark':
+            writer_model.load()
 
     # If anything weird happens, we need to skip this batch. Log the
     # error and enter appropriate error string in the dependent
@@ -218,13 +218,13 @@ def run_batch(
             # The binoculars benchmark needs special handling here because
             # it uses two models, and takes data so we need a different
             # function call
-            if experiment.experiment_name == 'binoculars_model_benchmark':
+            if experiment.experiment_name == 'perplexity_ratio_model_benchmark':
 
                 experiment.benchmark_func(
                     experiment = experiment,
                     data = data,
-                    observer_model = llm,
-                    performer_model = performer
+                    reader_model = llm,
+                    writer_model = writer_model
                 )
 
             # For all other benchmarks, use the standard function call
@@ -454,53 +454,53 @@ def logits_calculation_benchmark(
     experiment.dependent_vars['logits_time'].append(logits_time)
     experiment.dependent_vars['rate'].append(rate)
 
-def choose_binoculars_performer_model(observer_model: Callable=None) -> str:
-    '''Picks the correct instruct model to server as the binoculars
-    score performer based on the identity of the observer model'''
+def choose_writer_model(reader_model: Callable=None) -> str:
+    '''Picks the correct instruct model to server as the writer
+      based on the identity of the reader model'''
 
-    if observer_model.hf_model_string == 'meta-llama/Meta-Llama-3-8B':
-        performer_model_hf_string='meta-llama/Meta-Llama-3-8B-instruct'
+    if reader_model.hf_model_string == 'meta-llama/Meta-Llama-3-8B':
+        writer_model_hf_string='meta-llama/Meta-Llama-3-8B-instruct'
 
-    elif observer_model.hf_model_string == 'tiiuae/falcon-7b':
-        performer_model_hf_string='tiiuae/falcon-7b-instruct'
+    elif reader_model.hf_model_string == 'tiiuae/falcon-7b':
+        writer_model_hf_string='tiiuae/falcon-7b-instruct'
 
-    elif observer_model.hf_model_string == 'mistralai/Mistral-7B-v0.3':
-        performer_model_hf_string='mistralai/Mistral-7B-Instruct-v0.3'
+    elif reader_model.hf_model_string == 'mistralai/Mistral-7B-v0.3':
+        writer_model_hf_string='mistralai/Mistral-7B-Instruct-v0.3'
 
-    elif observer_model.hf_model_string == 'meta-llama/Llama-2-7b-hf':
-        performer_model_hf_string='meta-llama/Llama-2-7b-chat-hf'
+    elif reader_model.hf_model_string == 'meta-llama/Llama-2-7b-hf':
+        writer_model_hf_string='meta-llama/Llama-2-7b-chat-hf'
 
-    elif observer_model.hf_model_string == 'google/gemma-2-9b':
-        performer_model_hf_string='google/gemma-2-9b-it'
+    elif reader_model.hf_model_string == 'google/gemma-2-9b':
+        writer_model_hf_string='google/gemma-2-9b-it'
 
-    elif observer_model.hf_model_string == 'google/recurrentgemma-2b':
-        performer_model_hf_string='google/recurrentgemma-2b-it'
+    elif reader_model.hf_model_string == 'google/recurrentgemma-2b':
+        writer_model_hf_string='google/recurrentgemma-2b-it'
 
-    elif observer_model.hf_model_string == 'Qwen/Qwen2-7B':
-        performer_model_hf_string='Qwen/Qwen2-7B-Instruct'
+    elif reader_model.hf_model_string == 'Qwen/Qwen2-7B':
+        writer_model_hf_string='Qwen/Qwen2-7B-Instruct'
 
-    return performer_model_hf_string
+    return writer_model_hf_string
 
 
-def binoculars_model_benchmark(
+def perplexity_ratio_model_benchmark(
         experiment: Callable = None,
         data: dict = None,
-        observer_model: Callable = None,
-        performer_model: Callable = None
+        reader_model: Callable = None,
+        writer_model: Callable = None
 ) -> None:
 
-    '''Main function to run binoculars score benchmark'''
+    '''Main function to run perplexity ratio score benchmark'''
 
     # Set the models to evaluation mode to deactivate any dropout
     # modules the is done to ensure reproducibility of results during
     # evaluation
-    observer_model.model.eval()
-    performer_model.model.eval()
+    reader_model.model.eval()
+    writer_model.model.eval()
 
     # Add end of sequence to the observer's tokenizer for the pad
     # token if not defined
-    if not observer_model.tokenizer.pad_token:
-        observer_model.tokenizer.pad_token = observer_model.tokenizer.eos_token
+    if not reader_model.tokenizer.pad_token:
+        reader_model.tokenizer.pad_token = reader_model.tokenizer.eos_token
 
     # Find out how many records we have for use later
     num_records = len(list(data.keys()))
@@ -541,7 +541,7 @@ def binoculars_model_benchmark(
 
         # Get the actual fragment length
         fragment_length = len(text_fragment_list)
-        observer_model.logger.debug('  Fragment length: %s',
+        reader_model.logger.debug('  Fragment length: %s',
                                      fragment_length)
         # Make it a string
         text_fragment_string = ' '.join(text_fragment_list)
@@ -549,45 +549,45 @@ def binoculars_model_benchmark(
     # Fence to catch CUDA OOM
     try:
         # Encode
-        encodings = observer_model.tokenizer(
+        encodings = reader_model.tokenizer(
             text_fragment_string,
             return_tensors = 'pt',
             return_token_type_ids = False
-        ).to(observer_model.device_map)
+        ).to(reader_model.device_map)
 
         # Get input ids as list for logging/data collection
         fragment_length_tokens = encodings['input_ids'].shape[1]
 
         # Calculate logits
-        observer_logits = observer_model.model(**encodings).logits
-        performer_logits = performer_model.model(**encodings).logits
+        reader_logits = reader_model.model(**encodings).logits
+        writer_logits = writer_model.model(**encodings).logits
 
-        observer_model.logger.debug('  Fragment encoded')
-        observer_model.logger.debug('  Encoded fragment length: %s',
+        reader_model.logger.debug('  Fragment encoded')
+        reader_model.logger.debug('  Encoded fragment length: %s',
                                     fragment_length_tokens)
-        observer_model.logger.debug('  Logits length: %s',
-                                    performer_logits.shape[1])
+        reader_model.logger.debug('  Logits length: %s',
+                                    writer_logits.shape[1])
 
-        ppl = perplexity(encodings, performer_logits)
-        observer_model.logger.debug(f'  Have fragment perplexity: {ppl[0]}')
+        ppl = perplexity(encodings, writer_logits)
+        reader_model.logger.debug(f'  Have fragment perplexity: {ppl[0]}')
 
         x_ppl = entropy(
-            observer_logits,#.to('cuda:0'),
-            performer_logits.to(observer_model.device_map),
+            reader_logits,#.to('cuda:0'),
+            writer_logits.to(reader_model.device_map),
             encodings,#.to('cuda:0'),
-            observer_model.tokenizer.pad_token_id
+            reader_model.tokenizer.pad_token_id
         )
 
-        observer_model.logger.debug(f'  Have fragment cross perplexity: {x_ppl[0]}')
+        reader_model.logger.debug(f'  Have fragment cross perplexity: {x_ppl[0]}')
 
-        binoculars_scores = ppl / x_ppl
-        binoculars_scores = binoculars_scores.tolist()
-        observer_model.logger.debug('  Binoculars score: %s',
-                                    binoculars_scores[0])
+        perplexity_ratio_scores = ppl / x_ppl
+        perplexity_ratio_scores = perplexity_ratio_scores.tolist()
+        reader_model.logger.debug('  Perplexity ratio score: %s',
+                                    perplexity_ratio_scores[0])
 
     except RuntimeError as runtime_error:
 
-        observer_model.logger.error(runtime_error)
+        reader_model.logger.error(runtime_error)
 
         # For out of memory enter OOM
         if 'CUDA out of memory' in str(runtime_error):
@@ -599,11 +599,11 @@ def binoculars_model_benchmark(
 
         ppl = [error_string]
         x_ppl = [error_string]
-        binoculars_scores = [error_string]
+        perplexity_ratio_scores = [error_string]
 
     # Record the results
     experiment.dependent_vars[
-        'binoculars_score'].append(str(binoculars_scores[0]))
+        'perplexity_ratio_score'].append(str(perplexity_ratio_scores[0]))
 
     experiment.dependent_vars[
         'perplexity'].append(str(ppl[0]))
@@ -626,6 +626,6 @@ def binoculars_model_benchmark(
     experiment.dependent_vars['author'].append(choice)
     experiment.dependent_vars['text'].append(text_fragment_string)
 
-    observer_model.logger.info('  Complete')
+    reader_model.logger.info('  Complete')
 
     return
