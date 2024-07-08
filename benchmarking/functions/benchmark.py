@@ -8,7 +8,9 @@ import json
 import random
 import tracemalloc
 from random import sample
+
 from multiprocessing import Process, Queue
+
 import torch
 import benchmarking.configuration as config
 import benchmarking.classes.llm as llm_class
@@ -51,7 +53,8 @@ def run(
 
     # Create a queue to pass the experiment class instance back and
     # forth between the main loop worker and the benchmark process
-    queue = Queue()
+    job_queue = Queue()
+    result_queue = Queue()
 
     # Holder to collect iterations for batch
     conditions_batch = []
@@ -59,40 +62,18 @@ def run(
 
     # Loop on conditions
     for i, condition in enumerate(experiment.conditions):
-        experiment.logger.info('Current iteration: %s',
-                                experiment.conditions[i][iteration_index])
 
-        # Tracker variables
-        last_condition = False
-        batch_complete = False
-
-        # If we are at the last condition, mark it and set trigger
-        # the last run by setting batch_complete to true
-        if i + 1 == len(experiment.conditions):
-            last_condition = True
-            batch_complete = True
-            experiment.logger.info('Last condition of experiment')
-
-        # If this is not the last condition, check to see if the
-        # condition's iteration number is is the last one, if it is, 
-        # the current condition is the last one of this batch
-        elif i + 1 < len(experiment.conditions):
-            if experiment.conditions[i][iteration_index] == last_iteration:
-                batch_complete = True
-                experiment.logger.info('Last condition of batch')
-
-        # If the batch is not complete, add the current condition
-        # to the batch and move on
-        if batch_complete is False:
-
+        # Check to see if the condition's iteration number is is
+        # the last one, if it is, the current condition is the
+        # last one of this batch
+        if experiment.conditions[i][iteration_index] != last_iteration:
             conditions_batch.append(condition)
             experiment.logger.info('Added condition %s of %s to bach',
                                 i + 1, len(experiment.conditions))
 
         # If this is the last condition, or the batch is complete
         # add the current condition to the batch and run the batch
-        elif last_condition is True or batch_complete is True:
-
+        elif experiment.conditions[i][iteration_index] == last_iteration:
             conditions_batch.append(condition)
             experiment.logger.info('Added condition %s of %s to bach',
                                 i + 1, len(experiment.conditions))
@@ -100,34 +81,44 @@ def run(
                                    len(conditions_batch))
 
             # Put the experiment class instance in the queue
-            queue.put(experiment)
+            job_queue.put(experiment)
 
             # Run guts of loop in subprocess
             p = Process(target = run_batch,
                 kwargs = dict(
-                    queue = queue,
+                    job_queue = job_queue,
+                    result_queue = result_queue,
                     conditions_batch = conditions_batch,
                     independent_var_names = independent_var_names
                 )
             )
 
-            # Run the job
-            p.start()
-            p.join()
+            experiment.logger.debug('Batch job process created')
 
-            # Get the experiment class instance back out of the queue
-            # and save the results
-            experiment = queue.get()
+            # Run the job
+            experiment.logger.debug('Starting batch job process')
+            p.start()
+            experiment.logger.debug('Batch job process start unblocked')
+
+            # Once the result shows up, get it and save the data
+            experiment = result_queue.get()
             experiment.save()
+            experiment.logger.debug('Main process got and saved result')
 
             # Reset the batch
             conditions_batch = []
+            experiment.logger.info('Batch complete')
 
+    experiment.logger.debug('Closing queues...')
+    job_queue.close()
+    result_queue.close()
+    experiment.logger.debug('Queues closed')
     experiment.logger.info('%s run complete', experiment.experiment_name)
 
 
 def run_batch(
-        queue: Callable=None,
+        job_queue: Callable=None,
+        result_queue: Callable=None,
         conditions_batch: tuple=None,
         independent_var_names: list=None,
 ) -> None:
@@ -138,7 +129,7 @@ def run_batch(
     with the run.'''
 
     # Get the experiment class instance from the queue
-    experiment=queue.get()
+    experiment=job_queue.get()
 
     # Instantiate a new llm class instance
     llm=llm_class.Llm(logger=experiment.logger)
@@ -190,7 +181,7 @@ def run_batch(
             error_string='NAN'
 
         # Loop on the conditions in this batch
-        for i, condition in enumerate(conditions_batch, start=1):
+        for condition in conditions_batch:
 
             # Loop on the names and values of the independent variables
             # for this run
@@ -205,13 +196,13 @@ def run_batch(
                 experiment.dependent_vars[var_name].append(error_string)
 
         # Call off the run
-        queue.put(experiment)
+        result_queue.put(experiment)
         return
 
     # Loop on the conditions in this batch
     for i, condition in enumerate(conditions_batch, start=1):
 
-        experiment.logger.info(f' Batch condition {i}')
+        experiment.logger.info(f' Running batch condition {i} of {len(conditions_batch)}')
 
         # Loop on the independent variables names and values for this run
         for var_name, value in zip(independent_var_names, condition):
@@ -262,8 +253,12 @@ def run_batch(
 
     # Clean up for next batch & put the experiment class instance back
     # into the queue for the benchmark process to retrieve
+    experiment.logger.info(' Cleaning up batch run...')
     llm.clear()
-    queue.put(experiment)
+    result_queue.put(experiment)
+    experiment.logger.info(' Done')
+
+    return
 
 
 def model_loading_benchmark(
@@ -546,8 +541,8 @@ def binoculars_model_benchmark(
 
         # Get the actual fragment length
         fragment_length = len(text_fragment_list)
-        observer_model.logger.info('  Fragment length: %s',
-                                    fragment_length)
+        observer_model.logger.debug('  Fragment length: %s',
+                                     fragment_length)
         # Make it a string
         text_fragment_string = ' '.join(text_fragment_list)
 
@@ -567,14 +562,14 @@ def binoculars_model_benchmark(
         observer_logits = observer_model.model(**encodings).logits
         performer_logits = performer_model.model(**encodings).logits
 
-        observer_model.logger.info('  Fragment encoded')
-        observer_model.logger.info('  Encoded fragment length: %s',
+        observer_model.logger.debug('  Fragment encoded')
+        observer_model.logger.debug('  Encoded fragment length: %s',
                                     fragment_length_tokens)
-        observer_model.logger.info('  Logits length: %s',
+        observer_model.logger.debug('  Logits length: %s',
                                     performer_logits.shape[1])
 
         ppl = perplexity(encodings, performer_logits)
-        observer_model.logger.info(f'  Have fragment perplexity: {ppl[0]}')
+        observer_model.logger.debug(f'  Have fragment perplexity: {ppl[0]}')
 
         x_ppl = entropy(
             observer_logits,#.to('cuda:0'),
@@ -583,11 +578,11 @@ def binoculars_model_benchmark(
             observer_model.tokenizer.pad_token_id
         )
 
-        observer_model.logger.info(f'  Have fragment cross perplexity: {x_ppl[0]}')
+        observer_model.logger.debug(f'  Have fragment cross perplexity: {x_ppl[0]}')
 
         binoculars_scores = ppl / x_ppl
         binoculars_scores = binoculars_scores.tolist()
-        observer_model.logger.info('  Binoculars score: %s',
+        observer_model.logger.debug('  Binoculars score: %s',
                                     binoculars_scores[0])
 
     except RuntimeError as runtime_error:
@@ -630,3 +625,7 @@ def binoculars_model_benchmark(
 
     experiment.dependent_vars['author'].append(choice)
     experiment.dependent_vars['text'].append(text_fragment_string)
+
+    observer_model.logger.info('  Complete')
+
+    return
