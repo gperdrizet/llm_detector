@@ -60,8 +60,8 @@ HANS_DATA_FILES={
     'pubmed-llama2-13': f'{HANS_DATA_PATH}/pubmed/pubmed-llama2_13.jsonl',
     'cnn-falcon7': f'{HANS_DATA_PATH}/cnn/cnn-falcon7.jsonl',
     'cnn-llama2-13': f'{HANS_DATA_PATH}/cnn/cnn-llama2_13.jsonl',
-    'cc_news-falcon7': f'{HANS_DATA_PATH}/cc_news/cc_news-falcon7.jsonl',
-    'cc_news-llama2-13': f'{HANS_DATA_PATH}/cc_news/cc_news-llama2_13.jsonl',
+    # 'cc_news-falcon7': f'{HANS_DATA_PATH}/cc_news/cc_news-falcon7.jsonl',
+    # 'cc_news-llama2-13': f'{HANS_DATA_PATH}/cc_news/cc_news-llama2_13.jsonl',
 }
 
 # Written by falcon-7b-instruct via bartleby
