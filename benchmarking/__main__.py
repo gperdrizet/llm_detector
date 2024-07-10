@@ -35,6 +35,8 @@ if __name__ == "__main__":
             else:
                 RESUME = False
 
+            logger.info('Running benchmark from configuration: %s', config_file)
+
             # Run the benchmark
             runner_funcs.run(
                 experiment_config_file = config_file,

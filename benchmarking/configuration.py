@@ -20,7 +20,7 @@ EXPERIMENT_CONFIGS_PATH=f'{PROJECT_ROOT_PATH}/experiments'
 LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
 
 # Logging stuff
-LOG_LEVEL='DEBUG'
+LOG_LEVEL='INFO'
 LOG_PREFIX='%(levelname)s - %(name)s - %(message)s'
 CLEAR_LOGS=True
 
