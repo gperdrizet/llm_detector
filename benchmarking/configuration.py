@@ -20,7 +20,7 @@ EXPERIMENT_CONFIGS_PATH=f'{PROJECT_ROOT_PATH}/experiments'
 LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
 
 # Logging stuff
-LOG_LEVEL='INFO'
+LOG_LEVEL='DEBUG'
 LOG_PREFIX='%(levelname)s - %(name)s - %(message)s'
 CLEAR_LOGS=True
 
@@ -32,8 +32,8 @@ CLEAR_LOGS=True
 CACHE_DIR='/mnt/fast_scratch/huggingface_transformers_cache'
 HF_MODEL_STRING='meta-llama/Meta-Llama-3-8B'
 MODEL_NAME='LLaMA3'
-DEVICE_MAP='cuda:0'
-CPU_CORES=16
+DEVICE_MAP='cuda:1'
+CPU_CORES=8
 AVAILABLE_GPUS=['cuda:0', 'cuda:1', 'cuda:2']
 
 # Quantization configuration defaults
@@ -60,8 +60,8 @@ HANS_DATA_FILES={
     'pubmed-llama2-13': f'{HANS_DATA_PATH}/pubmed/pubmed-llama2_13.jsonl',
     'cnn-falcon7': f'{HANS_DATA_PATH}/cnn/cnn-falcon7.jsonl',
     'cnn-llama2-13': f'{HANS_DATA_PATH}/cnn/cnn-llama2_13.jsonl',
-    # 'cc_news-falcon7': f'{HANS_DATA_PATH}/cc_news/cc_news-falcon7.jsonl',
-    # 'cc_news-llama2-13': f'{HANS_DATA_PATH}/cc_news/cc_news-llama2_13.jsonl',
+    'cc_news-falcon7': f'{HANS_DATA_PATH}/cc_news/cc_news-falcon7.jsonl',
+    'cc_news-llama2-13': f'{HANS_DATA_PATH}/cc_news/cc_news-llama2_13.jsonl',
 }
 
 # Written by falcon-7b-instruct via bartleby

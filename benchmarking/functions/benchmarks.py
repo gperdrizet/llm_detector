@@ -1,217 +1,281 @@
 '''Collection of function to run benchmarks'''
 
 from __future__ import annotations
-from typing import List #, Callable
+from typing import List
 
-# import time
+import time
 import random
-import logging
-# import tracemalloc
-# from random import sample
+from random import sample
 
-# from multiprocessing import Process
-
-# import torch
-# import benchmarking.configuration as config
-# import benchmarking.classes.llm as llm_class
-# import benchmarking.classes.experiment as experiment_class
+import benchmarking.configuration as config
+import benchmarking.functions.helper as helper_funcs
 from benchmarking.functions.metrics import perplexity, entropy
 
 # Comment ##############################################################
 # Code ########################################################################
 
-# def model_loading_benchmark(
-#         experiment: Callable = None,
-#         llm: Callable = None
-# ) -> None:
+def model_loading(
+        run_dict: dict = None,
+        llms: List[dict] = None,
+        data = None
+) -> None:
 
-#     '''Main benchmark function to time loading llm and tokenizer'''
+    '''Main benchmark function to time loading llm and tokenizer'''
 
-#     # Since we are benchmarking the load time here - we need to clear
-#     # then llm so we can reload it while timing. Not great, since doing
-#     # it this way causes an extra load per batch, but this set-up is
-#     # much better for the many other benchmarks that use this test
-#     # harness
-#     llm.clear()
+    # Don't do anything with the data for this benchmark
+    # it should contain the default 'None' value
+    if data is None:
+        pass
 
-#     # Time the loading of the model
-#     loading_start_time = time.time()
-#     llm.load()
-#     total_load_time = time.time() - loading_start_time
+    # Re-assign model for clarity
+    llm = llms[0]
 
-#     # Record the results
-#     experiment.dependent_vars['load_time'].append(total_load_time)
+    # Since we are benchmarking the load time here - we need to clear
+    # then llm so we can reload it while timing. Not great, since doing
+    # it this way causes an extra load per batch, but this set-up is
+    # much better for the many other benchmarks that use this test
+    # harness
+    llm.clear()
 
+    # Time the loading of the model
+    loading_start_time = time.time()
+    llm.load()
+    load_time = time.time() - loading_start_time
 
-# def generation_rate_benchmark(
-#         experiment: Callable = None,
-#         llm: Callable = None
-# ) -> None:
+    # Record the results
+    result = {'iteration': run_dict['iteration']}
+    result['cache_dir'] = run_dict['cache_dir']
+    result['device_map'] = run_dict['device_map']
+    result['cpu_cores'] = run_dict['cpu_cores']
+    result['load_time'] = load_time
 
-#     '''Main function to run generation rate benchmark'''
-
-#     # Time the prompting of the model
-#     inference_start = time.time()
-#     _, output_ids = llm.prompt(config.PROMPT)
-#     total_inference_time = time.time() - inference_start
-
-#     # Count tokens generated
-#     tokens_generated = len(output_ids[0])
-
-#     # Calculate the generation rate
-#     avg_generation_rate = tokens_generated / total_inference_time
-
-#     # Record the results
-#     experiment.dependent_vars['tokens_generated'].append(tokens_generated)
-#     experiment.dependent_vars['inference_time'].append(total_inference_time)
-#     experiment.dependent_vars['generation_rate'].append(avg_generation_rate)
+    return result
 
 
-# def decoding_strategy_benchmark(
-#         experiment: Callable = None,
-#         llm: Callable = None
-# ) -> None:
+def generation(
+        run_dict: dict = None,
+        llms: List[dict] = None,
+        data = None
+) -> None:
 
-#     '''Main function to run decoding strategy benchmark'''
+    '''Main function to run generation rate benchmark'''
 
-#     # Time the prompting of the model
-#     inference_start = time.time()
-#     _, output_ids = llm.prompt(config.PROMPT)
-#     total_inference_time = time.time() - inference_start
+    # Don't do anything with the data for this benchmark
+    # it should contain the default 'None' value
+    if data is None:
+        pass
 
-#     # Count tokens generated
-#     tokens_generated = len(output_ids[0])
+    # Re-assign model for clarity
+    llm = llms[0]
 
-#     # Calculate the generation rate
-#     avg_generation_rate = tokens_generated / total_inference_time
+    # Start memory tracking using the correct strategy based on device map
+    helper_funcs.start_memory_tracking(device_map = run_dict['device_map'])
 
-#     # Record the results
-#     experiment.dependent_vars['tokens_generated'].append(tokens_generated)
-#     experiment.dependent_vars['inference_time'].append(total_inference_time)
-#     experiment.dependent_vars['generation_rate'].append(avg_generation_rate)
+    # Time the prompting of the model
+    inference_start = time.time()
+    _, output_ids = llm.prompt(config.PROMPT)
+    total_inference_time = time.time() - inference_start
 
+    # Get peak memory using the correct strategy based on device map
+    peak_memory = helper_funcs.get_peak_memory(device_map = run_dict['device_map'])
 
-# def encoding_memory_benchmark(
-#         experiment: Callable = None,
-#         llm: Callable = None
-# ) -> None:
+    # Count tokens generated
+    output_length_tokens = len(output_ids[0])
 
-#     '''Main function to run encoding memory benchmark'''
+    # Calculate the generation rate
+    avg_generation_rate = output_length_tokens / total_inference_time
 
-#     # Sample the test text
-#     text_list = config.ENCODING_TEST_TEXT.split(' ')
+    # Record the results
+    result = {'iteration': run_dict['iteration']}
+    result['hf_model_string'] = run_dict['hf_model_string']
+    result['device_map'] = run_dict['device_map']
+    result['quantization'] = run_dict['quantization']
+    result['cpu_cores'] = run_dict['cpu_cores']
+    result['max_new_tokens'] = run_dict['max_new_tokens']
+    result['output_length_tokens'] = output_length_tokens
+    result['inference_time'] = total_inference_time
+    result['generation_rate'] = avg_generation_rate
+    result['peak_memory'] = peak_memory
 
-#     text_list_sample = sample(
-#         text_list,
-#         experiment.independent_vars['input_length'][-1]
-#     )
-
-#     input_text = ' '.join(text_list_sample)
-
-#     # Reset memory stats for all devices
-#     for device in config.AVAILABLE_GPUS:
-#         torch.cuda.reset_peak_memory_stats(device = device)
-
-#     # Time the encoding
-#     encoding_start = time.time()
-
-#     # Encode
-#     encodings = llm.tokenizer(
-#         input_text,
-#         return_tensors = 'pt',
-#         return_token_type_ids = False
-#     ).to('cuda')
-
-#     encoding_time = time.time() - encoding_start
-
-#     # Get encoded fragment length
-#     fragment_length = encodings['input_ids'].shape[1]
-
-#     # Get encoding rate
-#     encoding_rate=fragment_length / encoding_time
-
-#     # Get total peak memory
-#     peak_memory = 0
-
-#     for device in config.AVAILABLE_GPUS:
-#         peak_memory += torch.cuda.max_memory_allocated(device = device) / (10 ** 9)
-
-#     # Record the results
-#     experiment.dependent_vars['peak_memory'].append(peak_memory)
-#     experiment.dependent_vars['tokens'].append(fragment_length)
-#     experiment.dependent_vars['encoding_time'].append(encoding_time)
-#     experiment.dependent_vars['encoding_rate'].append(encoding_rate)
+    return result
 
 
-# def logits_calculation_benchmark(
-#         experiment: Callable = None,
-#         llm: Callable = None
-# ) -> None:
+def decoding_strategy(
+        run_dict: dict = None,
+        llms: List[dict] = None,
+        data = None
+) -> None:
 
-#     '''Main function to run logits cpu benchmark'''
+    '''Main function to run decoding strategy benchmark'''
 
-#     # Sample the test text
-#     text_list = config.ENCODING_TEST_TEXT.split(' ')
+    # Don't do anything with the data for this benchmark
+    # it should contain the default 'None' value
+    if data is None:
+        pass
 
-#     text_list_sample = sample(
-#         text_list,
-#         experiment.independent_vars['input_length'][-1]
-#     )
+    # Re-assign model for clarity
+    llm = llms[0]
 
-#     input_text=' '.join(text_list_sample)
+    # Start memory tracking using the correct strategy based on device map
+    helper_funcs.start_memory_tracking(device_map = run_dict['device_map'])
 
-#     # Encode
-#     encodings = llm.tokenizer(
-#         input_text,
-#         return_tensors = 'pt',
-#         return_token_type_ids = False
-#     )
+    # Time the prompting of the model
+    inference_start = time.time()
+    _, output_ids = llm.prompt(config.PROMPT)
+    total_inference_time = time.time() - inference_start
 
-#     # If this is not a CPU run, move encoding to GPU
-#     if experiment.independent_vars['device_map'][-1] != 'cpu':
-#         encodings = encodings.to('cuda')
+    # Get peak memory using the correct strategy based on device map
+    peak_memory = helper_funcs.get_peak_memory(device_map = run_dict['device_map'])
 
-#     # Get encoded fragment length
-#     fragment_length = encodings['input_ids'].shape[1]
+    # Count tokens generated
+    output_length_tokens = len(output_ids[0])
 
-#     # Start memory tracking using the correct strategy based on device map
-#     if experiment.independent_vars['device_map'][-1] != 'cpu':
+    # Calculate the generation rate
+    avg_generation_rate = output_length_tokens / total_inference_time
 
-#         # Reset memory stats for all GPUs
-#         for device in config.AVAILABLE_GPUS:
-#             torch.cuda.reset_peak_memory_stats(device = device)
+    # Record the results
+    result = {'iteration': run_dict['iteration']}
+    result['hf_model_string'] = run_dict['hf_model_string']
+    result['device_map'] = run_dict['device_map']
+    result['max_new_tokens'] = run_dict['max_new_tokens']
+    result['decoding_strategy'] = run_dict['decoding_strategy']
+    result['output_length_tokens'] = output_length_tokens
+    result['inference_time'] = total_inference_time
+    result['generation_rate'] = avg_generation_rate
+    result['peak_memory'] = peak_memory
 
-#     elif experiment.independent_vars['device_map'][-1] == 'cpu':
-#         tracemalloc.start()
+    return result
 
-#     # Time the logits calculation
-#     logits_start = time.time()
-#     _ = llm.model(**encodings).logits
-#     logits_time = time.time() - logits_start
 
-#     # Get calculation rate
-#     rate=fragment_length / logits_time
+def string_encoding(
+        run_dict: dict = None,
+        llms: List[dict] = None,
+        data = None
+) -> None:
 
-#     # Get max memory using the correct strategy based on device map
-#     if experiment.independent_vars['device_map'][-1] != 'cpu':
-#         max_memory = 0
+    '''Main function to run encoding memory benchmark'''
 
-#         for device in config.AVAILABLE_GPUS:
-#             device_max_memory = torch.cuda.max_memory_allocated(device=device)
-#             device_max_memory = device_max_memory / (10 ** 9)
-#             max_memory += device_max_memory
+    # Don't do anything with the data for this benchmark
+    # it should contain the default 'None' value
+    if data is None:
+        pass
 
-#     elif experiment.independent_vars['device_map'][-1] == 'cpu':
+    # Re-assign model for clarity
+    llm = llms[0]
 
-#         _, max_memory = tracemalloc.get_traced_memory()
-#         max_memory = max_memory / (10 ** 6)
-#         tracemalloc.stop()
+    # Sample the test text
+    text_list = config.ENCODING_TEST_TEXT.split(' ')
 
-#     # Record the results
-#     experiment.dependent_vars['max_memory'].append(max_memory)
-#     experiment.dependent_vars['tokens'].append(fragment_length)
-#     experiment.dependent_vars['logits_time'].append(logits_time)
-#     experiment.dependent_vars['rate'].append(rate)
+    text_list_sample = sample(
+        text_list,
+        run_dict['input_length_words']
+    )
+
+    input_text = ' '.join(text_list_sample)
+
+    # Start memory tracking using the correct strategy based on device map
+    helper_funcs.start_memory_tracking(device_map = run_dict['device_map'])
+
+    # Time the encoding
+    encoding_start = time.time()
+
+    # Encode
+    encodings = llm.tokenizer(
+        input_text,
+        return_tensors = 'pt',
+        return_token_type_ids = False
+    ).to('cuda')
+
+    encoding_time = time.time() - encoding_start
+
+    # Get encoded fragment length
+    output_length_tokens = encodings['input_ids'].shape[1]
+
+    # Get encoding rate
+    encoding_rate = output_length_tokens / encoding_time
+
+    # Get peak memory using the correct strategy based on device map
+    peak_memory = helper_funcs.get_peak_memory(device_map = run_dict['device_map'])
+
+    # Record the results
+    result = {'iteration': run_dict['iteration']}
+    result['hf_model_string'] = run_dict['hf_model_string']
+    result['device_map'] = run_dict['device_map']
+    result['input_length_words'] = run_dict['input_length_words']
+    result['peak_memory'] = peak_memory
+    result['output_length_tokens'] = output_length_tokens
+    result['encoding_time'] = encoding_time
+    result['encoding_rate'] = encoding_rate
+
+    return result
+
+
+def logits_calculation(
+        run_dict: dict = None,
+        llms: List[dict] = None,
+        data = None
+) -> None:
+
+    '''Main function to run logits cpu benchmark'''
+
+    # Don't do anything with the data for this benchmark
+    # it should contain the default 'None' value
+    if data is None:
+        pass
+
+    # Re-assign model for clarity
+    llm = llms[0]
+
+    # Generate a sample text fragment from the test text
+    text_list = config.ENCODING_TEST_TEXT.split(' ')
+
+    text_list_sample = sample(
+        text_list,
+        run_dict['input_length_words']
+    )
+
+    input_text=' '.join(text_list_sample)
+
+    # Encode the text sample
+    encodings = llm.tokenizer(
+        input_text,
+        return_tensors = 'pt',
+        return_token_type_ids = False
+    )
+
+    # If this is not a CPU run, move encoding to GPU
+    if run_dict['device_map'] != 'cpu':
+        encodings = encodings.to('cuda')
+
+    # Get encoded fragment length
+    output_length_tokens = encodings['input_ids'].shape[1]
+
+    # Start memory tracking using the correct strategy based on device map
+    helper_funcs.start_memory_tracking(device_map = run_dict['device_map'])
+
+    # Time the logits calculation
+    logits_start = time.time()
+    _ = llm.model(**encodings).logits
+    calculation_time = time.time() - logits_start
+
+    # Get calculation rate
+    calculation_rate = output_length_tokens / calculation_time
+
+    # Get peak memory using the correct strategy based on device map
+    peak_memory = helper_funcs.get_peak_memory(device_map = run_dict['device_map'])
+
+    # Record the results
+    result = {'iteration': run_dict['iteration']}
+    result['hf_model_string'] = run_dict['hf_model_string']
+    result['device_map'] = run_dict['device_map']
+    result['quantization'] = run_dict['quantization']
+    result['input_length_words'] = run_dict['input_length_words']
+    result['peak_memory'] = peak_memory
+    result['output_length_tokens'] = output_length_tokens
+    result['calculation_time'] = calculation_time
+    result['calculation_rate'] = calculation_rate
+
+    return result
 
 
 def perplexity_ratio(
@@ -221,9 +285,6 @@ def perplexity_ratio(
 ) -> None:
 
     '''Main function to run perplexity ratio score benchmark'''
-
-    # Get the logger
-    logger = logging.getLogger('benchmarking.perplexity_ratio')
 
     # Don't do anything with the run dict for this benchmark
     # it should contain the default 'None' value
@@ -286,54 +347,42 @@ def perplexity_ratio(
         fragment_length = len(text_fragment_list)
         text_fragment_string = ' '.join(text_fragment_list)
 
-    # Fence to catch CUDA OOM
-    try:
-        # Encode
-        encodings = reader_model.tokenizer(
-            text_fragment_string,
-            return_tensors = 'pt',
-            return_token_type_ids = False
-        ).to(reader_model.device_map)
+    # Now calculate the perplexity ratio score
 
-        # Get input ids as list for logging/data collection
-        fragment_length_tokens = encodings['input_ids'].shape[1]
+    # Encode
+    encodings = reader_model.tokenizer(
+        text_fragment_string,
+        return_tensors = 'pt',
+        return_token_type_ids = False
+    ).to(reader_model.device_map)
 
-        # Calculate logits
-        reader_logits = reader_model.model(**encodings).logits
-        writer_logits = writer_model.model(**encodings).logits
+    # Get input ids as list for logging/data collection
+    fragment_length_tokens = encodings['input_ids'].shape[1]
 
-        ppl = perplexity(encodings, writer_logits)
+    # Calculate logits
+    reader_logits = reader_model.model(**encodings).logits
+    writer_logits = writer_model.model(**encodings).logits
 
-        x_ppl = entropy(
-            reader_logits,
-            writer_logits.to(reader_model.device_map),
-            encodings,
-            reader_model.tokenizer.pad_token_id
-        )
+    # Calculate perplexity ratio score
+    ppl = perplexity(encodings, writer_logits)
 
-        perplexity_ratio_scores = ppl / x_ppl
-        perplexity_ratio_scores = perplexity_ratio_scores.tolist()
+    x_ppl = entropy(
+        reader_logits,
+        writer_logits.to(reader_model.device_map),
+        encodings,
+        reader_model.tokenizer.pad_token_id
+    )
 
-    except RuntimeError as runtime_error:
-
-        logger.error(runtime_error)
-
-        # For out of memory enter OOM
-        if 'CUDA out of memory' in str(runtime_error):
-            error_string = 'OOM'
-
-        # Otherwise enter NAN:
-        else:
-            error_string = 'NAN'
-
-        ppl = [error_string]
-        x_ppl = [error_string]
-        perplexity_ratio_scores = [error_string]
+    perplexity_ratio_scores = ppl / x_ppl
+    perplexity_ratio_scores = perplexity_ratio_scores.tolist()
 
     # Record the results
-    result = {'perplexity_ratio_score': str(perplexity_ratio_scores[0])}
-    result['perplexity'] = str(ppl[0])
-    result['cross-perplexity'] = str(x_ppl[0])
+    result = {'iteration': run_dict['iteration']}
+    result['hf_model_string'] = run_dict['hf_model_string']
+    result['device_map'] = run_dict['device_map']
+    result['perplexity_ratio_score'] = float(perplexity_ratio_scores[0])
+    result['perplexity'] = float(ppl[0])
+    result['cross-perplexity'] = float(x_ppl[0])
     result['length_words'] = fragment_length
     result['length_tokens'] = fragment_length_tokens
     result['data_source'] = record['Data source']

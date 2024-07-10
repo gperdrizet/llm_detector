@@ -1,9 +1,9 @@
 '''Class to hold objects and methods related to the LLM'''
 
 from __future__ import annotations
-from typing import Callable
 
 import gc
+import logging
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
 import benchmarking.configuration as config
@@ -24,16 +24,15 @@ class Llm:
         decoding_strategy: str=config.DECODING_STRATEGY,
         bnb_4bit_compute_dtype: str=config.BNB_4BIT_COMPUTE_DTYPE,
         max_new_tokens: str=config.MAX_NEW_TOKENS,
-        cpu_cores: int=config.CPU_CORES,
-        logger: Callable=None
+        cpu_cores: int=config.CPU_CORES
     ) -> None:
 
         '''Initial class setup, takes default values from configuration file
         creates placeholders for LLM and tokenizer to be loaded later and
         adds logger'''
 
-        # Add logger
-        self.logger=logger
+        # Add the logger
+        self.logger = logging.getLogger('benchmarking.LLM')
 
         # Initialize values for loading and generation
         self.cache_dir=cache_dir
@@ -138,7 +137,7 @@ class Llm:
             output_ids=None
 
         # Log reply for debug
-        self.logger.debug(f'Reply: {reply}')
+        self.logger.debug('Reply: %s', reply)
 
         return reply, output_ids
 

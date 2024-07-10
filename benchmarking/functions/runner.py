@@ -1,23 +1,16 @@
 '''Collection of function to run benchmarks'''
 
 from __future__ import annotations
-from typing import List
+from typing import List, Callable
 
 import os
 import logging
-# import time
-# import random
-# import tracemalloc
-# from random import sample
-
 from multiprocessing import Manager, Process
 
-# import torch
-# import benchmarking.configuration as config
 import benchmarking.classes.llm as llm_class
 import benchmarking.classes.experiment as experiment_class
-import benchmarking.functions.helper as helper_funcs
 import benchmarking.functions.benchmarks as benchmark_funcs
+import benchmarking.functions.helper as helper_funcs
 
 # Comment ##############################################################
 # Code ########################################################################
@@ -29,15 +22,15 @@ def run(
 
     '''Generalized function for benchmarking experiments'''
 
-    # Start the logger, naming the log file with the same name
-    # as the configuration file
+    # Start the logger for this benchmark, using the name of the
+    # experiment configuration file
     config_file_basename = os.path.basename(experiment_config_file)
     experiment_name = config_file_basename.split('.')[0]
     logfile_name = f'{experiment_name}.log'
 
     logger = helper_funcs.start_logger(
-        logfile_name = logfile_name,
-        logger_name = 'benchmarking'
+            logfile_name = logfile_name,
+            logger_name = experiment_name
     )
 
     # Instantiate experiment class instance
@@ -71,6 +64,7 @@ def run(
         # Run the batch in a subprocess
         p = Process(target = run_batch,
             kwargs = dict(
+                experiment_name = experiment.experiment_name,
                 benchmark_func = experiment.benchmark_func,
                 batch = batch,
                 independent_vars = experiment.independent_vars.keys(),
@@ -91,7 +85,7 @@ def run(
         logger.debug('Result: %s', results)
 
         # Update and save results, clear shared memory for next batch
-        experiment.extend_results(results)
+        experiment.extend_results(list(results))
         experiment.save_results()
         results = manager.list()
 
@@ -99,6 +93,7 @@ def run(
 
 
 def run_batch(
+        experiment_name: str = None,
         benchmark_func: str = None,
         batch: List[dict] = None,
         independent_vars: list = None,
@@ -113,7 +108,7 @@ def run_batch(
     with the run.'''
 
     # Get the logger
-    logger = logging.getLogger('benchmarking.run_batch')
+    logger = logging.getLogger(f'{experiment_name}.run_batch')
 
     # Empty holder for result
     result = {}
@@ -121,102 +116,121 @@ def run_batch(
     # Set the benchmark function to run
     benchmark_func = getattr(benchmark_funcs, benchmark_func)
 
-    # Prepare and load the LLM(s). since all of the conditions in a
+    # Prepare and load the LLM(s). since all of the runs in a
     # batch are the same except for the iteration number, we can
     # use the first run from the batch as the source for our LLM
     # parameters
+    llms = instantiate_llms(run_dict = batch[0])
 
-    # Instantiate a LLM class instance for the LLM(s)
-    llms = []
-
-    for _ in range(len(batch[0]['hf_model_string'])):
-        llms.append(llm_class.Llm())
-
-    # Set the LLM parameters
-    for parameter_name, values in batch[0].items():
-
-        # Check if this parameter is an attribute of the LLM class
-        if parameter_name in dir(llms[0]):
-
-            # If it is, set each value in the corresponding LLM
-            for i, _ in enumerate(llms):
-                setattr(llms[i], parameter_name, values[i])
-
-    # Load each LLM, catching CUDA errors
+    # Load each LLM, catching runtime errors
     try:
         for i, _ in enumerate(llms):
+            logger.debug('Loading LLM %s', i)
             llms[i].load()
 
-    # If anything weird happens, we need to skip this batch. Log the
-    # error and enter appropriate error string in the dependent
-    # variables then return
+    # Handel the error by constructing a result for this batch
+    # with the independent variables populated from the run
+    # dictionary list and the dependent variables filled with an
+    # appropriate error string. Then call off the batch run
+    # by returning to the main process
     except RuntimeError as runtime_error:
 
+        # Log the error
         logger.error(runtime_error)
 
-        # For out of memory enter OOM
-        if 'CUDA out of memory' in str(runtime_error):
-            error_string='OOM'
+        results = helper_funcs.handle_model_load_runtime_error(
+            runtime_error = runtime_error,
+            batch = batch,
+            independent_vars = independent_vars,
+            dependent_vars = dependent_vars,
+            results = results,
+            result = result
+        )
 
-        # For anything else, use NAN
-        else:
-            error_string='NAN'
-
-        # Loop on the conditions in this batch
-        for run_dict in batch:
-
-            # Loop on the independent variables and add the value from this
-            # run to the result
-            for independent_var in independent_vars:
-                result[independent_var] = run_dict[independent_var]
-
-            # Enter the error string in all of the dependent variables
-            # for this run
-            for dependent_var in dependent_vars:
-                result[dependent_var] = error_string
-
-            # Add the run result to the results list
-            results.append(result)
-
-        # Then call off the run by returning the results
-        return results
+        return
 
     # Loop on the conditions in this batch
-    for i, run_dict in enumerate(batch, start=1):
+    for i, run_dict in enumerate(batch, start = 1):
 
-        # Call the run specific benchmark function, catching CUDA errors
+        # Fence to catch runtime error during the run
         try:
+            # Call the run specific benchmark function, catching runtime errors
             result = benchmark_func(
                 run_dict = run_dict,
                 llms = llms,
                 data = data
             )
 
-        # If anything weird happens, print the error and enter appropriate
-        # error string in the dependent variables
+        # Handel the error by constructing a result for this run
+        # with the independent variables populated from the run
+        # dictionary and the dependent variables filled with an
+        # appropriate error string
         except RuntimeError as runtime_error:
 
+            # Log the error
             logger.error(runtime_error)
 
-            # For out of memory enter OOM
-            if 'CUDA out of memory' in str(runtime_error):
-                error_string='OOM'
+            result = helper_funcs.handle_benchmark_runtime_error(
+                runtime_error = runtime_error,
+                run_dict = run_dict,
+                independent_vars = independent_vars,
+                dependent_vars = dependent_vars,
+                result = result
+            )
 
-            # For anything else, use NAN
-            else:
-                error_string='NAN'
-
-            # Enter the error string in all of the dependent variables
-            # for this run
-            for dependent_var in dependent_vars:
-                result[dependent_var] = error_string
-
-        # Then add the values of the independent variables to the returned results
-        for independent_var in independent_vars:
-
-            # Record the values in the experiment class instance
-            result[independent_var] = run_dict[independent_var]
-
+        # Add to results
         results.append(result)
-
         logger.info('Finished run %s of %s', i, len(batch))
+
+    return
+
+def instantiate_llms(run_dict: dict = None) -> List[Callable]:
+    '''Handles instantiating LLM(s)'''
+
+    # Get the logger
+    logger = logging.getLogger('benchmarking.instantiate_llms')
+
+    # Instantiate a LLM class instance for the LLM(s), need to
+    # handle this one of two ways - if we are loading more than
+    # one LLM, the value of hf_model_string will be a list of
+    # models to load, if we are only loading one model, it will
+    # be a single string. So check the type to make sure we are
+    # doing the right thing
+    llms = []
+
+    if isinstance(run_dict['hf_model_string'], str):
+        llms.append(llm_class.Llm())
+
+    elif isinstance(run_dict['hf_model_string'], list):
+        for _ in range(len(run_dict['hf_model_string'])):
+            llms.append(llm_class.Llm())
+
+    logger.debug('Instantiated %s LLMs', len(llms))
+    logger.debug('Setting LLM parameters from batch: %s', run_dict)
+
+    # Set the LLM parameters
+    for parameter_name, value in run_dict.items():
+
+        # Check if this parameter is an attribute of the LLM class
+        if parameter_name in dir(llms[0]):
+
+            # Need to handle setting parameters in one of two ways here
+            # 1. If we are only running one LLM, the parameter value
+            # should be a single string and we can just set it directly.
+            # 2. If we are running more than one LLM, the parameter
+            # value will be a list of strings and we need to set each
+            # value in the list in the corresponding LLM. Check
+            # both the number of LLMs and the type of the parameter
+            # value to be sure we are doing the right thing
+
+            if len(llms) == 1 and isinstance(value, str) is True:
+                logger.debug('Setting %s to %s for LLM', parameter_name, value)
+                setattr(llms[0], parameter_name, value)
+
+            elif len(llms) > 1 and isinstance(value, list) is True:
+
+                for i, _ in enumerate(llms):
+                    logger.debug('Setting %s to %s for LLM %s', parameter_name, value[i], i)
+                    setattr(llms[i], parameter_name, value[i])
+
+    return llms

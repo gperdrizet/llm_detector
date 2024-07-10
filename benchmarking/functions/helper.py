@@ -1,12 +1,14 @@
 '''Collection of helper functions.'''
 from __future__ import annotations
-from typing import Callable
+from typing import Callable, List
 
 import os
 import glob
 import argparse
 import logging
+import tracemalloc
 from logging.handlers import RotatingFileHandler
+import torch
 import benchmarking.configuration as config
 
 # Comment ##############################################################
@@ -87,3 +89,111 @@ def start_logger(
     logger.info('############################################### ')
 
     return logger
+
+def start_memory_tracking(device_map: str = None) -> None:
+    '''Starts memory tracking using the device map to pick the right tool'''
+
+    # Start memory tracking using the correct strategy based on device map
+    if device_map != 'cpu':
+
+        # Reset memory stats for all GPUs
+        for device in config.AVAILABLE_GPUS:
+            torch.cuda.reset_peak_memory_stats(device = device)
+
+    elif device_map == 'cpu':
+        tracemalloc.start()
+
+def get_peak_memory(device_map: str = None) -> float:
+    '''Returns peak memory using the device map to pick the right tool'''
+
+    # Get peak memory using the correct strategy based on device map
+    if device_map != 'cpu':
+        peak_memory = 0
+
+        for device in config.AVAILABLE_GPUS:
+            device_peak_memory = torch.cuda.max_memory_allocated(device = device)
+            device_peak_memory = device_peak_memory / (10 ** 9)
+            peak_memory += device_peak_memory
+
+    elif device_map == 'cpu':
+
+        _, peak_memory = tracemalloc.get_traced_memory()
+        peak_memory = peak_memory / (10 ** 6)
+        tracemalloc.stop()
+
+    return peak_memory
+
+def handle_model_load_runtime_error(
+        runtime_error: str = None,
+        batch: List[dict] = None,
+        independent_vars: list = None,
+        dependent_vars: list = None,
+        results = None,
+        result = None
+):
+
+    '''Catches runtime errors the occur during model loading.
+    Constructs a results dictionary list containing batch's
+    values for independent variable and an error string for
+    independent variables'''
+
+    # For out of memory enter OOM
+    if 'CUDA out of memory' in str(runtime_error):
+        error_string='OOM'
+
+    # For anything else, use NAN
+    else:
+        error_string='NAN'
+
+    # Loop on the conditions in this batch
+    for run_dict in batch:
+
+        # Loop on the independent variables and add the value from this
+        # run to the result
+        for independent_var in independent_vars:
+            result[independent_var] = run_dict[independent_var]
+
+        # Enter the error string in all of the dependent variables
+        # for this run
+        for dependent_var in dependent_vars:
+            result[dependent_var] = error_string
+
+        # Add the run result to the results list
+        results.append(result)
+
+    return results
+
+
+def handle_benchmark_runtime_error(
+        runtime_error: str = None,
+        run_dict: dict = None,
+        independent_vars: list = None,
+        dependent_vars: list = None,
+        result = None
+) -> dict:
+
+    '''Catches runtime errors the occur during the benchmark
+    run. Constructs and returns a results dictionary
+    containing the run's values for independent variable 
+    and an error string for independent variables'''
+
+    # For out of memory enter OOM
+    if 'CUDA out of memory' in str(runtime_error):
+        error_string='OOM'
+
+    # For anything else, use NAN
+    else:
+        error_string='NAN'
+
+    # Loop on the independent variables and add the value from this
+    # run to the result
+    for independent_var in independent_vars:
+        result[independent_var] = run_dict[independent_var]
+
+    # Enter the error string in all of the dependent variables
+    # for this run
+    for dependent_var in dependent_vars:
+        result[dependent_var] = error_string
+
+    return result
+

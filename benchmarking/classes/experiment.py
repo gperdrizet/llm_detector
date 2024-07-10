@@ -39,7 +39,7 @@ class Experiment:
         self.benchmark_func = configuration['benchmark_function']
 
         # Set total iterations to run
-        self.iterations = configuration['iterations']
+        self.iteration = configuration['iteration']
 
         # Set the experiment description
         self.experiment_description = configuration['experiment_description']
@@ -51,8 +51,7 @@ class Experiment:
         self.results_data_file = results_data_file
 
         # Add the logger
-        self.logger = logging.getLogger('benchmarking.Experiment')
-
+        self.logger = logging.getLogger(f'{self.experiment_name}.Experiment')
         self.logger.debug('Experiment metadata loaded')
 
         # Set-up experimental data handling
@@ -114,7 +113,7 @@ class Experiment:
         # Add the iteration number as an independent variable
         independent_var_names.append('iteration')
         independent_var_levels_lists.append(
-            list(range(1, self.iterations + 1)))
+            list(range(1, self.iteration + 1)))
 
         self.logger.debug('Independent variable level list of lists created')
         self.logger.debug('Independent variable level list of lists type: %s',
@@ -169,7 +168,7 @@ class Experiment:
         # dictionary list
 
         if resume is True and os.path.isfile(self.results_data_file) is True:
-            self.logger.info('Resuming from old data')
+            self.logger.debug('Resuming from old data')
 
             results_dicts_list = []
 
@@ -205,16 +204,15 @@ class Experiment:
                 completed_independent_vars_dict = {}
 
                 for key, value in results_dict.items():
-                    if key in self.independent_vars.keys() or \
-                        key == 'iteration':
+                    if key in self.independent_vars.keys() or key == 'iteration':
 
                         completed_independent_vars_dict[key] = value
 
                 completed_run_dicts_list.append(
                     completed_independent_vars_dict)
 
-            self.logger.debug('Completed run dictionary list created \
-                              from old results')
+            self.logger.debug('Completed run dictionary list created from old results: %s runs', 
+                              len(completed_run_dicts_list))
             self.logger.debug('Completed run dictionary list type: %s',
                               type(completed_run_dicts_list))
             self.logger.debug('Completed run dictionary list element type: %s',
@@ -258,15 +256,19 @@ class Experiment:
         batches_lists = []
         batch_list = []
 
+        self.logger.debug('Batching...')
+
         for run_dict in self.run_dicts_list:
             batch_list.append(run_dict)
+            self.logger.debug('Run: %s', run_dict)
 
-            if run_dict['iteration'] == self.iterations:
+            if run_dict['iteration'] == self.iteration:
                 batches_lists.append(batch_list)
+                self.logger.debug('Batch complete')
                 batch_list = []
 
-        self.logger.debug('Run dictionary list batched: %s batches',
-                        len(batches_lists))
+        self.logger.debug('Run dictionary list batched: %s batches of %s runs',
+                        len(batches_lists), len(batches_lists[0]))
         self.logger.debug('Batch list type: %s', type(batches_lists))
         self.logger.debug('Batch list element type: %s',
                         type(batches_lists[0]))

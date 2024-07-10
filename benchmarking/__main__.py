@@ -6,6 +6,11 @@ import benchmarking.functions.perplexity_ratio as perplexity_funcs
 
 if __name__ == "__main__":
 
+    logger = helper_funcs.start_logger(
+        logfile_name = 'main.log',
+        logger_name = 'main'
+    )
+
     # Parse command line arguments
     args = helper_funcs.parse_args()
 

@@ -1,16 +1,17 @@
 {
-    "experiment_name": "decoding_strategy_benchmark",
     "experiment_description": "Generation rate as a function of decoding strategy",
+    "benchmark_function": "decoding_strategy",
+    "input_datafile": "None",
+    "iteration": 3,
     "dependent_vars": {
         "tokens_generated": [],
         "inference_time": [],
-        "generation_rate": []
+        "generation_rate": [],
+        "peak_memory": []
     },
     "independent_vars": {
-        "iteration": 3,
-        "quantization": ["4-bit"],
-        "cpu_cores": [8],
-        "device_map": ["cuda:0","cuda:1"],
+        "hf_model_string": ["meta-llama/Meta-Llama-3-8B","tiiuae/falcon-7b","mistralai/Mistral-7B-v0.3","meta-llama/Llama-2-7b-hf"],
+        "device_map": ["cuda:0","cuda:1","cpu"],
         "max_new_tokens": [16,32,64,128,256],
         "decoding_strategy": [
             "Model default",

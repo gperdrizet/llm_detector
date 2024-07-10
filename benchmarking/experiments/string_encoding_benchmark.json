@@ -1,18 +1,17 @@
 {
-    "experiment_description": "Logits calculation GPU memory footprint and rate as a function of input length, model, device map and quantization",
-    "benchmark_function": "logits_calculation",
+    "experiment_description": "Encoding memory footprint and speed as a function of input length for different device maps",
+    "benchmark_function": "string_encoding",
     "input_datafile": "None",
     "iteration": 3,
     "dependent_vars": {
         "peak_memory": [],
         "output_length_tokens": [],
-        "calculation_time": [],
-        "calculation_rate": []
+        "encoding_time": [],
+        "encoding_rate": []
     },
     "independent_vars": {
         "hf_model_string": ["meta-llama/Meta-Llama-3-8B","tiiuae/falcon-7b","mistralai/Mistral-7B-v0.3","meta-llama/Llama-2-7b-hf"],
         "device_map": ["cuda:0","cuda:1","auto","sequential","cpu"],
-        "quantization": ["4-bit","8-bit"],
-        "input_length_words": [50,100,200,300,400,500,600,700,800,900,1000]
+        "input_length_words": [10,20,40,80,160,320,640,1280]
     }
 }

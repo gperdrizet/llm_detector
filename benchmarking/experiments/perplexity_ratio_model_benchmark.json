@@ -2,7 +2,7 @@
     "experiment_description": "Perplexity ratio score calculation using different models.",
     "benchmark_function": "perplexity_ratio",
     "input_datafile": "hans_2024/aggregated_hans_data.jsonl",
-    "iterations": 5,
+    "iteration": 100,
     "dependent_vars": {
         "perplexity_ratio_score": [],
         "perplexity": [],
@@ -11,17 +11,21 @@
         "length_tokens": [],
         "data_source": [],
         "generating_model": [],
+        "reader_model": [],
+        "writer_model": [],
+        "reader_device": [],
+        "writer_device": [],
         "author": [],
         "text": []
     },
     "independent_vars": {
-        "device_map": [["cuda:1","cuda:2"]],
         "hf_model_string": [
             ["meta-llama/Meta-Llama-3-8B","meta-llama/Meta-Llama-3-8B-instruct"],
             ["tiiuae/falcon-7b","tiiuae/falcon-7b-instruct"],
             ["mistralai/Mistral-7B-v0.3","mistralai/Mistral-7B-Instruct-v0.3"],
             ["meta-llama/Llama-2-7b-hf","meta-llama/Llama-2-7b-chat-hf"],
             ["google/gemma-2-9b","google/gemma-2-9b-it"]
-        ]
+        ],
+        "device_map": [["cuda:1","cuda:2"]]
     }
 }
