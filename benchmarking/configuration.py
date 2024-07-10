@@ -21,7 +21,7 @@ LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
 
 # Logging stuff
 LOG_LEVEL='INFO'
-LOG_PREFIX='%(levelname)s - %(message)s'
+LOG_PREFIX='%(levelname)s - %(name)s - %(message)s'
 CLEAR_LOGS=True
 
 ######################################################################

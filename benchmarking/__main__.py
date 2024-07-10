@@ -1,7 +1,7 @@
 '''Main function to run jobs based on command line arguments'''
 
 import benchmarking.functions.helper as helper_funcs
-import benchmarking.functions.benchmark as benchmark_funcs
+import benchmarking.functions.runner as runner_funcs
 import benchmarking.functions.perplexity_ratio as perplexity_funcs
 
 if __name__ == "__main__":
@@ -24,8 +24,14 @@ if __name__ == "__main__":
             config_file = benchmark[0]
             resume = benchmark[1]
 
+            if resume == 'True' or resume == 'true':
+                RESUME = True
+
+            else:
+                RESUME = False
+
             # Run the benchmark
-            benchmark_funcs.run(
-                resume = resume,
-                experiment_config_file = config_file
+            runner_funcs.run(
+                experiment_config_file = config_file,
+                resume = RESUME
             )
