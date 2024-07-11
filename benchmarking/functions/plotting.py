@@ -7,42 +7,47 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def load_datasets(
-    datasets: dict[str: pd.DataFrame]=None,
-    column_renaming_dict: dict[str: str]=None,
-    value_renaming_dict: dict[str: str]=None,
-    data_path: str=None
+    datasets: dict[str: pd.DataFrame] = None,
+    column_renaming_dict: dict[str: str] = None,
+    value_renaming_dict: dict[str: str] = None,
+    data_path: str = None
 ) -> dict[str: pd.DataFrame]:
 
-    '''Loads and prepares JSON datasets for plotting. Fixes string OOM and NA values.
-    Translates column names and string values for pretty plotting. Takes a dict of
-    dataset name and file, returns a dict of dataset name and dataframe.'''
+    '''Loads and prepares JSON or JSON lines datasets for plotting. Fixes string 
+    OOM and NAN values.Translates column names and string values for pretty 
+    plotting. Takes a dict of dataset name and file, returns a dict of dataset 
+    name and dataframe.'''
 
     # Empty dict to hold results
-    results={}
+    results = {}
 
     # Loop on input dicts
     for dataset_name, dataset_file in datasets.items():
 
-        # load the data
-        dataframe=pd.read_json(f'{data_path}/{dataset_file}')
+        # Check if we are loading JSON or JSON lines and do the right thing
+        if dataset_file.split('.')[-1] == 'json':
+            dataframe = pd.read_json(f'{data_path}/{dataset_file}')
+
+        elif dataset_file.split('.')[-1] == 'jsonl':
+            dataframe = pd.read_json(f'{data_path}/{dataset_file}', lines = True, orient = 'records')
 
         # Format/translate values and column names for pretty printing in plot
-        dataframe=replace_strings(
-            df=dataframe,
-            column_renaming_dict=column_renaming_dict,
-            value_renaming_dict=value_renaming_dict
+        dataframe = replace_strings(
+            df = dataframe,
+            column_renaming_dict = column_renaming_dict,
+            value_renaming_dict = value_renaming_dict
         )
 
         # Convert string 'OOM' and 'NAN' to np.nan
-        dataframe=clean_nan_oom(dataframe)
+        dataframe = clean_nan_oom(dataframe)
 
         # Drop rows with np.nan
         # pylint: disable=E1101
-        dataframe.dropna(inplace=True)
+        dataframe.dropna(inplace = True)
         # pylint: enable=E1101
 
         # Add cleaned dataframe to results
-        results[dataset_name]=dataframe
+        results[dataset_name] = dataframe
 
     return results
 

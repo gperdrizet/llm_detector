@@ -1,176 +1,323 @@
-'''Class to hold objects and methods for benchmarking 
-and optimization experiments'''
+'''Class to hold objects and methods for benchmarking and optimization 
+experiments'''
 
 from __future__ import annotations
-#from typing import Callable
+from typing import List
 
 import os
 import json
+import logging
 import itertools
 import benchmarking.configuration as config
-import benchmarking.functions.benchmark as benchmark_funcs
-import benchmarking.functions.helper as helper_funcs
 
+# Comment ##############################################################
+# Code ########################################################################
 class Experiment:
-    '''Has generalized data structure for collecting data from experiments
-    using two dicts for independent and dependent variables. Also holds
-    other experiment metadata and data manipulation methods.'''
+    '''Has generalized data structure for collecting data from
+    experiments using two dicts for independent and dependent
+    variables. Also holds other experiment metadata and data
+    manipulation methods.'''
 
-    def __init__(self,
+    def __init__(
+            self,
             experiment_config_file: str = None,
-            #logger: Callable = None
+            resume: bool = False
     ) -> None:
 
-        # Load the experiment configuration file
+        # Load the experiment configuration
         with open(experiment_config_file, 'r', encoding='utf-8') as input_file:
             configuration = json.load(input_file)
 
-        # Initialize experiment metadata
-        self.experiment_name = configuration['experiment_name']
-        self.experiment_description = configuration['experiment_description']
-        self.total_iterations = configuration['independent_vars']['iteration']
+        # Set the experiment's metadata
 
-        # Add the logger
-        self.logger = helper_funcs.start_logger(f'{self.experiment_name}.log')
+        # Add the name of the experiment, derived from the configuration
+        # file's name
+        config_file_basename = os.path.basename(experiment_config_file)
+        self.experiment_name = config_file_basename.split('.')[0]
+
+        # Set the name of the benchmark function to run
+        self.benchmark_func = configuration['benchmark_function']
+
+        # Set total iterations to run
+        self.iteration = configuration['iteration']
+
+        # Set the experiment description
+        self.experiment_description = configuration['experiment_description']
 
         # Construct output data filename and path
-        data_filename = f"{self.experiment_name.replace(' ', '_')}.json"
-        self.data_file = f'{config.BENCHMARKING_DATA_PATH}/{data_filename}'
+        results_data_filename = f'{self.experiment_name}.jsonl'
+        results_data_path = config.BENCHMARKING_DATA_PATH
+        results_data_file = f'{results_data_path}/{results_data_filename}'
+        self.results_data_file = results_data_file
 
-        # Set the benchmarking function to run
-        self.benchmark_func = getattr(benchmark_funcs, self.experiment_name)
+        # Add the logger
+        self.logger = logging.getLogger(f'{self.experiment_name}.Experiment')
+        self.logger.debug('Experiment metadata loaded')
 
-        # Add dicts for independent and dependent vars
+        # Set-up experimental data handling
+
+        # If there is data needed for the benchmark, load it
+        if 'input_datafile' in configuration.keys():
+            self.data = self.load_data(
+                input_datafile = configuration['input_datafile'])
+
+            self.logger.debug('Input data loaded')
+
+        else:
+            self.data = None
+
+        # Add independent and dependent variables
         self.independent_vars = configuration['independent_vars']
         self.dependent_vars = configuration['dependent_vars']
 
-        # Make a list of tuples, containing all of the experimental conditions
-        # to use for looping during the run
-        self.conditions = self.collect_independent_vars()
+        # Generate the run list from the configuration file data
+        self.run_dicts_list = self.generate_run_dicts_list()
+        self.logger.debug('Run dictionaries list generated: %s runs',
+                          len(self.run_dicts_list))
 
-        # Now that we have captured the condition list, flush the
-        # independent variables dict so that we can use the same data
-        # structure to record conditions as we complete them during the run
-        self.flush_independent_vars()
+        # Initialize the results data structure, reading in data from
+        # a previous run and removing completed runs from the run
+        # dictionary list, if desired.
+        output = self.initialize_results(resume = resume)
+        (self.run_results_dicts_list, self.run_dict_list) = output
+        self.logger.debug('Results initialized')
 
-    def resume(self) -> None:
-        '''Method to resume from prior data, if any. Reads prior data
-        and adds it to current results. Removes any completed conditions
-        from conditions list.'''
+        # Batch the run dictionaries list by iteration
+        self.run_batches_list = self.batch_run_dicts_list()
+        self.logger.debug('Run dictionaries list batched: %s batches',
+                         len(self.run_batches_list))
 
-        # Holder for any completed conditions we may find
-        completed_conditions = []
+    def generate_run_dicts_list(self) -> List[dict]:
+        '''Creates a list of dictionaries where each element dictionary
+        represents an individual run with keys and a single value for 
+        each independent variable'''
 
-        # If we have data to resume from...
-        if os.path.isfile(self.data_file) is True:
+        # First we need to expand the lists of independent variable levels
+        # from the configuration data to make runs that contain all of the
+        # combinations, do this by creating a list of lists where each
+        # element is a run.
 
-            self.logger.info('Found old data for resume')
+        # First, loop on the independent variable dictionary, creating a
+        # list of lists containing the variable levels and collecting
+        # the variable name keys in order
 
-            # Read the prior run's data
-            with open(self.data_file, 'r', encoding='utf-8') as input_file:
-                old_results = json.load(input_file)
-                self.logger.info('Read old run data')
+        independent_var_names = []
+        independent_var_levels_lists = []
 
-            # Get the values of completed independent variable
-            # conditions into a list of lists
+        for independent_var_name, independent_var_levels in \
+            self.independent_vars.items():
 
-            # Loop on keys in the results dict
-            for key in old_results.keys():
+            independent_var_names.append(independent_var_name)
+            independent_var_levels_lists.append(independent_var_levels)
 
-                # If the key is an independent variable
-                if key in self.independent_vars.keys():
+        # Add the iteration number as an independent variable
+        independent_var_names.append('iteration')
+        independent_var_levels_lists.append(
+            list(range(1, self.iteration + 1)))
 
-                    # Add it's list of values to completed conditions
-                    completed_conditions.append(old_results[key])
+        self.logger.debug('Independent variable level list of lists created')
+        self.logger.debug('Independent variable level list of lists type: %s',
+                           type(independent_var_levels_lists))
+        self.logger.debug('Independent variable level list of lists element type: %s',
+                           type(independent_var_levels_lists[0]))
+        self.logger.debug('Independent variable level list of lists first element: %s',
+                           independent_var_levels_lists[0])
 
-                    # And add the data to the independent vars dict so that
-                    # when the results file is overwritten on the first run
-                    # the old data is not lost
-                    self.independent_vars[key] = old_results[key]
-                    self.logger.info(' %s has %s values',
-                                      key, len(self.independent_vars[key]))
+        # Take the product of the independent variable levels list of lists - this
+        # gives a list of tuples for each individual run
+        runs_lists = list(itertools.product(*independent_var_levels_lists))
 
-                # If the key is a dependent variable, just write the data
-                # to the dependent variable dictionary
-                if key in self.dependent_vars.keys():
-                    self.dependent_vars[key] = old_results[key]
-                    self.logger.info(' %s has %s values', 
-                                     key, len(self.dependent_vars[key]))
+        self.logger.debug('Run list of lists created')
+        self.logger.debug('Run list of lists type: %s',
+                          type(runs_lists))
+        self.logger.debug('Run list of lists element type: %s',
+                          type(runs_lists[0]))
+        self.logger.debug('Run list of lists first element: %s', runs_lists[0])
 
-            # Now expand and zip the list of list containing the completed
-            # conditions, this will create a list containing a tuple for each
-            # completed run matching the format of our run condition list
-            completed_conditions = list(zip(*completed_conditions))
+        # Convert the list of run tuples into a list of run dictionaries
+        run_dicts_list = []
 
-            self.logger.info('Collected %s completed run tuples',
-                             len(completed_conditions))
+        for run_list in runs_lists:
+            run_dict = {}
 
-        # Then loop on the full conditions list and add only those
-        # conditions which have not already been completed to a new list
-        new_conditions = []
+            for independent_var_name, independent_var_value in zip(
+                independent_var_names, run_list):
+                run_dict[independent_var_name] = independent_var_value
 
-        for condition in self.conditions:
-            if condition not in completed_conditions:
-                new_conditions.append(condition)
+            run_dicts_list.append(run_dict)
 
-        self.logger.info('Created list of %s conditions left to run', len(new_conditions))
+        self.logger.debug('Run dictionary list created')
+        self.logger.debug('Run dictionary list type: %s',
+                          type(run_dicts_list))
+        self.logger.debug('Run dictionary list element type: %s',
+                          type(run_dicts_list[0]))
+        self.logger.debug('Run dictionary list first element: %s',
+                          run_dicts_list[0])
 
-        # Finally, overwrite the conditions list with the list of new
-        # conditions which still need to be completed
-        self.conditions = new_conditions
+        return run_dicts_list
 
-    def collect_independent_vars(self) -> list:
-        '''Returns values stored in the independent variables
-        dictionary as list of lists'''
+    def initialize_results(self, resume: bool = False) -> List[dict]:
+        '''Creates results data structure as list of dicts. If resuming
+        from prior run, populates results with data from disk and removes
+        complete runs from the run dictionary list.'''
 
-        # Make sure the iteration value is last in the independent_vars
-        # dict, this will place iteration numbers last in the list of
-        # lists so than when looping, all iterations of a given
-        # condition will be sequential
+        # Read old data from disk and add it to the results dictionary
+        # list so that we don't loose data when the data file gets
+        # over-written with new results. If no old data exists, or we
+        # are not resuming, make an empty holder for the results
+        # dictionary list
 
-        self.independent_vars[
-                            'iteration']=self.independent_vars.pop('iteration')
+        if resume is True and os.path.isfile(self.results_data_file) is True:
+            self.logger.debug('Resuming from old data')
 
-        # Empty holder to accumulate results
-        independent_var_lists = []
+            results_dicts_list = []
 
-        # Loop on independent variable dictionary and add each
-        # list of values to the result
-        for independent_var, independent_var_list in \
-                self.independent_vars.items():
+            with open(self.results_data_file, 'r',
+                      encoding='utf-8') as input_file:
 
-            # Handel 'iteration' as a special case - in the config file
-            # it contains a single int specifying the number of
-            # iterations to run, so use it to construct a list
-            # containing iteration numbers to loop on during the run
-            if independent_var == 'iteration':
-                independent_var_list = list(range(1, independent_var_list + 1))
+                for line in input_file:
+                    results_dicts_list.append(json.loads(line))
 
-            independent_var_lists.append(independent_var_list)
+            self.logger.debug('%s old run results loaded',
+                              len(results_dicts_list))
+            self.logger.debug('Results type: %s',
+                              type(results_dicts_list))
+            self.logger.debug('Results element type: %s',
+                              type(results_dicts_list[0]))
+            self.logger.debug('Results first element: %s',
+                              results_dicts_list[0])
 
-        # Take the product of the expanded list of lists - this
-        # give a list of tuples for each individual run
-        conditions = list(itertools.product(*independent_var_lists))
+        else:
+            results_dicts_list = []
+            self.logger.debug('Created empty list for results')
 
-        return conditions
+        # If we are resuming remove any completed runs in the results
+        # dictionary list from the run dictionary list so we don't run
+        # them again
+        if resume is True and os.path.isfile(self.results_data_file) is True:
 
-    def flush_independent_vars(self) -> None:
-        '''Empties each list of values in independent variables
-        dict'''
+            # First, make a new list of dictionaries from the results data
+            # which contains only the independent variable
+            completed_run_dicts_list = []
 
-        for key in self.independent_vars.keys():
-            self.independent_vars[key]=[]
+            for results_dict in results_dicts_list:
+                completed_independent_vars_dict = {}
 
-    def save(self) -> None:
-        '''Saves data in independent and dependent variable dictionaries to JSON file'''
+                for key, value in results_dict.items():
+                    if key in self.independent_vars.keys() or key == 'iteration':
 
-        # Collect the independent and dependent variable data to a single results dictionary
-        results=self.independent_vars
+                        completed_independent_vars_dict[key] = value
 
-        # Add the dependent variable data
-        for key, value in self.dependent_vars.items():
-            results[key]=value
+                completed_run_dicts_list.append(
+                    completed_independent_vars_dict)
+
+            self.logger.debug('Completed run dictionary list created from old results: %s runs', 
+                              len(completed_run_dicts_list))
+            self.logger.debug('Completed run dictionary list type: %s',
+                              type(completed_run_dicts_list))
+            self.logger.debug('Completed run dictionary list element type: %s',
+                              type(completed_run_dicts_list[0]))
+            self.logger.debug('Completed run dictionary list first element: %s',
+                              completed_run_dicts_list[0])
+
+            # Then, remove any runs found in the list of completed run
+            # dictionaries from the list of run dictionaries
+            new_run_dicts_list = []
+
+            for run_dict in self.run_dicts_list:
+                if run_dict not in completed_run_dicts_list:
+                    new_run_dicts_list.append(run_dict)
+
+            self.logger.debug('Completed runs removed from run dictionary list')
+            self.logger.debug('%s total runs, %s runs remaining',
+                            len(self.run_dicts_list), len(new_run_dicts_list))
+            self.logger.debug('New run dictionary list type: %s',
+                            type(new_run_dicts_list))
+            self.logger.debug('New run dictionary list element type: %s',
+                            type(new_run_dicts_list[0]))
+            self.logger.debug('New run dictionary list first element: %s',
+                            new_run_dicts_list[0])
+
+        # If we are not resuming, just return the original run
+        # dictionaries list
+        else:
+            new_run_dicts_list = self.run_dicts_list
+
+        return results_dicts_list, new_run_dicts_list
+
+
+    def batch_run_dicts_list(self) -> List[List[dict]]:
+        '''Creates list of lists from run dictionaries list where
+        each list element is a list of dictionaries forming a batch
+        of iterations with all other independent variables the same.'''
+
+        # Loop on the run dictionaries list, collecting the batches by
+        # iteration number
+        batches_lists = []
+        batch_list = []
+
+        self.logger.debug('Batching...')
+
+        for run_dict in self.run_dicts_list:
+            batch_list.append(run_dict)
+            self.logger.debug('Run: %s', run_dict)
+
+            if run_dict['iteration'] == self.iteration:
+                batches_lists.append(batch_list)
+                self.logger.debug('Batch complete')
+                batch_list = []
+
+        self.logger.debug('Run dictionary list batched: %s batches of %s runs',
+                        len(batches_lists), len(batches_lists[0]))
+        self.logger.debug('Batch list type: %s', type(batches_lists))
+        self.logger.debug('Batch list element type: %s',
+                        type(batches_lists[0]))
+        self.logger.debug('First batch element type: %s',
+                          type(batches_lists[0][0]))
+        self.logger.debug('First batch element: %s', batches_lists[0][0])
+
+        return batches_lists
+
+    def extend_results(self, incoming_results: list=None):
+        '''Adds results from batch to experiment class's results list'''
+
+        self.run_results_dicts_list.extend(incoming_results)
+        self.logger.debug('%s incoming results added to list', len(incoming_results))
+
+
+    def save_results(self) -> None:
+        '''Saves current contents of results data structure to disk
+        as JSON lines.'''
 
         # Serialize collected results to JSON
-        with open(self.data_file, 'w', encoding='utf-8') as output:
-            json.dump(results, output)
+        with open(self.results_data_file, 'w', encoding='utf-8') as output:
+            for run_result_dict in self.run_results_dicts_list:
+                json.dump(run_result_dict, output)
+                output.write('\n')
+
+        self.logger.debug('Results saved to file')
+
+
+    def load_data(self, input_datafile: str = None):
+        '''Loads input data for benchmark run'''
+
+        self.logger.debug('Loading data from %s', input_datafile)
+
+        # Get the full path to the datafile
+        input_file_path = f'{config.DATA_PATH}/{input_datafile}'
+
+        # Check the type of data we are loading via the file extension
+        data_type = input_datafile.split('.')[-1]
+        self.logger.debug('Datatype is %s', data_type)
+
+        input_data = []
+
+        if data_type == 'jsonl':
+
+            with open(input_file_path, 'r', encoding='utf-8') as input_file:
+                for line in input_file:
+                    input_data.append(json.loads(line))
+
+            self.logger.debug('Loaded %s json lines', len(input_data))
+
+        return input_data
