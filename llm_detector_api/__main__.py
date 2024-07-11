@@ -3,13 +3,24 @@ using either Gunicorn or the Flask development server'''
 
 import llm_detector_api.functions.flask_app as app_funcs
 import llm_detector_api.functions.helper as helper_funcs
+import llm_detector_api.configuration as config
 
 # Start the logger
 logger=helper_funcs.start_logger()
 
-# Start the models
-observer_model, performer_model=helper_funcs.start_models(logger)
-logger.info('Models started')
+logger.info('Running in %s mode', config.MODE)
+
+if config.MODE == 'testing':
+    
+    # Don't load the LLMs
+    observer_model = None
+    performer_model = None
+
+elif config.MODE == 'production':
+
+    # Start the models
+    observer_model, performer_model=helper_funcs.start_models(logger)
+    logger.info('Models started')
 
 # Initialize Flask app
 flask_app=app_funcs.create_flask_celery_app(observer_model, performer_model)

@@ -1,6 +1,7 @@
 '''Internal LLM detector API.'''
 
 from typing import Callable
+import random
 from flask import Flask, request # type: ignore
 from celery import Celery, Task, shared_task # type: ignore
 from celery.result import AsyncResult
@@ -61,18 +62,26 @@ def create_flask_celery_app(observer_model: Callable, performer_model: Callable)
     # Get task logger
     logger = get_task_logger(__name__)
 
-    @shared_task(ignore_result=False)
+    @shared_task(ignore_result = False)
     def score_text(suspect_string: str) -> str:
         '''Submits text string for scoring'''
 
         logger.info(f'Submitting for score: {suspect_string}')
 
-        # Call the scoring function
-        score=scoring_funcs.score_string(
-            observer_model,
-            performer_model,
-            suspect_string
-        )
+        # Call the real scoring function or mock based on mode
+        if config.MODE == 'testing':
+
+            # Mock the score with a random float
+            score = [random.uniform(0, 1)]
+
+        elif config.MODE == 'production':
+
+            # Call the scoring function
+            score = scoring_funcs.score_string(
+                observer_model,
+                performer_model,
+                suspect_string
+            )
 
         # Return the result from the output queue
         return {'score': score[0], 'text': suspect_string}

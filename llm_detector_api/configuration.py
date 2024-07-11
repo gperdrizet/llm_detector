@@ -8,6 +8,11 @@ import torch
 # Project meta-stuff: paths, logging, etc. ###########################
 ######################################################################
 
+# Set mode to testing to mock scoring function with random output
+# between 0.0 and 1.0 and not load any LLMs. Set to production
+# to run real scoring function
+MODE = 'testing'
+
 # Get path to this config file so that we can define
 # other paths relative to it
 PROJECT_ROOT_PATH=os.path.dirname(os.path.realpath(__file__))
