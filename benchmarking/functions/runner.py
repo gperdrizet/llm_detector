@@ -7,6 +7,7 @@ import os
 import logging
 from multiprocessing import Manager, Process
 
+import torch
 import benchmarking.classes.llm as llm_class
 import benchmarking.classes.experiment as experiment_class
 import benchmarking.functions.benchmarks as benchmark_funcs
@@ -121,6 +122,10 @@ def run_batch(
 
     # Set the benchmark function to run
     benchmark_func = getattr(benchmark_funcs, benchmark_func)
+
+    # Set the CPU core count if specified in the run dictionary
+    if 'cpu_cores' in list(batch[0].keys()):
+        torch.set_num_threads(batch[0]['cpu_cores'])
 
     # Prepare and load the LLM(s). since all of the runs in a
     # batch are the same except for the iteration number, we can

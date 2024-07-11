@@ -38,9 +38,6 @@ def model_loading(
     # harness
     llm.clear()
 
-    # Set CPU cores
-    torch.set_num_threads(run_dict['cpu_cores'])
-
     # Time the loading of the model
     loading_start_time = time.time()
     llm.load()
@@ -72,9 +69,6 @@ def generation(
 
     # Re-assign model for clarity
     llm = llms[0]
-
-    # Set CPU cores
-    torch.set_num_threads(run_dict['cpu_cores'])
 
     # Start memory tracking using the correct strategy based on device map
     helper_funcs.start_memory_tracking(device_map = run_dict['device_map'])
