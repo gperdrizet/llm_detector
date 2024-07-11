@@ -7,6 +7,7 @@ import time
 import random
 from random import sample
 
+import torch
 import benchmarking.configuration as config
 import benchmarking.functions.helper as helper_funcs
 from benchmarking.functions.metrics import perplexity, entropy
@@ -36,6 +37,9 @@ def model_loading(
     # much better for the many other benchmarks that use this test
     # harness
     llm.clear()
+
+    # Set CPU cores
+    torch.set_num_threads(run_dict['cpu_cores'])
 
     # Time the loading of the model
     loading_start_time = time.time()
@@ -67,6 +71,9 @@ def generation(
 
     # Re-assign model for clarity
     llm = llms[0]
+
+    # Set CPU cores
+    torch.set_num_threads(run_dict['cpu_cores'])
 
     # Start memory tracking using the correct strategy based on device map
     helper_funcs.start_memory_tracking(device_map = run_dict['device_map'])
