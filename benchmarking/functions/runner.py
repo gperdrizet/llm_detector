@@ -123,15 +123,18 @@ def run_batch(
     # Set the benchmark function to run
     benchmark_func = getattr(benchmark_funcs, benchmark_func)
 
-    # Set the CPU core count if specified in the run dictionary
-    if 'cpu_cores' in list(batch[0].keys()):
-        torch.set_num_threads(batch[0]['cpu_cores'])
+    # # Set the CPU core count if specified in the run dictionary
+    # if 'cpu_cores' in list(batch[0].keys()):
+    #     torch.set_num_threads(batch[0]['cpu_cores'])
+
+    # logger.debug('Torch has %s threads in worker process', torch.get_num_threads())
+    # logger.debug('Run dict. specifies %s threads', batch[0]['cpu_cores'])
 
     # Prepare and load the LLM(s). since all of the runs in a
     # batch are the same except for the iteration number, we can
     # use the first run from the batch as the source for our LLM
     # parameters
-    llms = instantiate_llms(run_dict = batch[0])
+    llms = instantiate_llms(run_dict = batch[0], experiment_name = experiment_name)
 
     # Load each LLM, catching runtime errors
     try:
@@ -195,11 +198,11 @@ def run_batch(
 
     return
 
-def instantiate_llms(run_dict: dict = None) -> List[Callable]:
+def instantiate_llms(run_dict: dict = None, experiment_name: str = None) -> List[Callable]:
     '''Handles instantiating LLM(s)'''
 
     # Get the logger
-    logger = logging.getLogger('benchmarking.instantiate_llms')
+    logger = logging.getLogger(f'{experiment_name}.instantiate_llms')
 
     # Instantiate a LLM class instance for the LLM(s), need to
     # handle this one of two ways - if we are loading more than
@@ -210,11 +213,11 @@ def instantiate_llms(run_dict: dict = None) -> List[Callable]:
     llms = []
 
     if isinstance(run_dict['hf_model_string'], str):
-        llms.append(llm_class.Llm())
+        llms.append(llm_class.Llm(experiment_name = experiment_name))
 
     elif isinstance(run_dict['hf_model_string'], list):
         for _ in range(len(run_dict['hf_model_string'])):
-            llms.append(llm_class.Llm())
+            llms.append(llm_class.Llm(experiment_name = experiment_name))
 
     logger.debug('Instantiated %s LLMs', len(llms))
     logger.debug('Setting LLM parameters from batch: %s', run_dict)
@@ -230,11 +233,9 @@ def instantiate_llms(run_dict: dict = None) -> List[Callable]:
             # should be a single string and we can just set it directly.
             # 2. If we are running more than one LLM, the parameter
             # value will be a list of strings and we need to set each
-            # value in the list in the corresponding LLM. Check
-            # both the number of LLMs and the type of the parameter
-            # value to be sure we are doing the right thing
+            # value in the list in the corresponding LLM.
 
-            if len(llms) == 1 and isinstance(value, str) is True:
+            if len(llms) == 1:
                 logger.debug('Setting %s to %s for LLM', parameter_name, value)
                 setattr(llms[0], parameter_name, value)
 
