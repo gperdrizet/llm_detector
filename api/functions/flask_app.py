@@ -73,7 +73,6 @@ def create_flask_celery_app(
 
         logger.info(f'Submitting for score: {suspect_string}')
 
-<<<<<<< HEAD:llm_detector_api/functions/flask_app.py
         # Call the real scoring function or mock based on mode
         if config.MODE == 'testing':
 
@@ -88,14 +87,6 @@ def create_flask_celery_app(
                 performer_model,
                 suspect_string
             )
-=======
-        # Call the scoring function
-        score = scoring_funcs.score_string(
-            reader_model,
-            writer_model,
-            suspect_string
-        )
->>>>>>> main:api/functions/flask_app.py
 
         # Return the result from the output queue
         return {'score': score[0], 'text': suspect_string}
