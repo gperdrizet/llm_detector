@@ -48,6 +48,7 @@ def model_loading(
 
     # Record the results
     result = {'iteration': run_dict['iteration']}
+    result['hf_model_string'] = run_dict['hf_model_string']
     result['cache_dir'] = run_dict['cache_dir']
     result['device_map'] = run_dict['device_map']
     result['cpu_cores'] = run_dict['cpu_cores']
