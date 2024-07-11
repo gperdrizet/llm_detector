@@ -7,8 +7,8 @@ import glob
 import logging
 from threading import Thread
 from logging.handlers import RotatingFileHandler
-import llm_detector_api.configuration as config
-import llm_detector_api.classes.llm as llm_class
+import api.configuration as config
+import api.classes.llm as llm_class
 
 def start_logger() -> Callable:
     '''Sets up logging, returns logger'''
@@ -29,7 +29,8 @@ def start_logger() -> Callable:
         backupCount=5
     )
 
-    formatter = logging.Formatter(config.LOG_PREFIX, datefmt='%Y-%m-%d %I:%M:%S %p')
+    formatter = logging.Formatter(
+        config.LOG_PREFIX, datefmt='%Y-%m-%d %I:%M:%S %p')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
@@ -43,21 +44,21 @@ def start_logger() -> Callable:
 def start_models(logger: Callable) -> list[Callable, Callable]:
     '''Initializes, loads and returns the observer and performer LLM'''
 
-    # Configure and load two instances of the model, one base for the observer
-    # and one instruct for the performer. Use different GPUs.
-    observer_model=llm_class.Llm(
-        hf_model_string=config.OBSERVER_MODEL,
-        device_map=config.OBSERVER_DEVICE,
-        logger=logger
+    # Configure and load two instances of the model, one base for the 
+    # observer and one instruct for the performer. Use different GPUs.
+    observer_model = llm_class.Llm(
+        hf_model_string = config.OBSERVER_MODEL,
+        device_map = config.OBSERVER_DEVICE,
+        logger = logger
     )
 
     observer_model.load()
     logger.info('Loaded observer model')
 
-    performer_model=llm_class.Llm(
-        hf_model_string=config.PERFORMER_MODEL,
-        device_map=config.PERFORMER_DEVICE,
-        logger=logger
+    performer_model = llm_class.Llm(
+        hf_model_string = config.PERFORMER_MODEL,
+        device_map = config.PERFORMER_DEVICE,
+        logger = logger
     )
 
     performer_model.load()
@@ -70,13 +71,13 @@ def start_celery(flask_app: Callable, logger: Callable) -> None:
     '''Initializes Celery and starts it in a thread'''
 
     # Get the Celery app
-    celery_app=flask_app.extensions['celery']
+    celery_app = flask_app.extensions['celery']
     logger.info('Celery app initialized')
 
     # Put the Celery into a thread
-    celery_app_thread=Thread(
-        target=celery_app.worker_main,
-        args=[['worker', '--pool=solo', f'--loglevel={config.LOG_LEVEL}']]
+    celery_app_thread = Thread(
+        target = celery_app.worker_main,
+        args = [['worker', '--pool=solo', f'--loglevel={config.LOG_LEVEL}']]
     )
 
     logger.info('Celery app MainProcess thread initialized')
@@ -90,9 +91,9 @@ def start_flask(flask_app: Callable, logger: Callable):
     '''Starts flask in a thread via the development server'''
 
     # Put the flask app into a thread
-    flask_app_thread=Thread(
-        target=flask_app.run,
-        kwargs={'host':config.IP_ADDRESS,'port':config.PORT}
+    flask_app_thread = Thread(
+        target = flask_app.run,
+        kwargs = {'host':config.IP_ADDRESS,'port':config.PORT}
     )
 
     logger.info('Flask app thread initialized')
