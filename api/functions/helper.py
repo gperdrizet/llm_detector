@@ -42,29 +42,29 @@ def start_logger() -> Callable:
 
 
 def start_models(logger: Callable) -> list[Callable, Callable]:
-    '''Initializes, loads and returns the observer and performer LLM'''
+    '''Initializes, loads and returns the reader and writer LLM'''
 
     # Configure and load two instances of the model, one base for the 
-    # observer and one instruct for the performer. Use different GPUs.
-    observer_model = llm_class.Llm(
-        hf_model_string = config.OBSERVER_MODEL,
-        device_map = config.OBSERVER_DEVICE,
+    # reader and one instruct for the writer. Use different GPUs.
+    reader_model = llm_class.Llm(
+        hf_model_string = config.READER_MODEL,
+        device_map = config.READER_DEVICE,
         logger = logger
     )
 
-    observer_model.load()
-    logger.info('Loaded observer model')
+    reader_model.load()
+    logger.info('Loaded reader model')
 
-    performer_model = llm_class.Llm(
-        hf_model_string = config.PERFORMER_MODEL,
-        device_map = config.PERFORMER_DEVICE,
+    writer_model = llm_class.Llm(
+        hf_model_string = config.WRITER_MODEL,
+        device_map = config.WRITER_DEVICE,
         logger = logger
     )
 
-    performer_model.load()
-    logger.info('Loaded performer model')
+    writer_model.load()
+    logger.info('Loaded writer model')
 
-    return observer_model, performer_model
+    return reader_model, writer_model
 
 
 def start_celery(flask_app: Callable, logger: Callable) -> None:

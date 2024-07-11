@@ -26,11 +26,11 @@ PORT=5000
 REDIS_URL='redis://192.168.1.148'
 
 # Models to use for scoring
-OBSERVER_MODEL='meta-llama/Meta-Llama-3-8B'
-OBSERVER_DEVICE='cuda:1'
+READER_MODEL='meta-llama/Meta-Llama-3-8B'
+READER_DEVICE='cuda:1'
 
-PERFORMER_MODEL='meta-llama/Meta-Llama-3-8B-instruct'
-PERFORMER_DEVICE='cuda:2'
+WRITER_MODEL='meta-llama/Meta-Llama-3-8B-instruct'
+WRITER_DEVICE='cuda:2'
 
 CALCULATION_DEVICE='cuda:0'
 

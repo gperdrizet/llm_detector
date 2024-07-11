@@ -39,8 +39,8 @@ def create_celery_app(app: Flask) -> Celery:
     return celery_app
 
 def create_flask_celery_app(
-        observer_model: Callable,
-        performer_model: Callable
+        reader_model: Callable,
+        writer_model: Callable
 ) -> Flask:
 
     '''Creates Flask app for use with Celery'''
@@ -74,8 +74,8 @@ def create_flask_celery_app(
 
         # Call the scoring function
         score = scoring_funcs.score_string(
-            observer_model,
-            performer_model,
+            reader_model,
+            writer_model,
             suspect_string
         )
 

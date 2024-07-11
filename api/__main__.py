@@ -8,11 +8,11 @@ import api.functions.helper as helper_funcs
 logger = helper_funcs.start_logger()
 
 # Start the models
-observer_model, performer_model = helper_funcs.start_models(logger)
+reader_model, writer_model = helper_funcs.start_models(logger)
 logger.info('Models started')
 
 # Initialize Flask app
-flask_app=app_funcs.create_flask_celery_app(observer_model, performer_model)
+flask_app=app_funcs.create_flask_celery_app(reader_model, writer_model)
 logger.info('Flask app initialized')
 
 # Start the celery app

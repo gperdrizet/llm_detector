@@ -7,33 +7,33 @@ import transformers
 import api.configuration as config
 
 def score_string(
-        observer_model: Callable,
-        performer_model: Callable,
+        reader_model: Callable,
+        writer_model: Callable,
         string: str = None
 ) -> float:
 
     '''Takes a string, computes and returns llm detector score'''
 
-    # Encode the string using the observer's tokenizer
-    encodings = observer_model.tokenizer(
+    # Encode the string using the reader's tokenizer
+    encodings = reader_model.tokenizer(
         string,
         return_tensors = 'pt',
         return_token_type_ids = False
-    ).to(observer_model.device_map)
+    ).to(reader_model.device_map)
 
     # Calculate logits
-    observer_logits = observer_model.model(**encodings).logits
-    performer_logits = performer_model.model(**encodings).logits
+    reader_logits = reader_model.model(**encodings).logits
+    writer_logits = writer_model.model(**encodings).logits
 
     # Calculate perplexity
-    ppl = perplexity(encodings, performer_logits)
+    ppl = perplexity(encodings, writer_logits)
 
     # Calculate cross perplexity
     x_ppl = entropy(
-        observer_logits.to(config.CALCULATION_DEVICE),
-        performer_logits.to(config.CALCULATION_DEVICE),
+        reader_logits.to(config.CALCULATION_DEVICE),
+        writer_logits.to(config.CALCULATION_DEVICE),
         encodings.to(config.CALCULATION_DEVICE),
-        observer_model.tokenizer.pad_token_id
+        reader_model.tokenizer.pad_token_id
     )
 
     scores = ppl / x_ppl
