@@ -79,7 +79,8 @@ class Experiment:
         # a previous run and removing completed runs from the run
         # dictionary list, if desired.
         output = self.initialize_results(resume = resume)
-        (self.run_results_dicts_list, self.run_dict_list) = output
+        self.run_results_dicts_list = output[0]
+        self.run_dicts_list = output[1]
         self.logger.debug('Results initialized')
 
         # Batch the run dictionaries list by iteration
@@ -211,14 +212,16 @@ class Experiment:
                 completed_run_dicts_list.append(
                     completed_independent_vars_dict)
 
-            self.logger.debug('Completed run dictionary list created from old results: %s runs', 
+            self.logger.debug('Completed run dictionary list created from old results: %s runs',
                               len(completed_run_dicts_list))
             self.logger.debug('Completed run dictionary list type: %s',
                               type(completed_run_dicts_list))
-            self.logger.debug('Completed run dictionary list element type: %s',
-                              type(completed_run_dicts_list[0]))
-            self.logger.debug('Completed run dictionary list first element: %s',
-                              completed_run_dicts_list[0])
+
+            if len(completed_run_dicts_list) != 0:
+                self.logger.debug('Completed run dictionary list element type: %s',
+                                type(completed_run_dicts_list[0]))
+                self.logger.debug('Completed run dictionary list first element: %s',
+                                completed_run_dicts_list[0])
 
             # Then, remove any runs found in the list of completed run
             # dictionaries from the list of run dictionaries
@@ -258,7 +261,7 @@ class Experiment:
         batches_lists = []
         batch_list = []
 
-        self.logger.debug('Batching...')
+        self.logger.debug('Batching %s runs', len(self.run_dicts_list))
 
         for run_dict in self.run_dicts_list:
             batch_list.append(run_dict)
@@ -269,14 +272,18 @@ class Experiment:
                 self.logger.debug('Batch complete')
                 batch_list = []
 
-        self.logger.debug('Run dictionary list batched: %s batches of %s runs',
-                        len(batches_lists), len(batches_lists[0]))
-        self.logger.debug('Batch list type: %s', type(batches_lists))
-        self.logger.debug('Batch list element type: %s',
-                        type(batches_lists[0]))
-        self.logger.debug('First batch element type: %s',
-                          type(batches_lists[0][0]))
-        self.logger.debug('First batch element: %s', batches_lists[0][0])
+        if len(self.run_dicts_list) != 0:
+            self.logger.debug('Run dictionary list batched: %s batches of %s runs',
+                            len(batches_lists), len(batches_lists[0]))
+            self.logger.debug('Batch list type: %s', type(batches_lists))
+            self.logger.debug('Batch list element type: %s',
+                            type(batches_lists[0]))
+            self.logger.debug('First batch element type: %s',
+                            type(batches_lists[0][0]))
+            self.logger.debug('First batch element: %s', batches_lists[0][0])
+
+        else:
+            self.logger.debug('No runs left to batch')
 
         return batches_lists
 

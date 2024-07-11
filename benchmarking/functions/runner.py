@@ -45,6 +45,12 @@ def run(
     if resume is True:
         logger.info('Resumed data collection from prior run')
 
+    # If we got no runs from the experiment class (meaning
+    # we are resuming a completed experiment) just finish
+    if len(experiment.run_batches_list) == 0:
+        logger.info('Experiment complete')
+        return
+
     # Start the multiprocessing manager and put a list into
     # shared memory for results
     manager = Manager()
