@@ -231,12 +231,14 @@ class Experiment:
             self.logger.debug('Completed runs removed from run dictionary list')
             self.logger.debug('%s total runs, %s runs remaining',
                             len(self.run_dicts_list), len(new_run_dicts_list))
-            self.logger.debug('New run dictionary list type: %s',
-                            type(new_run_dicts_list))
-            self.logger.debug('New run dictionary list element type: %s',
-                            type(new_run_dicts_list[0]))
-            self.logger.debug('New run dictionary list first element: %s',
-                            new_run_dicts_list[0])
+
+            if len(new_run_dicts_list) != 0:
+                self.logger.debug('New run dictionary list type: %s',
+                                type(new_run_dicts_list))
+                self.logger.debug('New run dictionary list element type: %s',
+                                type(new_run_dicts_list[0]))
+                self.logger.debug('New run dictionary list first element: %s',
+                                new_run_dicts_list[0])
 
         # If we are not resuming, just return the original run
         # dictionaries list
