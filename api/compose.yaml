@@ -6,4 +6,4 @@ services:
     restart: always
     ports:
       - '${REDIS_PORT}:${REDIS_PORT}'
-    command: redis-server
+    command: redis-server --requirepass ${REDIS_PASSWORD}
