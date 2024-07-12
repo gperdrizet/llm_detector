@@ -316,7 +316,6 @@ Also nice to have when working in notebooks: bind ctrl+shift+r to restart the no
 
 ```json
 [
-// ...
     {
         "key": "ctrl+shift+r",
         "command": "jupyter.restartkernelandrunallcells"
@@ -357,3 +356,50 @@ OK, cool. Now we just need that test harness so we can load the models a few tim
 ```text
 pip install scikit-learn
 ```
+
+## Messenger app service set-up
+
+### App selection
+
+Let's pick an app to target first. If we have time we could easily include Discord and Matrix too, since I have developed with both of those before. But, for now, let's try and target something a bit more mainstream with a larger user base.
+
+![Messenger app user base size](https://drive.google.com/drive/folders/1L1EAn0eS77Vz7blViYn1cmNNKmyXej8x)
+
+#### 1. WhatsApp
+
+1. Need an active Facebook account with valid email and phone number to get a Meta Developer account. [See here](https://developers.facebook.com/docs/development/register).
+
+2. To create and app you need ([See here](https://developers.facebook.com/docs/development/create-an-app/)):
+    1. A unique icon image for your app
+    2. Contact information for a Data Protection Officer, if you are doing business in the European Union
+    3. A URL to your Privacy Policy for your app
+    4. A URL to instructions or a callback that allows a user to delete their data from your app
+
+3. Building a WhatsApp app ([See here](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started)):
+    1. Adding WhatsApp to an app will create a test WhatsApp business account and number letting you develop the app. Also need a ‘real’ valid WhatsApp number to send messages to (i.e. your own phone).
+    2. To message with real customers, you need to add a ‘real’ business phone number to create an actual WhatsApp business account. No info on what counts as a business phone or if there is any verification, but you need a credit card on file to pay per conversation.
+
+4. Conversation based pricing ([See here](https://developers.facebook.com/docs/whatsapp/pricing)):
+    1. 1000 ‘service’ conversations per month are free, after that they cost 0.08 cents per conversation in North America.
+    2. Service conversations start when a user messages your app and last for 24 hours, during that time you can send free form messages to the user.
+
+#### 2. Facebook Messenger
+
+1. Skip. It probably has similar barriers to entry as WhatsApp and less users. If we are going the Meta route, it will be via WhatsApp.
+
+#### 3. WeChat - Nope. Chinese
+
+#### 4. Telegram
+
+1. Don’t need a phone number or anything - just message @BotFather to get a token. Uses Telegram’s ‘streamlined’ Telegram’s Bot API to talk to the Telegram server’s API ([See here](https://core.telegram.org/bots)).
+
+2. Can take payments, can run your own Bot API server, etc, etc, etc ([See here](https://core.telegram.org/bots/api)).
+
+3. Has multiple, community developed Python libraries:
+    1. [Python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) - Actively developed, almost 3,000 commits. Last commit less than an hr ago on 2024-07-12, but has caveats about not being thread safe and taking some time to incorporate updates the Telegram bot API
+    2. [Aiogram](https://github.com/aiogram/aiogram?tab=readme-ov-file) - Docs in English and Ukrainian. Actively developed with just over 2,000 commits, last commit less than a week ago. Telegram bot API integration code auto generated and supposedly gets fast updates. Also uses asyncIO and may not be thread safe, no mention of this in quick scan of README.
+    3. [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI?tab=readme-ov-file) - Docs in English and Russian. Also actively developed with almost 3,000 commits and activity in the last few days.
+
+Telegram seems like an easy win. As for which library to use, the Telegram site provides a Python example written with python-telegram-bot, so I think we should go with that. Team is all over the world and I prefer that to getting involved with one of the two competing pieces of software from either side in a literal war zone.
+
+Enough said, let’s go get it!
