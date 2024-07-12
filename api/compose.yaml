@@ -1,0 +1,9 @@
+version: '3.8'
+name: redis-server
+services:
+  redis:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '${REDIS_PORT}:${REDIS_PORT}'
+    command: redis-server

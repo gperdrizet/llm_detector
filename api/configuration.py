@@ -26,9 +26,9 @@ LOG_PREFIX='%(levelname)s - %(message)s'
 CLEAR_LOGS=True
 
 # Flask app stuff
-IP_ADDRESS='192.168.1.148'
-PORT=5000
-REDIS_URL='redis://192.168.1.148'
+HOST_IP=os.environ['HOST_IP']
+FLASK_PORT=os.environ['FLASK_PORT']
+REDIS_URL=f"redis://{os.environ['REDIS_IP']}"
 
 # Models to use for scoring
 READER_MODEL='meta-llama/Meta-Llama-3-8B'

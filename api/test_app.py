@@ -1,11 +1,12 @@
 '''Simple utility to test LLM detector API.'''
 
+import os
 import json
 import time
 import urllib.request
 
 # LLM detector endpoint URL
-URL = 'http://192.168.1.148:5000/submit_text'
+URL = f"http://{os.environ['HOST_IP']}:{os.environ['FLASK_PORT']}/submit_text"
 
 # Define some test strings
 TEST_STRINGS = [
@@ -48,7 +49,7 @@ for test_string in TEST_STRINGS:
 # id's checking to see if each one is done, until they all finish
 tmp_result_ids=result_ids
 
-print('\nPolling for results')
+print('\nPolling for results:')
 
 while len(result_ids) > 0:
     for result_id in result_ids:
@@ -65,10 +66,7 @@ while len(result_ids) > 0:
             print(f"Author call: {contents['value']['author_call']}")
             tmp_result_ids.remove(result_id)
 
-        else:
-            print(f"{result_id}: Ready = {contents['ready']}")
-
     result_ids = tmp_result_ids
 
-    # Wait 5 seconds before checking again
-    time.sleep(5)
+    # Wait before checking again
+    time.sleep(0.1)
