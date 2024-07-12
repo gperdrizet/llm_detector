@@ -363,10 +363,6 @@ pip install scikit-learn
 
 Let's pick an app to target first. If we have time we could easily include Discord and Matrix too, since I have developed with both of those before. But, for now, let's try and target something a bit more mainstream with a larger user base.
 
-<p align="center">
-    <img width="512" src=https://drive.google.com/file/d/1xNyho-MTQiyoq-j2DtiPDrj7tlmG-Hsk/view?usp=sharing>
-</p>
-
 #### 1. WhatsApp
 
 1. Need an active Facebook account with valid email and phone number to get a Meta Developer account. [See here](https://developers.facebook.com/docs/development/register).
