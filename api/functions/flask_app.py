@@ -40,8 +40,8 @@ def create_celery_app(app: Flask) -> Celery:
     return celery_app
 
 def create_flask_celery_app(
-        reader_model: Callable,
-        writer_model: Callable
+        reader_model: Callable = None,
+        writer_model: Callable = None
 ) -> Flask:
 
     '''Creates Flask app for use with Celery'''
@@ -69,7 +69,8 @@ def create_flask_celery_app(
 
     @shared_task(ignore_result = False)
     def score_text(suspect_string: str) -> str:
-        '''Submits text string for scoring'''
+        '''Takes a string and scores it, returns a dict.
+        containing the author call and the original string'''
 
         logger.info(f'Submitting for score: {suspect_string}')
 
@@ -83,13 +84,20 @@ def create_flask_celery_app(
 
             # Call the scoring function
             score = scoring_funcs.score_string(
-                observer_model,
-                performer_model,
+                reader_model,
+                writer_model,
                 suspect_string
             )
 
+        # Threshold the score
+        if score[0] >= 0.5:
+            call = 'human'
+
+        elif score[0] < 0.5:
+            call = 'synthetic'
+
         # Return the result from the output queue
-        return {'score': score[0], 'text': suspect_string}
+        return {'author_call': call, 'text': suspect_string}
 
     # Set listener for text strings via POST
     @app.post('/submit_text')
