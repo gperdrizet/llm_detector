@@ -363,7 +363,9 @@ pip install scikit-learn
 
 Let's pick an app to target first. If we have time we could easily include Discord and Matrix too, since I have developed with both of those before. But, for now, let's try and target something a bit more mainstream with a larger user base.
 
-![Messenger app user base size](https://drive.google.com/drive/folders/1L1EAn0eS77Vz7blViYn1cmNNKmyXej8x)
+<p align="center">
+    <img width="512" src=https://drive.google.com/file/d/1xNyho-MTQiyoq-j2DtiPDrj7tlmG-Hsk/view?usp=sharing>
+</p>
 
 #### 1. WhatsApp
 
