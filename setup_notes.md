@@ -164,14 +164,13 @@ Not sure how important this is really, but here is the fix:
 sudo apt-get install tcl
 ```
 
-After that, *make test* runs fine. Bind the dev box's IP address on the lan and turn off protected mode to make it available in *redis-stable/redis.conf*. Note: obviously only do this if you are confident that whatever network you are exposing it to is private.
+After that, *make test* runs fine. Bind the dev box's IP address on the lan in *redis-stable/redis.conf*. Note: obviously only do this if you are confident that whatever network you are exposing it to is private.
 
 ```text
 bind 192.168.1.148
-protected-mode no
 ```
 
-Redis defaults to port 6379, os open that and then start the server.
+Redis defaults to port 6379, os open that and then start the server with protected mode off. Again, note this is only for fast development purposes. Make sure that whatever network you are exposing to is private.
 
 ```text
 $ sudo ufw allow 6379
@@ -200,6 +199,36 @@ $ src/redis-server --protected-mode no
 ```
 
 I'm sure theres a lot more setup we could do and we probably want to put it in a docker container, but let's go with that for now. Leave it in a screen and move on.
+
+### Redis revisit: Docker
+
+Time to get Redis out of screen and off of the host OS. Plan here is to protect it a bit with a password and run it in a docker container.
+
+Sensitive information such as passwords and IP addresses will be provided via environment variables to avoid accidentally committing anything to GitHub or DockerHub. Also, since we will probably want to Dockerize this whole project eventually, let's start with docker compose from the get-go so we can easily run multiple services in multiple container.
+
+Here is the minimal docker-compose file:
+
+```yaml
+version: '3.8'
+name: redis-server
+services:
+  redis:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '${REDIS_PORT}:${REDIS_PORT}'
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+```
+
+Also, add the following (redacted) exports to */venv/bin/activate* so that they get set when we activate our virtual environment:
+
+```bash
+export REDIS_IP="TheRedisContainerHostMachineIP"
+export REDIS_PORT="TheRedisPort"
+export REDIS_PASSWORD="TheRedisPassword"
+```
+
+**Note**: The above environment variables are re-used by the Celery-Flask app for authentication to the Redis container, so don't mess with the names.
 
 ### Celery
 
@@ -246,10 +275,25 @@ Gunicorn will be our deployment WSGI server for Flask. Set it up following the G
 
 ```text
 pip install gunicorn
-gunicorn -w 1 --bind 192.168.1.148:5000 'llm_detector.__main__:flask_app'
+gunicorn -w 1 --bind 192.168.1.148:5000 'api.__main__:flask_app'
 ```
 
 Done!
+
+### Gunicorn revisit: runner script
+
+Added the following temporary convenience bash script to start the Flask app via Gunicorn:
+
+```bash
+#!/bin/bash
+gunicorn -w 1 --bind ${HOST_IP}:${FLASK_IP} 'api.__main__:flask_app'
+```
+
+Set permissions:
+
+```bash
+sudo chmod u+x ./start_api.sh
+```
 
 ## Benchmarking set-up
 
