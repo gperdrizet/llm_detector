@@ -9,10 +9,10 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer # type: ignore
 
 def parse_hans_data(
-    hans_datasets: dict=None,
-    hans_data: dict=None,
-    hans_metadata: dict=None,
-    binoculars_data_path: str=None
+    hans_datasets: dict = None,
+    hans_data: dict = None,
+    hans_metadata: dict = None,
+    binoculars_data_path: str = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     '''Parses and collects datasets from Hans et al (2024) Binocular publication. 
@@ -22,7 +22,7 @@ def parse_hans_data(
 
     # The hans datasets use different keys for the human text, use this
     # dict. to look up the correct one based on the data source
-    human_text_keys={
+    human_text_keys = {
         'cc_news': 'text',
         'cnn': 'article',
         'pubmed': 'article'
@@ -35,41 +35,41 @@ def parse_hans_data(
         for data_source, datafile_name in datasets.items():
 
             # Build the absolute file name for this dataset
-            dataset_file=f'{binoculars_data_path}/{datafile_name}'
+            dataset_file = f'{binoculars_data_path}/{datafile_name}'
 
             # Set initial values for some collector vars
-            record_count=1
-            human_text_lengths=[]
-            synthetic_text_lengths=[]
-            human_text_fractions=[]
+            record_count = 1
+            human_text_lengths = []
+            synthetic_text_lengths = []
+            human_text_fractions = []
 
             # Open the data file and loop on lines, loading each as JSON
-            with open(dataset_file, encoding='utf-8') as f:
+            with open(dataset_file, encoding = 'utf-8') as f:
                 for line in f:
-                    record=json.loads(line)
+                    record = json.loads(line)
 
                     # If we can find a text record in the JSON object, continue processing
                     if human_text_keys[data_source] in list(record.keys()):
 
                         # Get the human and synthetic text
-                        human_text=record[human_text_keys[data_source]]
-                        synthetic_text=record[list(record.keys())[-1]]
+                        human_text = record[human_text_keys[data_source]]
+                        synthetic_text = record[list(record.keys())[-1]]
 
                         # Get the texts' lengths
-                        human_text_length=len(human_text.split(' '))
-                        synthetic_text_length=len(synthetic_text.split(' '))
+                        human_text_length = len(human_text.split(' '))
+                        synthetic_text_length = len(synthetic_text.split(' '))
 
                         # Collect the texts' lengths
                         human_text_lengths.append(human_text_length)
                         synthetic_text_lengths.append(synthetic_text_length)
 
                         # Get and collect the fraction of this record's text that is human
-                        total_text_length=human_text_length + synthetic_text_length
-                        human_text_fraction=human_text_length / total_text_length
+                        total_text_length = human_text_length + synthetic_text_length
+                        human_text_fraction = human_text_length / total_text_length
                         human_text_fractions.append(human_text_fraction)
 
                         # Count this record
-                        record_count+=1
+                        record_count += 1
 
                         # Add data from this record to the collected data result
                         hans_data['Generation model'].append(generation_model)
@@ -92,8 +92,8 @@ def parse_hans_data(
             hans_metadata['Synthetic text length STD'].append(stdev(synthetic_text_lengths))
             hans_metadata['Mean human text fraction'].append(mean(human_text_fractions))
 
-    hans_data_df=pd.DataFrame.from_dict(hans_data)
-    hans_metadata_df=pd.DataFrame.from_dict(hans_metadata)
+    hans_data_df = pd.DataFrame.from_dict(hans_data)
+    hans_metadata_df = pd.DataFrame.from_dict(hans_metadata)
 
     return hans_metadata_df, hans_data_df
 

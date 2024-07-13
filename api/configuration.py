@@ -8,6 +8,11 @@ import torch
 # Project meta-stuff: paths, logging, etc. ###########################
 ######################################################################
 
+# Set mode to testing to mock scoring function with random output
+# between 0.0 and 1.0 and not load any LLMs. Set to production
+# to run real scoring function
+MODE = 'testing'
+
 # Get path to this config file so that we can define
 # other paths relative to it
 PROJECT_ROOT_PATH=os.path.dirname(os.path.realpath(__file__))
@@ -21,16 +26,19 @@ LOG_PREFIX='%(levelname)s - %(message)s'
 CLEAR_LOGS=True
 
 # Flask app stuff
-IP_ADDRESS='192.168.1.148'
-PORT=5000
-REDIS_URL='redis://192.168.1.148'
+HOST_IP=os.environ['HOST_IP']
+FLASK_PORT=os.environ['FLASK_PORT']
+REDIS_IP=os.environ['REDIS_IP']
+REDIS_PORT=os.environ['REDIS_PORT']
+REDIS_PASSWORD=os.environ['REDIS_PASSWORD']
+REDIS_URL=f'redis://:{REDIS_PASSWORD}@{REDIS_IP}:{REDIS_PORT}'
 
 # Models to use for scoring
-OBSERVER_MODEL='meta-llama/Meta-Llama-3-8B'
-OBSERVER_DEVICE='cuda:1'
+READER_MODEL='meta-llama/Meta-Llama-3-8B'
+READER_DEVICE='cuda:1'
 
-PERFORMER_MODEL='meta-llama/Meta-Llama-3-8B-instruct'
-PERFORMER_DEVICE='cuda:2'
+WRITER_MODEL='meta-llama/Meta-Llama-3-8B-instruct'
+WRITER_DEVICE='cuda:2'
 
 CALCULATION_DEVICE='cuda:0'
 
