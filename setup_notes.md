@@ -404,3 +404,8 @@ Enough said, let’s go get it!
 
 ### Telegram bot app setup
 
+Install into the virtual environment as described in the [documentation](https://docs.python-telegram-bot.org/en/v21.4/):
+
+```text
+pip install python-telegram-bot --upgrade
+```
