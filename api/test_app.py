@@ -1,26 +1,21 @@
 '''Simple utility to test LLM detector API.'''
 
+import os
 import json
 import time
 import urllib.request
 
 # LLM detector endpoint URL
-URL = 'http://192.168.1.148:5000/submit_text'
+URL = f"http://{os.environ['HOST_IP']}:{os.environ['FLASK_PORT']}/submit_text"
 
 # Define some test strings
 TEST_STRINGS = [
-    '''This a a sentence written by a human being designed to test the llm 
-    detector.''',
-    '''This is another text fragment also written by a human to test the llm 
-    detector API.''',
-    '''This is a string to test what happens when the API receives requests in 
-    succession.''',
-    '''This a a sentence written by a human being designed to test the llm 
-    detector.''',
-    '''This is another text fragment also written by a human to test the llm 
-    detector API.''',
-    '''This is a string to test what happens when the API receives requests in 
-    succession.'''
+    'This a a sentence written by a human being designed to test the llm detector.',
+    'This is another text fragment also written by a human to test the llm detector API.',
+    'This is a string to test what happens when the API receives requests in succession.',
+    'This a a sentence written by a human being designed to test the llm detector.',
+    'This is another text fragment also written by a human to test the llm detector API.',
+    'This is a string to test what happens when the API receives requests in succession.'
 ]
 
 # Loop on the test strings, collecting the result ids
@@ -44,15 +39,17 @@ for test_string in TEST_STRINGS:
     # Read and parse the results
     contents = json.loads(body)
 
-    # Print the response
-    print(contents)
-
     # Collect the result id
     result_ids.append(contents['result_id'])
+
+    print(f'Submitted: {test_string}')
+    print(f'Received: {contents}')
 
 # Once all the strings have been submitted, loop on the list of result
 # id's checking to see if each one is done, until they all finish
 tmp_result_ids=result_ids
+
+print('\nPolling for results:')
 
 while len(result_ids) > 0:
     for result_id in result_ids:
@@ -66,13 +63,10 @@ while len(result_ids) > 0:
 
         if contents['ready'] is True:
 
-            print(f"Score: {contents['value']['score']}")
+            print(f"Author call: {contents['value']['author_call']}")
             tmp_result_ids.remove(result_id)
-
-        else:
-            print(f"{result_id}: Ready = {contents['ready']}")
 
     result_ids = tmp_result_ids
 
-    # Wait 5 seconds before checking again
-    time.sleep(5)
+    # Wait before checking again
+    time.sleep(0.1)

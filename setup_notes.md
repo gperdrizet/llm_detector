@@ -164,14 +164,13 @@ Not sure how important this is really, but here is the fix:
 sudo apt-get install tcl
 ```
 
-After that, *make test* runs fine. Bind the dev box's IP address on the lan and turn off protected mode to make it available in *redis-stable/redis.conf*. Note: obviously only do this if you are confident that whatever network you are exposing it to is private.
+After that, *make test* runs fine. Bind the dev box's IP address on the lan in *redis-stable/redis.conf*. Note: obviously only do this if you are confident that whatever network you are exposing it to is private.
 
 ```text
 bind 192.168.1.148
-protected-mode no
 ```
 
-Redis defaults to port 6379, os open that and then start the server.
+Redis defaults to port 6379, os open that and then start the server with protected mode off. Again, note this is only for fast development purposes. Make sure that whatever network you are exposing to is private.
 
 ```text
 $ sudo ufw allow 6379
@@ -200,6 +199,36 @@ $ src/redis-server --protected-mode no
 ```
 
 I'm sure theres a lot more setup we could do and we probably want to put it in a docker container, but let's go with that for now. Leave it in a screen and move on.
+
+### Redis revisit: Docker
+
+Time to get Redis out of screen and off of the host OS. Plan here is to protect it a bit with a password and run it in a docker container.
+
+Sensitive information such as passwords and IP addresses will be provided via environment variables to avoid accidentally committing anything to GitHub or DockerHub. Also, since we will probably want to Dockerize this whole project eventually, let's start with docker compose from the get-go so we can easily run multiple services in multiple container.
+
+Here is the minimal docker-compose file:
+
+```yaml
+version: '3.8'
+name: redis-server
+services:
+  redis:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '${REDIS_PORT}:${REDIS_PORT}'
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+```
+
+Also, add the following (redacted) exports to */venv/bin/activate* so that they get set when we activate our virtual environment:
+
+```bash
+export REDIS_IP="TheRedisContainerHostMachineIP"
+export REDIS_PORT="TheRedisPort"
+export REDIS_PASSWORD="TheRedisPassword"
+```
+
+**Note**: The above environment variables are re-used by the Celery-Flask app for authentication to the Redis container, so don't mess with the names.
 
 ### Celery
 
@@ -246,10 +275,25 @@ Gunicorn will be our deployment WSGI server for Flask. Set it up following the G
 
 ```text
 pip install gunicorn
-gunicorn -w 1 --bind 192.168.1.148:5000 'llm_detector.__main__:flask_app'
+gunicorn -w 1 --bind 192.168.1.148:5000 'api.__main__:flask_app'
 ```
 
 Done!
+
+### Gunicorn revisit: runner script
+
+Added the following temporary convenience bash script to start the Flask app via Gunicorn:
+
+```bash
+#!/bin/bash
+gunicorn -w 1 --bind ${HOST_IP}:${FLASK_IP} 'api.__main__:flask_app'
+```
+
+Set permissions:
+
+```bash
+sudo chmod u+x ./start_api.sh
+```
 
 ## Benchmarking set-up
 
@@ -272,7 +316,6 @@ Also nice to have when working in notebooks: bind ctrl+shift+r to restart the no
 
 ```json
 [
-// ...
     {
         "key": "ctrl+shift+r",
         "command": "jupyter.restartkernelandrunallcells"
@@ -313,3 +356,48 @@ OK, cool. Now we just need that test harness so we can load the models a few tim
 ```text
 pip install scikit-learn
 ```
+
+## Messenger app service set-up
+
+### App selection
+
+Let's pick an app to target first. If we have time we could easily include Discord and Matrix too, since I have developed with both of those before. But, for now, let's try and target something a bit more mainstream with a larger user base.
+
+#### 1. WhatsApp
+
+1. Need an active Facebook account with valid email and phone number to get a Meta Developer account. [See here](https://developers.facebook.com/docs/development/register).
+
+2. To create and app you need ([See here](https://developers.facebook.com/docs/development/create-an-app/)):
+    1. A unique icon image for your app
+    2. Contact information for a Data Protection Officer, if you are doing business in the European Union
+    3. A URL to your Privacy Policy for your app
+    4. A URL to instructions or a callback that allows a user to delete their data from your app
+
+3. Building a WhatsApp app ([See here](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started)):
+    1. Adding WhatsApp to an app will create a test WhatsApp business account and number letting you develop the app. Also need a ‘real’ valid WhatsApp number to send messages to (i.e. your own phone).
+    2. To message with real customers, you need to add a ‘real’ business phone number to create an actual WhatsApp business account. No info on what counts as a business phone or if there is any verification, but you need a credit card on file to pay per conversation.
+
+4. Conversation based pricing ([See here](https://developers.facebook.com/docs/whatsapp/pricing)):
+    1. 1000 ‘service’ conversations per month are free, after that they cost 0.08 cents per conversation in North America.
+    2. Service conversations start when a user messages your app and last for 24 hours, during that time you can send free form messages to the user.
+
+#### 2. Facebook Messenger
+
+1. Skip. It probably has similar barriers to entry as WhatsApp and less users. If we are going the Meta route, it will be via WhatsApp.
+
+#### 3. WeChat - Nope. Chinese
+
+#### 4. Telegram
+
+1. Don’t need a phone number or anything - just message @BotFather to get a token. Uses Telegram’s ‘streamlined’ Telegram’s Bot API to talk to the Telegram server’s API ([See here](https://core.telegram.org/bots)).
+
+2. Can take payments, can run your own Bot API server, etc, etc, etc ([See here](https://core.telegram.org/bots/api)).
+
+3. Has multiple, community developed Python libraries:
+    1. [Python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) - Actively developed, almost 3,000 commits. Last commit less than an hr ago on 2024-07-12, but has caveats about not being thread safe and taking some time to incorporate updates the Telegram bot API
+    2. [Aiogram](https://github.com/aiogram/aiogram?tab=readme-ov-file) - Docs in English and Ukrainian. Actively developed with just over 2,000 commits, last commit less than a week ago. Telegram bot API integration code auto generated and supposedly gets fast updates. Also uses asyncIO and may not be thread safe, no mention of this in quick scan of README.
+    3. [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI?tab=readme-ov-file) - Docs in English and Russian. Also actively developed with almost 3,000 commits and activity in the last few days.
+
+Telegram seems like an easy win. As for which library to use, the Telegram site provides a Python example written with python-telegram-bot, so I think we should go with that. Team is all over the world and I prefer that to getting involved with one of the two competing pieces of software from either side in a literal war zone.
+
+Enough said, let’s go get it!
