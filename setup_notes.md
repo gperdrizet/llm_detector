@@ -401,3 +401,6 @@ Let's pick an app to target first. If we have time we could easily include Disco
 Telegram seems like an easy win. As for which library to use, the Telegram site provides a Python example written with python-telegram-bot, so I think we should go with that. Team is all over the world and I prefer that to getting involved with one of the two competing pieces of software from either side in a literal war zone.
 
 Enough said, let’s go get it!
+
+### Telegram bot app setup
+
