@@ -409,3 +409,9 @@ Install into the virtual environment as described in the [documentation](https:/
 ```text
 pip install python-telegram-bot --upgrade
 ```
+
+Next, we need an access token. To do this, log into Telegram and message @BotFather */newbot*. Then assign that token to an environment variable via *.venv/bin/activate*:
+
+```text
+export TELEGRAM_TOKEN="TelegramToken"
+```
