@@ -139,6 +139,7 @@ def decoding_strategy(
     result = {'iteration': run_dict['iteration']}
     result['hf_model_string'] = run_dict['hf_model_string']
     result['device_map'] = run_dict['device_map']
+    result['cpu_cores'] = run_dict['cpu_cores']
     result['max_new_tokens'] = run_dict['max_new_tokens']
     result['decoding_strategy'] = run_dict['decoding_strategy']
     result['output_length_tokens'] = output_length_tokens
