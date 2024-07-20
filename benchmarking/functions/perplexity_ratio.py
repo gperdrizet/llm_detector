@@ -33,14 +33,12 @@ def perplexity_ratio_score():
     # and one instruct for the writer. Use different GPUs.
     reader_model = llm_class.Llm(
         hf_model_string = 'meta-llama/Meta-Llama-3-8B',
-        device_map = reader_device,
-        logger = logger
+        device_map = reader_device
     )
 
     writer_model = llm_class.Llm(
         hf_model_string = 'meta-llama/Meta-Llama-3-8B-instruct',
-        device_map = writer_device,
-        logger = logger
+        device_map = writer_device
     )
 
     # Load the models
@@ -94,7 +92,7 @@ def perplexity_ratio_score():
     }
 
     # Output file
-    results_datafile = f'{config.HANS_DATA_PATH}/scores.json'
+    results_datafile = f'{config.HANS_DATA_PATH}/pubmed-scores.json'
 
     # Counter for total text fragments scored
     fragment_count = 0
