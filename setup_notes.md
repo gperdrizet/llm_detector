@@ -70,7 +70,12 @@ pip install sentencepiece   # Needed for some tokenizers
 pip install protobuf
 ```
 
-Note: According to [the pytorch site](https://pytorch.org/get-started/previous-versions/) 1.13.1 is compatible with CUDA 11.7 and 11.6, but in my testing it's the most recent version which works with my setup - CUDA 11.4 & NVIDIA driver 470 on a pair of Tesla K80s.
+**Note**: According to [the pytorch site](https://pytorch.org/get-started/previous-versions/) 1.13.1 is compatible with CUDA 11.7 and 11.6, but in my testing it's the most recent version which works with my setup - CUDA 11.4 & NVIDIA driver 470 on a pair of Tesla K80s.
+
+**Note**: To use gated models that you have been granted access to, you will need to log in with:
+
+```text
+huggingface-cli login
 
 ### Bitsandbytes
 

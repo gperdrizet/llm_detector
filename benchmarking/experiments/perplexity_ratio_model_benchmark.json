@@ -2,7 +2,7 @@
     "experiment_description": "Perplexity ratio score calculation using different models.",
     "benchmark_function": "perplexity_ratio",
     "input_datafile": "hans_2024/aggregated_hans_data.jsonl",
-    "iteration": 100,
+    "iteration": 1000,
     "dependent_vars": {
         "perplexity_ratio_score": [],
         "perplexity": [],
