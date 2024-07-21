@@ -70,7 +70,12 @@ pip install sentencepiece   # Needed for some tokenizers
 pip install protobuf
 ```
 
-Note: According to [the pytorch site](https://pytorch.org/get-started/previous-versions/) 1.13.1 is compatible with CUDA 11.7 and 11.6, but in my testing it's the most recent version which works with my setup - CUDA 11.4 & NVIDIA driver 470 on a pair of Tesla K80s.
+**Note**: According to [the pytorch site](https://pytorch.org/get-started/previous-versions/) 1.13.1 is compatible with CUDA 11.7 and 11.6, but in my testing it's the most recent version which works with my setup - CUDA 11.4 & NVIDIA driver 470 on a pair of Tesla K80s.
+
+**Note**: To use gated models that you have been granted access to, you will need to log in with:
+
+```text
+huggingface-cli login
 
 ### Bitsandbytes
 
@@ -401,3 +406,17 @@ Let's pick an app to target first. If we have time we could easily include Disco
 Telegram seems like an easy win. As for which library to use, the Telegram site provides a Python example written with python-telegram-bot, so I think we should go with that. Team is all over the world and I prefer that to getting involved with one of the two competing pieces of software from either side in a literal war zone.
 
 Enough said, let’s go get it!
+
+### Telegram bot app setup
+
+Install into the virtual environment as described in the [documentation](https://docs.python-telegram-bot.org/en/v21.4/):
+
+```text
+pip install python-telegram-bot --upgrade
+```
+
+Next, we need an access token. To do this, log into Telegram and message @BotFather */newbot*. Then assign that token to an environment variable via *.venv/bin/activate*:
+
+```text
+export TELEGRAM_TOKEN="TelegramToken"
+```

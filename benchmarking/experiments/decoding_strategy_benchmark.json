@@ -12,6 +12,7 @@
     "independent_vars": {
         "hf_model_string": ["meta-llama/Meta-Llama-3-8B","tiiuae/falcon-7b","mistralai/Mistral-7B-v0.3","meta-llama/Llama-2-7b-hf"],
         "device_map": ["cuda:0","cuda:1","cpu"],
+        "cpu_cores": [8],
         "max_new_tokens": [16,32,64,128,256],
         "decoding_strategy": [
             "Model default",

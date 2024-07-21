@@ -1,0 +1,51 @@
+{
+    "experiment_description": "Experiment to test the effect of using mis-matched model combinations other than base & instruct on perplexity ratio score.",
+    "benchmark_function": "perplexity_ratio",
+    "input_datafile": "hans_2024/aggregated_hans_data.jsonl",
+    "iteration": 100,
+    "dependent_vars": {
+        "perplexity_ratio_score": [],
+        "perplexity": [],
+        "cross-perplexity": [],
+        "length_words": [],
+        "length_tokens": [],
+        "data_source": [],
+        "generating_model": [],
+        "reader_model": [],
+        "writer_model": [],
+        "reader_device": [],
+        "writer_device": [],
+        "author": [],
+        "text": []
+    },
+    "independent_vars": {
+        "hf_model_string": [
+            ["meta-llama/Meta-Llama-3-8B","meta-llama/Meta-Llama-3-8B"],
+            ["meta-llama/Meta-Llama-3-8B","tiiuae/falcon-7b"],
+            ["meta-llama/Meta-Llama-3-8B","mistralai/Mistral-7B-v0.3"],
+            ["meta-llama/Meta-Llama-3-8B","meta-llama/Llama-2-7b-hf"],
+            ["meta-llama/Meta-Llama-3-8B","google/gemma-2-9b"],
+            ["tiiuae/falcon-7b","tiiuae/falcon-7b"],
+            ["tiiuae/falcon-7b","meta-llama/Meta-Llama-3-8B"],
+            ["tiiuae/falcon-7b","mistralai/Mistral-7B-v0.3"],
+            ["tiiuae/falcon-7b","meta-llama/Llama-2-7b-hf"],
+            ["tiiuae/falcon-7b","google/gemma-2-9b"],
+            ["mistralai/Mistral-7B-v0.3","mistralai/Mistral-7B-v0.3"],
+            ["mistralai/Mistral-7B-v0.3","tiiuae/falcon-7b"],
+            ["mistralai/Mistral-7B-v0.3","meta-llama/Meta-Llama-3-8B"],
+            ["mistralai/Mistral-7B-v0.3","meta-llama/Llama-2-7b-hf"],
+            ["mistralai/Mistral-7B-v0.3","google/gemma-2-9b"],
+            ["meta-llama/Llama-2-7b-hf","meta-llama/Llama-2-7b-hf"],
+            ["meta-llama/Llama-2-7b-hf","mistralai/Mistral-7B-v0.3"],
+            ["meta-llama/Llama-2-7b-hf","tiiuae/falcon-7b"],
+            ["meta-llama/Llama-2-7b-hf","meta-llama/Meta-Llama-3-8B"],
+            ["meta-llama/Llama-2-7b-hf","google/gemma-2-9b"],
+            ["google/gemma-2-9b","google/gemma-2-9b-it"],
+            ["google/gemma-2-9b","meta-llama/Llama-2-7b-hf"],
+            ["google/gemma-2-9b","mistralai/Mistral-7B-v0.3"],
+            ["google/gemma-2-9b","tiiuae/falcon-7b"],
+            ["google/gemma-2-9b","meta-llama/Meta-Llama-3-8B"]
+        ],
+        "device_map": [["cuda:1","cuda:2"]]
+    }
+}
