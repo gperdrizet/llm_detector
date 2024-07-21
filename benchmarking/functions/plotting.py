@@ -1,6 +1,7 @@
 '''Matplotlib plotting functions for data analysis'''
 
 from __future__ import annotations
+from typing import List
 import itertools
 import numpy as np
 import pandas as pd
@@ -29,7 +30,8 @@ def load_datasets(
             dataframe = pd.read_json(f'{data_path}/{dataset_file}')
 
         elif dataset_file.split('.')[-1] == 'jsonl':
-            dataframe = pd.read_json(f'{data_path}/{dataset_file}', lines = True, orient = 'records')
+            dataframe = pd.read_json(
+                f'{data_path}/{dataset_file}', lines = True, orient = 'records')
 
         # Format/translate values and column names for pretty printing in plot
         dataframe = replace_strings(
@@ -77,6 +79,21 @@ def replace_strings(
     return df
 
 
+def exclude_factor_levels(
+        data: pd.DataFrame = None,
+        exclusions: dict[str: List[str]] = None
+) -> pd.DataFrame:
+
+    '''Removes a list of levels from factor in dataframe'''
+
+    if exclusions is not None:
+        for factor, levels in exclusions.items():
+            for level in levels:
+                data=data[data[factor] != level]
+
+    return data
+
+
 def multipanel_error_bar_two_factors(
     figure_title: str=None,
     data: pd.DataFrame=None,
@@ -102,10 +119,10 @@ def multipanel_error_bar_two_factors(
     panels and the levels of the second factor are the series on each plot.'''
 
     # Exclude any factors/levels
-    if exclusions is not None:
-        for factor, levels in exclusions.items():
-            for level in levels:
-                data=data[data[factor] != level]
+    data = exclude_factor_levels(
+            data = data,
+            exclusions = exclusions
+    )
 
     # Get dataset wide dependent and independent variable min and max to set axis scales
     dependent_max=max(data[dependent_var])
@@ -208,12 +225,21 @@ def single_errorbar(
     data: pd.DataFrame=None,
     plot_width: float=4.0,
     plot_height: float=4.0,
+    exclusions: dict[str, list]=None,
     series_factor: str=None,
     independent_var: str=None,
-    dependent_var: str=None
+    dependent_var: str=None,
+    legend_loc: str=None,
+    legend_font: str=None
 ) -> plt.Axes:
 
     '''Generalized single error bar plot with one additional factor for data series.'''
+
+    # Exclude any factors/levels
+    data = exclude_factor_levels(
+            data = data,
+            exclusions = exclusions
+    )
 
     # Set the plot size
     plt.subplots(figsize=(plot_width, plot_height))
@@ -252,7 +278,12 @@ def single_errorbar(
 
     # Annotate plot
     plt.title(figure_title)
-    plt.legend(loc='best')
+    plt.legend(
+        title=series_factor,
+        fontsize=legend_font,
+        loc=legend_loc
+    )
+    
     plt.xlabel(independent_var)
     plt.ylabel(dependent_var)
 

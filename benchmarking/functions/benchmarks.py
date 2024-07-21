@@ -38,9 +38,6 @@ def model_loading(
     # harness
     llm.clear()
 
-    # Set CPU cores
-    torch.set_num_threads(run_dict['cpu_cores'])
-
     # Time the loading of the model
     loading_start_time = time.time()
     llm.load()
@@ -48,6 +45,7 @@ def model_loading(
 
     # Record the results
     result = {'iteration': run_dict['iteration']}
+    result['hf_model_string'] = run_dict['hf_model_string']
     result['cache_dir'] = run_dict['cache_dir']
     result['device_map'] = run_dict['device_map']
     result['cpu_cores'] = run_dict['cpu_cores']
@@ -71,9 +69,6 @@ def generation(
 
     # Re-assign model for clarity
     llm = llms[0]
-
-    # Set CPU cores
-    torch.set_num_threads(run_dict['cpu_cores'])
 
     # Start memory tracking using the correct strategy based on device map
     helper_funcs.start_memory_tracking(device_map = run_dict['device_map'])
@@ -144,6 +139,7 @@ def decoding_strategy(
     result = {'iteration': run_dict['iteration']}
     result['hf_model_string'] = run_dict['hf_model_string']
     result['device_map'] = run_dict['device_map']
+    result['cpu_cores'] = run_dict['cpu_cores']
     result['max_new_tokens'] = run_dict['max_new_tokens']
     result['decoding_strategy'] = run_dict['decoding_strategy']
     result['output_length_tokens'] = output_length_tokens

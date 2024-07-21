@@ -16,6 +16,7 @@ class Llm:
 
     def __init__(
         self,
+        experiment_name: str=None,
         cache_dir: str=config.CACHE_DIR,
         hf_model_string: str=config.HF_MODEL_STRING,
         model_name: str=config.MODEL_NAME,
@@ -32,7 +33,7 @@ class Llm:
         adds logger'''
 
         # Add the logger
-        self.logger = logging.getLogger('benchmarking.LLM')
+        self.logger = logging.getLogger(f'{experiment_name}.LLM')
 
         # Initialize values for loading and generation
         self.cache_dir=cache_dir
@@ -64,6 +65,8 @@ class Llm:
 
         # Set available cores
         torch.set_num_threads(self.cpu_cores)
+        self.logger.debug('Torch has %s threads', torch.get_num_threads())
+        self.logger.debug('LLM class instance specifies %s', self.cpu_cores)
 
         # Set quantization configuration with current values under self
         self.set_quantization_config()
