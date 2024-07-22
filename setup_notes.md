@@ -420,3 +420,19 @@ Next, we need an access token. To do this, log into Telegram and message @BotFat
 ```text
 export TELEGRAM_TOKEN="TelegramToken"
 ```
+
+## Feature engineering/NLP
+
+Installed nltk:
+
+```text
+pip install nltk
+```
+
+Also, need to download some asset on first use in pyhton. Default save location is *~/nltk_data*.
+
+```python
+import nltk
+nltk.download('stopwords')
+nltk.download('wordnet')
+```
