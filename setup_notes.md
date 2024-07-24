@@ -436,3 +436,21 @@ import nltk
 nltk.download('stopwords')
 nltk.download('wordnet')
 ```
+
+Installed XGBoost:
+
+```text
+pip install xgboost
+```
+
+Installed hyperopt for Baysian hyperparameter optimization:
+
+```text
+pip install hyperopt
+```
+
+Installed cupy to move numpy arrays to GPU for accelerated XGBoost:
+
+```text
+pip install cupy-cuda11x
+```
