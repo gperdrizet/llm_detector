@@ -1,126 +1,77 @@
-'''Collection of functions for data manipulation, parsing and exploration'''
+'''Collection of functions for Luigi data pipeline & feature engineering'''
 
 from __future__ import annotations
-from typing import Tuple
 
-import json
-from statistics import mean, stdev
+import numpy as np
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer # type: ignore
+# from typing import Tuple
 
-def parse_hans_data(
-    hans_datasets: dict = None,
-    hans_data: dict = None,
-    hans_metadata: dict = None,
-    binoculars_data_path: str = None
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+# import json
+# from statistics import mean, stdev
+# import pandas as pd
+# from sklearn.feature_extraction.text import TfidfVectorizer # type: ignore
 
-    '''Parses and collects datasets from Hans et al (2024) Binocular publication. 
-    Takes dict describing datasets with names and file paths and two empty dicts 
-    to hold output: one for metadata and one for the collected datasets. Returns 
-    parses and returns populated data and metadata pandas dataframes.'''
+import classifier.configuration as config
 
-    # The hans datasets use different keys for the human text, use this
-    # dict. to look up the correct one based on the data source
-    human_text_keys = {
-        'cc_news': 'text',
-        'cnn': 'article',
-        'pubmed': 'article'
+def load_data() -> dict:
+    '''Parses and combines perpplexity ratio scored text fraagments from
+    all three Hans 2024 datasets.'''
+
+    # Holder for each parsed datset
+    dataframes = []
+
+    for _, filename in config.SCORED_HANS_DATASETS.items():
+
+        dataframe = pd.read_json(f'{config.HANS_DATA_PATH}/{filename}')
+
+        # Replace and remove string 'OOM' and 'NAN' values
+        dataframe.replace('NAN', np.nan, inplace = True)
+        dataframe.replace('OOM', np.nan, inplace = True)
+        dataframe.dropna(inplace = True)
+
+        # Update name of score column, some earlier runs called
+        # it by the old names
+        dataframe.rename(columns = {
+            'Binoculars score': 'Perplexity ratio score',
+            'Observer peak memory (GB)': 'Reader peak memory (GB)',
+            'Performer peak memory (GB)': 'Writer peak memory (GB)'
+        }, inplace = True)
+
+        # Fix some d-types
+        dataframe = dataframe.astype({
+            'Fragment': int,
+            'Fragment length (tokens)': int,
+            'Reader peak memory (GB)': float,
+            'Writer peak memory (GB)': float,
+            'Perplexity': float,
+            'Cross-perplexity': float,
+            'Perplexity ratio score': float
+        })
+
+        # get rid of some unnecessary columns
+        dataframe.drop([
+            'Fragment', 
+            'Reader peak memory (GB)', 
+            'Writer peak memory (GB)'
+        ], axis = 1, inplace = True)
+
+        dataframes.append(dataframe)
+
+    # Combine the individual datasets and reset the index
+    data_df = pd.concat(dataframes, axis = 0)
+    data_df.reset_index(inplace = True, drop = True)
+
+    # Split the data in to training and testing subsets.
+    training_df = data_df.sample(frac = config.TRAIN_TEST_SPLIT, random_state = 42)
+    testing_df = data_df.drop(training_df.index)
+    training_df.reset_index(inplace = True, drop = True)
+    testing_df.reset_index(inplace = True, drop = True)
+
+    # Construct a single dictionary containing the JSON of the training
+    # and testing dataframes
+    results = {
+        'training': training_df.to_json(),
+        'testing': testing_df.to_json()
     }
 
-    # Loop on outer level of hand datasets dict.
-    for generation_model, datasets in hans_datasets.items():
-
-        # loop on each inner level of hans datasets dict
-        for data_source, datafile_name in datasets.items():
-
-            # Build the absolute file name for this dataset
-            dataset_file = f'{binoculars_data_path}/{datafile_name}'
-
-            # Set initial values for some collector vars
-            record_count = 1
-            human_text_lengths = []
-            synthetic_text_lengths = []
-            human_text_fractions = []
-
-            # Open the data file and loop on lines, loading each as JSON
-            with open(dataset_file, encoding = 'utf-8') as f:
-                for line in f:
-                    record = json.loads(line)
-
-                    # If we can find a text record in the JSON object, continue processing
-                    if human_text_keys[data_source] in list(record.keys()):
-
-                        # Get the human and synthetic text
-                        human_text = record[human_text_keys[data_source]]
-                        synthetic_text = record[list(record.keys())[-1]]
-
-                        # Get the texts' lengths
-                        human_text_length = len(human_text.split(' '))
-                        synthetic_text_length = len(synthetic_text.split(' '))
-
-                        # Collect the texts' lengths
-                        human_text_lengths.append(human_text_length)
-                        synthetic_text_lengths.append(synthetic_text_length)
-
-                        # Get and collect the fraction of this record's text that is human
-                        total_text_length = human_text_length + synthetic_text_length
-                        human_text_fraction = human_text_length / total_text_length
-                        human_text_fractions.append(human_text_fraction)
-
-                        # Count this record
-                        record_count += 1
-
-                        # Add data from this record to the collected data result
-                        hans_data['Generation model'].append(generation_model)
-                        hans_data['Data source'].append(data_source)
-                        hans_data['Human text length (words)'].append(human_text_length)
-                        hans_data['Human text'].append(human_text)
-                        hans_data['Synthetic text length (words)'].append(synthetic_text_length)
-                        hans_data['Synthetic text'].append(synthetic_text)
-                        hans_data['Human text fraction'].append(human_text_fraction)
-
-            print(f'Parsed {generation_model}, {data_source} data: {record_count} records')
-
-            # Add metadata from this dataset to the result
-            hans_metadata['Generation model'].append(generation_model)
-            hans_metadata['Data source'].append(data_source)
-            hans_metadata['Records'].append(record_count)
-            hans_metadata['Mean human text length (words)'].append(mean(human_text_lengths))
-            hans_metadata['Human text length STD'].append(stdev(human_text_lengths))
-            hans_metadata['Mean synthetic text length (words)'].append(mean(synthetic_text_lengths))
-            hans_metadata['Synthetic text length STD'].append(stdev(synthetic_text_lengths))
-            hans_metadata['Mean human text fraction'].append(mean(human_text_fractions))
-
-    hans_data_df = pd.DataFrame.from_dict(hans_data)
-    hans_metadata_df = pd.DataFrame.from_dict(hans_metadata)
-
-    return hans_metadata_df, hans_data_df
-
-
-def tf_idf(data_df: pd.DataFrame=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    '''Calculates TF-IDF for human and synthetic texts from Hans data'''
-
-    # Get lists of human and synthetic text
-    human_texts=list(data_df['Human text'])
-    synthetic_texts=list(data_df['Synthetic text'])
-
-    # Set-up sklearn TFIDF vectorizer
-    tfidf_vectorizer=TfidfVectorizer(input='content')
-
-    # Get human and synthetic TFIDF values and convert to dataframe
-    human_tfidf_vector=tfidf_vectorizer.fit_transform(human_texts)
-
-    human_tfidf_df=pd.DataFrame(
-        human_tfidf_vector.toarray(),
-        columns=tfidf_vectorizer.get_feature_names_out()
-    )
-
-    synthetic_tfidf_vector=tfidf_vectorizer.fit_transform(synthetic_texts)
-
-    synthetic_tfidf_df=pd.DataFrame(
-        synthetic_tfidf_vector.toarray(),
-        columns=tfidf_vectorizer.get_feature_names_out()
-    )
-
-    return human_tfidf_df, synthetic_tfidf_df
+    return results

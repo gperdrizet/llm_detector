@@ -26,3 +26,16 @@ MODELS_PATH = f'{DATA_PATH}/models'
 PERPLEXITY_RATIO_KL_KDE = f'{MODELS_PATH}/perplexity_ratio_KL_KDE.pkl'
 TFIDF_KL_KDE = f'{MODELS_PATH}/TFIDF_KL_KDE.pkl'
 XGB_CLASSIFIER = f'{MODELS_PATH}/XGB_classifier.pkl'
+
+# Feature engineering/data pipeline parameters
+SCORED_HANS_DATASETS = {
+    'cc_news': 'cc_news-scores.json',
+    'pubmed': 'pubmed-scores.json',
+    'cnn': 'cnn-scores.json'
+}
+
+TRAIN_TEST_SPLIT = 0.8
+
+# Luigi data pipeline filepaths
+LUIGI_DATA = f'{DATA_PATH}/luigi'
+LOADED_DATA = f'{LUIGI_DATA}/01-loaded.json'
