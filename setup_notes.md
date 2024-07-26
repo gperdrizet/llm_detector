@@ -454,3 +454,9 @@ Installed cupy to move numpy arrays to GPU for accelerated XGBoost:
 ```text
 pip install cupy-cuda11x
 ```
+
+Installed Luigi to build production data pipeline:
+
+```text
+pip install luigi
+```
