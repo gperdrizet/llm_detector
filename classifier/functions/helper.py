@@ -183,7 +183,6 @@ def tfidf_score_text_fragments(data_chunk: pd.DataFrame, tfidf_luts: dict = None
     # Holders for TF-IDF values
     human_tfidf_means = []
     synthetic_tfidf_means = []
-    dmean_tfidfs = []
     product_normalized_dmean_tfidfs = []
 
     # Stop words and lemmatizer for text cleaning
@@ -226,12 +225,10 @@ def tfidf_score_text_fragments(data_chunk: pd.DataFrame, tfidf_luts: dict = None
 
         human_tfidf_means.append(human_tfidf_mean)
         synthetic_tfidf_means.append(synthetic_tfidf_mean)
-        dmean_tfidfs.append(dmean_tfidf)
         product_normalized_dmean_tfidfs.append(product_normalized_dmean_tfidf)
 
     data_chunk['Human TF-IDF'] = human_tfidf_means
     data_chunk['Synthetic TF-IDF'] = synthetic_tfidf_means
-    data_chunk['TF-IDF difference'] = dmean_tfidfs
     data_chunk['TF-IDF score'] = product_normalized_dmean_tfidfs
 
     return_list.append(data_chunk)
