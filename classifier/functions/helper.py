@@ -19,6 +19,7 @@ def force_after(task_name: str = None):
         'LoadData': config.LOADED_DATA,
         'PerplexityRatioKLD': config.PERPLEXITY_RATIO_KLD_KDE,
         'AddPerplexityRatioKLDScore': config.PERPLEXITY_RATIO_KLD_SCORE_ADDED,
+        'MakeTFIDFLut': config.TFIDF_LUT,
         'AddTFIDFScore': config.TFIDF_SCORE_ADDED,
         'TFIDFScoreKLD': config.TFIDF_SCORE_KLD_KDE,
         'AddTFIDFKLDScore': config.TFIDF_KLD_SCORE_ADDED,
