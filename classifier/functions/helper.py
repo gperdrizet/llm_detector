@@ -4,7 +4,6 @@ import re
 import pathlib
 import numpy as np
 import pandas as pd
-import nltk
 from math import log2
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -20,7 +19,10 @@ def force_after(task_name: str = None):
         'LoadData': config.LOADED_DATA,
         'PerplexityRatioKLD': config.PERPLEXITY_RATIO_KLD_KDE,
         'AddPerplexityRatioKLDScore': config.PERPLEXITY_RATIO_KLD_SCORE_ADDED,
-        'TFIDFScoreKLD': config.TFIDF_SCORE_KLD_KDE
+        'AddTFIDFScore': config.TFIDF_SCORE_ADDED,
+        'TFIDFScoreKLD': config.TFIDF_SCORE_KLD_KDE,
+        'AddTFIDFKLDScore': config.TFIDF_KLD_SCORE_ADDED,
+        'TrainXGBoost': config.XGB_CLASSIFIER
     }
 
     # Loop on the task dictionary
@@ -39,12 +41,21 @@ def force_after(task_name: str = None):
             pathlib.Path(output_file).unlink(missing_ok = True)
 
 
-def add_kl_divergence_score(data_chunk: pd.DataFrame = None, kl_kde = None, return_list = None):
+def add_perplexity_ratio_kl_divergence_score(data_chunk: pd.DataFrame = None, kl_kde = None, return_list = None):
     '''Calculates and adds perplexity ratio Kulback-Leibler divergence to a
     dataframe chunk. Added result to shared memory list.'''
 
     kl_scores = kl_kde.pdf(data_chunk['Perplexity ratio score'])
     data_chunk['Perplexity ratio Kullback-Leibler score'] = kl_scores
+
+    return_list.append(data_chunk)
+
+def add_tfidf_kl_divergence_score(data_chunk: pd.DataFrame = None, kl_kde = None, return_list = None):
+    '''Calculates and adds tfidf Kulback-Leibler divergence to a
+    dataframe chunk. Added result to shared memory list.'''
+
+    kl_scores = kl_kde.pdf(data_chunk['TF-IDF score'])
+    data_chunk['TF-IDF Kullback-Leibler score'] = kl_scores
 
     return_list.append(data_chunk)
 
@@ -82,8 +93,6 @@ def fix_dtypes(dataframe: pd.DataFrame = None) -> pd.DataFrame:
 def submitt_text_for_cleaning(texts_chunk: list = None, return_list = None):
     '''Submits chunk of texts for cleaning, adds results to shared memory list.'''
 
-    nltk.download('stopwords')
-    nltk.download('wordnet')
     sw = stopwords.words('english')
     lemmatizer = WordNetLemmatizer()
 
@@ -144,7 +153,7 @@ def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
     return text
 
 
-def make_tfidf_lut(texts: list = None, return_dict = None) -> dict:
+def make_tfidf_lut(texts: list = None, text_source: str = None, return_dict = None) -> dict:
     '''Takes a list of text fragments, calculates TF-IDF and returns
     a dictionary look-up table with words as keys and TF-IDF value.'''
 
@@ -163,19 +172,25 @@ def make_tfidf_lut(texts: list = None, return_dict = None) -> dict:
     # Get the words
     features = tfidf_vectorizer.get_feature_names_out()
 
-    return_dict = dict(zip(features, log_tfidf_mean))
+    return_dict[text_source] = dict(zip(features, log_tfidf_mean))
 
 
-def score_known_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) -> dict:
+def tfidf_score_text_fragments(data_chunk: pd.DataFrame, tfidf_luts: dict = None, return_list = None) -> dict:
     '''Scores text fragments with product normalized difference in
     log2 TF-IDF mean.'''
 
     # Holders for TF-IDF values
-    product_normalized_human_dmean_tfidf = []
-    product_normalized_synthetic_dmean_tfidf = []
+    human_tfidf_means = []
+    synthetic_tfidf_means = []
+    dmean_tfidfs = []
+    product_normalized_dmean_tfidfs = []
+
+    # Stop words and lemmatizer for text cleaning
+    sw = stopwords.words('english')
+    lemmatizer = WordNetLemmatizer()
 
     # Loop on dataframe rows
-    for _, row in data_df.iterrows():
+    for _, row in data_chunk.iterrows():
         
         human_tfidf_sum = 0
         synthetic_tfidf_sum = 0
@@ -184,7 +199,11 @@ def score_known_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) -
         text = row['String']
 
         # Clean the text
-        text = clean_text(text)
+        text = clean_text(
+            text = text,
+            sw = sw,
+            lemmatizer = lemmatizer
+        )
 
         # Split the text into words
         words = text.split(' ')
@@ -204,10 +223,65 @@ def score_known_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) -
         dmean_tfidf = human_tfidf_mean - synthetic_tfidf_mean
         product_normalized_dmean_tfidf = dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
 
-        if row['Source'] == 'human':
-            product_normalized_human_dmean_tfidf.append(product_normalized_dmean_tfidf)
+        human_tfidf_means.append(human_tfidf_mean)
+        synthetic_tfidf_means.append(synthetic_tfidf_mean)
+        dmean_tfidfs.append(dmean_tfidf)
+        product_normalized_dmean_tfidfs.append(product_normalized_dmean_tfidf)
 
-        elif row['Source'] == 'synthetic':
-            product_normalized_synthetic_dmean_tfidf.append(product_normalized_dmean_tfidf)
+    data_chunk['Human TF-IDF'] = human_tfidf_means
+    data_chunk['Synthetic TF-IDF'] = synthetic_tfidf_means
+    data_chunk['TF-IDF difference'] = dmean_tfidfs
+    data_chunk['TF-IDF score'] = product_normalized_dmean_tfidfs
 
-    return {'human': product_normalized_human_dmean_tfidf, 'synthetic': product_normalized_synthetic_dmean_tfidf}
+    return_list.append(data_chunk)
+
+
+
+# def score_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) -> dict:
+#     '''Scores text fragments, returns human and synthetic TF-IDF and product 
+#     normalized difference in log2 TF-IDF mean'''
+
+#     # Holders for new features
+#     tfidf_scores = []
+#     human_tfidf = []
+#     synthetic_tfidf = []
+
+#     # Loop on dataframe rows
+#     for _, row in data_df.iterrows():
+        
+#         human_tfidf_sum = 0
+#         synthetic_tfidf_sum = 0
+
+#         # Get the text from this row
+#         text = row['String']
+
+#         # Clean the text
+#         text = clean_text(text)
+
+#         # Split the text into words
+#         words = text.split(' ')
+
+#         # Score the words using the human and synthetic luts
+#         for word in words:
+
+#             if word in tfidf_luts['human'].keys():
+#                 human_tfidf_sum += tfidf_luts['human'][word]
+
+#             if word in tfidf_luts['synthetic'].keys():
+#                 synthetic_tfidf_sum += tfidf_luts['synthetic'][word]
+
+#         # Get the means
+#         human_tfidf_mean = human_tfidf_sum / len(words)
+#         synthetic_tfidf_mean = synthetic_tfidf_sum / len(words)
+#         dmean_tfidf = human_tfidf_mean - synthetic_tfidf_mean
+#         product_normalized_dmean_tfidf = dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
+
+#         human_tfidf.append(human_tfidf_mean)
+#         synthetic_tfidf.append(synthetic_tfidf_mean)
+#         tfidf_scores.append(product_normalized_dmean_tfidf)
+
+#     data_df['human_tfidf'] = human_tfidf
+#     data_df['synthetic_tfidf'] = synthetic_tfidf
+#     data_df['tfidf_score'] = tfidf_scores
+
+#     return {'human_tfidf': human_tfidf, 'synthetic_tfidf': synthetic_tfidf, 'tfidf_score': tfidf_scores}

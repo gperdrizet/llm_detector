@@ -50,11 +50,24 @@ class AddPerplexityRatioKLDScore(luigi.Task):
         with self.output().open('w') as output_file:
             json.dump(data, output_file)
 
+class AddTFIDFScore(luigi.Task):
+
+    def requires(self):
+        return AddPerplexityRatioKLDScore()
+    
+    def output(self):
+        return luigi.LocalTarget(config.TFIDF_SCORE_ADDED)
+
+    def run(self):
+        data = data_funcs.add_tfidf_score()
+
+        with self.output().open('w') as output_file:
+            json.dump(data, output_file)
 
 class TFIDFScoreKLD(luigi.Task):
 
     def requires(self):
-        return PerplexityRatioKLD()
+        return AddTFIDFScore()
     
     def output(self):
         return luigi.LocalTarget(config.TFIDF_SCORE_KLD_KDE, format = Nop)
@@ -66,22 +79,34 @@ class TFIDFScoreKLD(luigi.Task):
             dump(kl_kde, output_file, protocol = 5)
     
 
-class AddTFIDFScore(luigi.Task):
-    x = luigi.IntParameter()
-    y = luigi.IntParameter(default=1)
-    z = luigi.IntParameter(default=2)
+class AddTFIDFKLDScore(luigi.Task):
+
+    def requires(self):
+        return TFIDFScoreKLD()
+    
+    def output(self):
+        return luigi.LocalTarget(config.TFIDF_KLD_SCORE_ADDED)
 
     def run(self):
-        print(self.x * self.y * self.z)
+        data = data_funcs.add_tfidf_kld_score()
+
+        with self.output().open('w') as output_file:
+            json.dump(data, output_file)
 
 
 class TrainXGBoost(luigi.Task):
-    x = luigi.IntParameter()
-    y = luigi.IntParameter(default=1)
-    z = luigi.IntParameter(default=2)
 
+    def requires(self):
+        return AddTFIDFKLDScore()
+    
+    def output(self):
+        return luigi.LocalTarget(config.XGBOOST_CLASSIFIER, format = Nop)
+    
     def run(self):
-        print(self.x * self.y * self.z)
+        model = data_funcs.train_xgboost_classifier()
+
+        with self.output().open('w') as output_file:
+            dump(model, output_file, protocol = 5)
 
 
 if __name__ == '__main__':
@@ -93,7 +118,10 @@ if __name__ == '__main__':
             LoadData(),
             PerplexityRatioKLD(),
             AddPerplexityRatioKLDScore(),
-            TFIDFScoreKLD()
+            AddTFIDFScore(),
+            TFIDFScoreKLD(),
+            AddTFIDFKLDScore(),
+            TrainXGBoost()
         ],
         local_scheduler = True
     )

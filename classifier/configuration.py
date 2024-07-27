@@ -44,9 +44,11 @@ TFIDF_SAMPLE_FRAC = 0.5
 LUIGI_DATA_PATH = f'{DATA_PATH}/luigi'
 LOADED_DATA = f'{LUIGI_DATA_PATH}/01-loaded.json'
 PERPLEXITY_RATIO_KLD_SCORE_ADDED = f'{LUIGI_DATA_PATH}/02-perplexity_ratio_KLD_score_added.json'
-TFIDF_KLD_SCORE_ADDED = f'{LUIGI_DATA_PATH}/03-TFIDF_KLD_score_added.json'
+TFIDF_SCORE_ADDED = f'{LUIGI_DATA_PATH}/03-TFIDF_score_added.json'
+TFIDF_KLD_SCORE_ADDED = f'{LUIGI_DATA_PATH}/04-TFIDF_KLD_score_added.json'
 
 # Luigi pipeline models
 MODELS_PATH = f'{DATA_PATH}/models'
 PERPLEXITY_RATIO_KLD_KDE = f'{MODELS_PATH}/perplexity_ratio_KLD_KDE.pkl'
 TFIDF_SCORE_KLD_KDE = f'{MODELS_PATH}/TFIDF_score_KLD_KDE.pkl'
+XGBOOST_CLASSIFIER = f'{MODELS_PATH}/XGBoost_classifier.pkl'
