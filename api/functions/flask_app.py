@@ -21,10 +21,10 @@ def create_celery_app(app: Flask) -> Celery:
                 return self.run(*args, **kwargs)
 
     # Create Celery app
-    celery_app = Celery(app.name, task_cls=FlaskTask)
+    celery_app = Celery(app.name, task_cls = FlaskTask)
 
     # Add configuration from Flask app's Celery config. dict
-    celery_app.config_from_object(app.config["CELERY"])
+    celery_app.config_from_object(app.config['CELERY'])
 
     # Configure logging
     celery_app.log.setup(
@@ -35,7 +35,7 @@ def create_celery_app(app: Flask) -> Celery:
 
     # Set as default and add to extensions
     celery_app.set_default()
-    app.extensions["celery"] = celery_app
+    app.extensions['celery'] = celery_app
 
     return celery_app
 
@@ -80,6 +80,13 @@ def create_flask_celery_app(
             # Mock the score with a random float
             score = [random.uniform(0, 1)]
 
+            # Threshold the score
+            if score[0] >= 0.5:
+                call = 'human'
+
+            elif score[0] < 0.5:
+                call = 'synthetic'
+
         elif config.MODE == 'production':
 
             # Call the scoring function
@@ -89,12 +96,7 @@ def create_flask_celery_app(
                 suspect_string
             )
 
-        # Threshold the score
-        if score[0] >= 0.5:
-            call = 'human'
-
-        elif score[0] < 0.5:
-            call = 'synthetic'
+            call = f'Prediction result: {score}'
 
         # Return the result from the output queue
         return {'author_call': call, 'text': suspect_string}
