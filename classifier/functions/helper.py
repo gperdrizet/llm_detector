@@ -22,7 +22,7 @@ def force_after(task_name: str = None):
         'AddTFIDFScore': config.TFIDF_SCORE_ADDED,
         'TFIDFScoreKLD': config.TFIDF_SCORE_KLD_KDE,
         'AddTFIDFKLDScore': config.TFIDF_KLD_SCORE_ADDED,
-        'TrainXGBoost': config.XGB_CLASSIFIER
+        'TrainXGBoost': config.XGBOOST_CLASSIFIER
     }
 
     # Loop on the task dictionary

@@ -111,7 +111,7 @@ class TrainXGBoost(luigi.Task):
 
 if __name__ == '__main__':
 
-    helper_funcs.force_after('AddPerplexityRatioKLDScore')
+    helper_funcs.force_after('TrainXGBoost')
 
     luigi.build(
         [
