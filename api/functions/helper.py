@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 from typing import Callable
+
 import os
 import glob
+import re
 import logging
 from threading import Thread
 from logging.handlers import RotatingFileHandler
@@ -100,3 +102,44 @@ def start_flask(flask_app: Callable, logger: Callable):
 
     # Start the flask app thread
     flask_app_thread.start()
+
+def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
+    '''Cleans up text string for TF-IDF'''
+    
+    # Lowercase everything
+    text = text.lower()
+
+    # Replace everything with space except (a-z, A-Z, ".", "?", "!", ",")
+    text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
+
+    # Remove URLs 
+    text = re.sub(r"http\S+", "",text)
+    
+    # Remove html tags
+    html = re.compile(r'<.*?>') 
+    text = html.sub(r'',text)
+    
+    punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
+
+    # Remove punctuations
+    for p in punctuations:
+        text = text.replace(p,'')
+        
+    # Remove stopwords
+    text = [word.lower() for word in text.split() if word.lower() not in sw]
+    text = [lemmatizer.lemmatize(word) for word in text]
+    text = " ".join(text)
+    
+    # Remove emojis
+    emoji_pattern = re.compile("["
+        u"\U0001F600-\U0001F64F"  # emoticons
+        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        u"\U00002702-\U000027B0"
+        u"\U000024C2-\U0001F251"
+    "]+", flags=re.UNICODE)
+    
+    text = emoji_pattern.sub(r'', text)
+    
+    return text

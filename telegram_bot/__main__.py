@@ -17,7 +17,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def score_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    '''Sends user provided text to scoring function'''
+    '''Sends user provided text to scoring function, sends
+    result back to user.'''
 
     # Get the logger
     logger = logging.getLogger(f'telegram_bot.score_text')
@@ -31,15 +32,14 @@ async def score_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Get the result, when ready
     result = api_funcs.retreive_result(result_id = result_id)
-    author_call = await result
-    reply = f'Author is likley {author_call}'
+    reply = await result
 
     logger.info(f'Got user text: {text}')
     logger.info(f'Result ID: {result_id}')
     logger.info(f'Reply: {reply}')
 
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=reply)
+        chat_id = update.effective_chat.id, text=reply)
 
 
 if __name__ == '__main__':
