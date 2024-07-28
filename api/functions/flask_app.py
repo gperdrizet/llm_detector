@@ -114,9 +114,9 @@ def create_flask_celery_app(
         # Submit the text for scoring
         result = score_text.delay(text_string)
 
-        return {"result_id": result.id}
+        return {'result_id': result.id}
 
-    @app.get("/result/<result_id>")
+    @app.get('/result/<result_id>')
     def task_result(result_id: str) -> dict:
         '''Gets result by result id. Returns dictionary
         with task status'''
@@ -126,9 +126,9 @@ def create_flask_celery_app(
 
         # Return status and result if ready
         return {
-            "ready": result.ready(),
-            "successful": result.successful(),
-            "value": result.result if result.ready() else None,
+            'ready': result.ready(),
+            'successful': result.successful(),
+            'value': result.result if result.ready() else None,
         }
 
     return app
