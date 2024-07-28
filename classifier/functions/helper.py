@@ -19,10 +19,11 @@ def force_after(task_name: str = None):
         'LoadData': config.LOADED_DATA,
         'PerplexityRatioKLD': config.PERPLEXITY_RATIO_KLD_KDE,
         'AddPerplexityRatioKLDScore': config.PERPLEXITY_RATIO_KLD_SCORE_ADDED,
+        'MakeTFIDFLut': config.TFIDF_LUT,
         'AddTFIDFScore': config.TFIDF_SCORE_ADDED,
         'TFIDFScoreKLD': config.TFIDF_SCORE_KLD_KDE,
         'AddTFIDFKLDScore': config.TFIDF_KLD_SCORE_ADDED,
-        'TrainXGBoost': config.XGB_CLASSIFIER
+        'TrainXGBoost': config.XGBOOST_CLASSIFIER
     }
 
     # Loop on the task dictionary
@@ -182,7 +183,6 @@ def tfidf_score_text_fragments(data_chunk: pd.DataFrame, tfidf_luts: dict = None
     # Holders for TF-IDF values
     human_tfidf_means = []
     synthetic_tfidf_means = []
-    dmean_tfidfs = []
     product_normalized_dmean_tfidfs = []
 
     # Stop words and lemmatizer for text cleaning
@@ -229,7 +229,6 @@ def tfidf_score_text_fragments(data_chunk: pd.DataFrame, tfidf_luts: dict = None
 
     data_chunk['Human TF-IDF'] = human_tfidf_means
     data_chunk['Synthetic TF-IDF'] = synthetic_tfidf_means
-    data_chunk['TF-IDF difference'] = dmean_tfidfs
     data_chunk['TF-IDF score'] = product_normalized_dmean_tfidfs
 
     return_list.append(data_chunk)

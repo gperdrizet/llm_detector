@@ -50,10 +50,25 @@ class AddPerplexityRatioKLDScore(luigi.Task):
         with self.output().open('w') as output_file:
             json.dump(data, output_file)
 
-class AddTFIDFScore(luigi.Task):
+
+class MakeTFIDFLut(luigi.Task):
 
     def requires(self):
         return AddPerplexityRatioKLDScore()
+    
+    def output(self):
+        return luigi.LocalTarget(config.TFIDF_LUT, format = Nop)
+
+    def run(self):
+        tfidf_lut = data_funcs.make_tfidf_lut()
+
+        with self.output().open('w') as output_file:
+            dump(tfidf_lut, output_file, protocol = 5)
+
+class AddTFIDFScore(luigi.Task):
+
+    def requires(self):
+        return MakeTFIDFLut()
     
     def output(self):
         return luigi.LocalTarget(config.TFIDF_SCORE_ADDED)
@@ -63,6 +78,7 @@ class AddTFIDFScore(luigi.Task):
 
         with self.output().open('w') as output_file:
             json.dump(data, output_file)
+
 
 class TFIDFScoreKLD(luigi.Task):
 
@@ -118,6 +134,7 @@ if __name__ == '__main__':
             LoadData(),
             PerplexityRatioKLD(),
             AddPerplexityRatioKLDScore(),
+            MakeTFIDFLut(),
             AddTFIDFScore(),
             TFIDFScoreKLD(),
             AddTFIDFKLDScore(),
