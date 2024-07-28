@@ -96,10 +96,16 @@ def create_flask_celery_app(
                 suspect_string
             )
 
-            call = f'Prediction result: {score}'
+            if score[0] == 0:
+                call = 'human'
+
+            elif score[0] == 1:
+                call = 'synthetic'
+
+            reply = f'Text is likley {call}.'
 
         # Return the result from the output queue
-        return {'author_call': call, 'text': suspect_string}
+        return {'author_call': reply, 'text': suspect_string}
 
     # Set listener for text strings via POST
     @app.post('/submit_text')
