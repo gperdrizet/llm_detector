@@ -127,7 +127,7 @@ class TrainXGBoost(luigi.Task):
 
 if __name__ == '__main__':
 
-    helper_funcs.force_after('AddTFIDFScore')
+    helper_funcs.force_after('LoadData')
 
     luigi.build(
         [

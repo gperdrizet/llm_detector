@@ -63,6 +63,9 @@ def load_data() -> dict:
     data_df = pd.concat(dataframes, axis = 0)
     data_df.reset_index(inplace = True, drop = True)
 
+    # Set length threshold
+    data_df = data_df[data_df['Fragment length (tokens)'] > 50]
+
     # Split the data in to training and testing subsets.
     training_df = data_df.sample(frac = config.TRAIN_TEST_SPLIT, random_state = 42)
     testing_df = data_df.drop(training_df.index)
