@@ -6,11 +6,12 @@ import time
 import urllib.request
 import telegram_bot.configuration as config
 
-async def submit_text(suspect_text: str = None) -> str:
-    '''Sends user's suspect text to scoring api, '''
+async def submit_text(suspect_text: str = None, response_mode: str = 'default') -> str:
+    '''Sends user's suspect text to scoring api, get's back a result id
+    so we can poll and wait for the scoring backen to do it's thing.'''
 
     # Assemble the payload
-    payload = {'string': suspect_text}
+    payload = {'string': suspect_text, 'response_mode': response_mode}
     json_payload = json.dumps(payload) # Explicitly converts to json
     json_bytes_payload = json_payload.encode('utf-8') # Encodes to bytes
 

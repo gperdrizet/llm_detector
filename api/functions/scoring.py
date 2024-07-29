@@ -14,7 +14,8 @@ import api.configuration as config
 def score_string(
         reader_model: Callable,
         writer_model: Callable,
-        string: str = None
+        string: str = None,
+        response_mode: str = 'default'
 ) -> float:
 
     '''Takes a string, computes and returns llm detector score'''
@@ -157,9 +158,17 @@ def score_string(
         model = pickle.load(input_file)
 
     # Make prediction
-    prediction = model.predict([features])
+    prediction = model.predict_proba([features])[0]
 
-    return prediction
+    print(f'Predicted class probabilities: {prediction}')
+
+    if response_mode == 'default':
+
+        return prediction
+    
+    elif response_mode == 'verbose':
+
+        return [prediction[0], prediction[1], dict(zip(feature_names, features))]
 
 # Take some care with '.sum(1)).detach().cpu().float().numpy()'. Had 
 # errors as cribbed from the above repo. Order matters? I don't know, 
