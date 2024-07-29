@@ -50,5 +50,6 @@ TFIDF_KLD_SCORE_ADDED = f'{LUIGI_DATA_PATH}/04-TFIDF_KLD_score_added.json'
 # Luigi pipeline models
 MODELS_PATH = f'{DATA_PATH}/models'
 PERPLEXITY_RATIO_KLD_KDE = f'{MODELS_PATH}/perplexity_ratio_KLD_KDE.pkl'
+TFIDF_LUT =  f'{MODELS_PATH}/TFIDF_lut.pkl'
 TFIDF_SCORE_KLD_KDE = f'{MODELS_PATH}/TFIDF_score_KLD_KDE.pkl'
 XGBOOST_CLASSIFIER = f'{MODELS_PATH}/XGBoost_classifier.pkl'

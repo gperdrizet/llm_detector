@@ -63,6 +63,9 @@ def load_data() -> dict:
     data_df = pd.concat(dataframes, axis = 0)
     data_df.reset_index(inplace = True, drop = True)
 
+    # Set length threshold
+    data_df = data_df[data_df['Fragment length (tokens)'] > 50]
+
     # Split the data in to training and testing subsets.
     training_df = data_df.sample(frac = config.TRAIN_TEST_SPLIT, random_state = 42)
     testing_df = data_df.drop(training_df.index)
@@ -203,9 +206,10 @@ def add_perplexity_ratio_kld_score() -> dict:
     return results
 
 
-def add_tfidf_score() -> dict:
-    '''Calculates TF-IDF scores based on training data and adds to training and
-    testing dataframes.'''
+def make_tfidf_lut() -> dict:
+    '''Calculates TF-IDF scores based on training data and creates
+    lookup tables for human and synthetic TFIDF values where key is work
+    and value is score.'''
 
     # Load the data
     with open(config.PERPLEXITY_RATIO_KLD_SCORE_ADDED, 'r', encoding='utf-8') as input_file:
@@ -275,6 +279,28 @@ def add_tfidf_score() -> dict:
         p.join()
 
         tfidf_luts[text_source] = return_dict[text_source]
+
+    return tfidf_luts
+
+
+def add_tfidf_score() -> dict:
+    '''Uses TF-IDF lut from the previous step to calculate TF-IDF scores
+    for each text fragment in the training and testing data and add them
+    to the data.'''
+
+    # Load the luts
+    with open(config.TFIDF_LUT, 'rb') as input_file:
+        tfidf_luts = pickle.load(input_file)
+
+    # Load the data
+    with open(config.PERPLEXITY_RATIO_KLD_SCORE_ADDED, 'r', encoding='utf-8') as input_file:
+        data = json.load(input_file)
+
+    # Seperate the training and testing data
+    data_dfs = {
+        'training': pd.DataFrame.from_dict(json.loads(data['training'])),
+        'testing': pd.DataFrame.from_dict(json.loads(data['testing']))
+    }
 
     # Now use the luts to score all of the text
 
