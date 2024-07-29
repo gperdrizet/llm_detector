@@ -68,11 +68,12 @@ def create_flask_celery_app(
     logger = get_task_logger(__name__)
 
     @shared_task(ignore_result = False)
-    def score_text(suspect_string: str) -> str:
+    def score_text(suspect_string: str = None, response_mode: str = 'default') -> str:
         '''Takes a string and scores it, returns a dict.
         containing the author call and the original string'''
 
         logger.info(f'Submitting for score: {suspect_string}')
+        logger.info(f'Response mode is: {response_mode}')
 
         # Call the real scoring function or mock based on mode
         if config.MODE == 'testing':
@@ -90,19 +91,30 @@ def create_flask_celery_app(
         elif config.MODE == 'production':
 
             # Call the scoring function
-            score = scoring_funcs.score_string(
+            response = scoring_funcs.score_string(
                 reader_model,
                 writer_model,
-                suspect_string
+                suspect_string,
+                response_mode
             )
 
-            if score[0] == 0:
-                call = 'human'
+            if response_mode == 'default':
 
-            elif score[0] == 1:
-                call = 'synthetic'
+                reply = f'Class probabilities: human = {response[0]:.3f}, machine = {response[1]:.3f}.'
 
-            reply = f'Text is likley {call}.'
+            elif response_mode == 'verbose':
+
+                features = (f"Fragment length (tokens): {response[2]['Fragment length (tokens)']:.0f}\n"
+                            f"Perplexity: {response[2]['Perplexity']:.2f}\n"
+                            f"Cross-perplexity: {response[2]['Cross-perplexity']:.2f}\n"
+                            f"Perplexity ratio score: {response[2]['Perplexity ratio score']:.3f}\n"
+                            f"Perplexity ratio Kullback-Leibler score: {response[2]['Perplexity ratio Kullback-Leibler score']:.3f}\n"
+                            f"Human TF-IDF: {response[2]['Human TF-IDF']:.2f}\n"
+                            f"Synthetic TF-IDF: {response[2]['Synthetic TF-IDF']:.2f}\n"
+                            f"TF-IDF score: {response[2]['TF-IDF score']:.3f}\n"
+                            f"TF-IDF Kullback-Leibler score: {response[2]['TF-IDF Kullback-Leibler score']:.3f}")
+
+                reply = f'Class probabilities: human = {response[0]:.3f}, machine = {response[1]:.3f}\n\nFeature values:\n{features}.'
 
         # Return the result from the output queue
         return {'author_call': reply, 'text': suspect_string}
@@ -116,9 +128,10 @@ def create_flask_celery_app(
         # Get the suspect text string from the request data
         request_data = request.get_json()
         text_string = request_data['string']
+        response_mode = request_data['response_mode']
 
         # Submit the text for scoring
-        result = score_text.delay(text_string)
+        result = score_text.delay(text_string, response_mode)
 
         return {'result_id': result.id}
 
