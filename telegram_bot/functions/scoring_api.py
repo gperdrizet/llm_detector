@@ -46,7 +46,9 @@ async def retreive_result(result_id: str = None) -> str:
 
         if contents['ready'] is True:
 
-            reply = contents['value']['author_call']
+            print(contents)
+
+            reply = contents['value']['reply']
             return reply
 
         # Wait before checking again
