@@ -75,49 +75,58 @@ def create_flask_celery_app(
         logger.info(f'Submitting for score: {suspect_string}')
         logger.info(f'Response mode is: {response_mode}')
 
-        # Call the real scoring function or mock based on mode
-        if config.MODE == 'testing':
+        # Check to make sure that text is of sane length
+        text_length = len(suspect_string.split(' '))
 
-            # Mock the score with a random float
-            score = [random.uniform(0, 1)]
+        if text_length < 50 or text_length > 400:
 
-            # Threshold the score
-            if score[0] >= 0.5:
-                call = 'human'
+            reply = 'For best results text should be longer than 50 words and shorter than 400 words.'
 
-            elif score[0] < 0.5:
-                call = 'synthetic'
+        else:
 
-        elif config.MODE == 'production':
+            # Call the real scoring function or mock based on mode
+            if config.MODE == 'testing':
 
-            # Call the scoring function
-            response = scoring_funcs.score_string(
-                reader_model,
-                writer_model,
-                suspect_string,
-                response_mode
-            )
+                # Mock the score with a random float
+                score = [random.uniform(0, 1)]
 
-            if response_mode == 'default':
+                # Threshold the score
+                if score[0] >= 0.5:
+                    reply = 'Text is human'
 
-                reply = f'Class probabilities: human = {response[0]:.3f}, machine = {response[1]:.3f}.'
+                elif score[0] < 0.5:
+                    reply = 'Text is synthetic'
 
-            elif response_mode == 'verbose':
+            elif config.MODE == 'production':
 
-                features = (f"Fragment length (tokens): {response[2]['Fragment length (tokens)']:.0f}\n"
-                            f"Perplexity: {response[2]['Perplexity']:.2f}\n"
-                            f"Cross-perplexity: {response[2]['Cross-perplexity']:.2f}\n"
-                            f"Perplexity ratio score: {response[2]['Perplexity ratio score']:.3f}\n"
-                            f"Perplexity ratio Kullback-Leibler score: {response[2]['Perplexity ratio Kullback-Leibler score']:.3f}\n"
-                            f"Human TF-IDF: {response[2]['Human TF-IDF']:.2f}\n"
-                            f"Synthetic TF-IDF: {response[2]['Synthetic TF-IDF']:.2f}\n"
-                            f"TF-IDF score: {response[2]['TF-IDF score']:.3f}\n"
-                            f"TF-IDF Kullback-Leibler score: {response[2]['TF-IDF Kullback-Leibler score']:.3f}")
+                # Call the scoring function
+                response = scoring_funcs.score_string(
+                    reader_model,
+                    writer_model,
+                    suspect_string,
+                    response_mode
+                )
 
-                reply = f'Class probabilities: human = {response[0]:.3f}, machine = {response[1]:.3f}\n\nFeature values:\n{features}.'
+                if response_mode == 'default':
+
+                    reply = f'Class probabilities: human = {response[0]:.3f}, machine = {response[1]:.3f}.'
+
+                elif response_mode == 'verbose':
+
+                    features = (f"Fragment length (tokens): {response[2]['Fragment length (tokens)']:.0f}\n"
+                                f"Perplexity: {response[2]['Perplexity']:.2f}\n"
+                                f"Cross-perplexity: {response[2]['Cross-perplexity']:.2f}\n"
+                                f"Perplexity ratio score: {response[2]['Perplexity ratio score']:.3f}\n"
+                                f"Perplexity ratio Kullback-Leibler score: {response[2]['Perplexity ratio Kullback-Leibler score']:.3f}\n"
+                                f"Human TF-IDF: {response[2]['Human TF-IDF']:.2f}\n"
+                                f"Synthetic TF-IDF: {response[2]['Synthetic TF-IDF']:.2f}\n"
+                                f"TF-IDF score: {response[2]['TF-IDF score']:.3f}\n"
+                                f"TF-IDF Kullback-Leibler score: {response[2]['TF-IDF Kullback-Leibler score']:.3f}")
+
+                    reply = f'Class probabilities: human = {response[0]:.3f}, machine = {response[1]:.3f}\n\nFeature values:\n{features}.'
 
         # Return the result from the output queue
-        return {'author_call': reply, 'text': suspect_string}
+        return {'reply': reply, 'text': suspect_string}
 
     # Set listener for text strings via POST
     @app.post('/submit_text')
