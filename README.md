@@ -33,7 +33,7 @@ Malone is a synthetic text detection service available on [Telegram Messenger](h
 
 Malone is publicly available on Telegram. You can find malone on the [Telegram bot page](https://t.me/the_malone_bot), or just message @the_malone_bot with '/*start*' to start using it.
 
-There are also plans in the works to offer the bare API to intrested parties. If that's you, see section 6 below.
+There are also plans in the works to offer the bare API to interested parties. If that's you, see section 6 below.
 
 ## 3. Usage
 
@@ -43,7 +43,7 @@ Once you have a Telegram account, malone is simple to use. Send the bot any 'sus
 
 ![telegram app screenshot](https://github.com/gperdrizet/llm_detector/blob/main/telegram_bot/assets/telegram_screenshot.jpg?raw=true)
 
-Malone can run in two response modes: 'default' and 'verbose'. Default mode returns the probability associated with the most likely class as a percent (e.g. 75% chance a human wrote this). Verbose mode gives a little more detail about the feature values and perdiction metrics. Set the mode by messaging '*/set_mode verbose*' or '*/set_mode default*'.
+Malone can run in two response modes: 'default' and 'verbose'. Default mode returns the probability associated with the most likely class as a percent (e.g. 75% chance a human wrote this). Verbose mode gives a little more detail about the feature values and prediction metrics. Set the mode by messaging '*/set_mode verbose*' or '*/set_mode default*'.
 
 For best results, submitted text must be between 50 and 500 words.
 
@@ -53,7 +53,7 @@ Malone is ~90% accurate with a binary log loss of ~0.25 on hold-out test data de
 
 ![XGBoost confusion matrix](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/figures/XGBoost_confusion_matrix.png?raw=true)
 
-For more details on the classifier training and performace see: [XGBoost experimentation](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/04.2-XGBoost_classifier_experimentation.ipynb) and [XGBoost finalized](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/04.2-XGBoost_classifier_finalized.ipynb).
+For more details on the classifier training and performance see: [XGBoost experimentation](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/04.2-XGBoost_classifier_experimentation.ipynb) and [XGBoost finalized](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/04.2-XGBoost_classifier_finalized.ipynb).
 
 ## 5. Demonstration/experimentation notebooks
 
@@ -66,7 +66,7 @@ Most of the testing and benchmarking during the design phase of the project was 
 
 ## 6. About the author
 
-My name is Dr. George Perdrizet, I am a biochemistry & molecular biology PhD seeking a career step from academia to professional data science and/or machine learning engineering. This project was concived from the scientific literature and built solo over the course of a few weeks - I strongly belive that I have a ton to offer the right orgnization. If you or anyone you know is interested in an ex-researcher from University of Chicago turned builder and data scientist, please reach out, I'd love to learn from and contribute to your project.
+My name is Dr. George Perdrizet, I am a biochemistry & molecular biology PhD seeking a career step from academia to professional data science and/or machine learning engineering. This project was conceived from the scientific literature and built solo over the course of a few weeks - I strongly believe that I have a ton to offer the right organization. If you or anyone you know is interested in an ex-researcher from University of Chicago turned builder and data scientist, please reach out, I'd love to learn from and contribute to your project.
 
 - **Email**: <hire.me@perdrizet.org>
 - **LinkedIn**: linkedin.com/gperdrizet
