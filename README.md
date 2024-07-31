@@ -44,6 +44,8 @@ For best results, submitted text must be between 50 and 500 words.
 
 Malone is ~90% accurate with a binary log loss of ~0.25 on hold-out test data depending on the model hyperparameters and the parameters used for engineered features. The miss-classified examples are more or less evenly split between false negatives and false positives.
 
+![XGBoost confusion matrix](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/figures/XGBoost_confusion_matrix.png?raw=true)
+
 ## 5. Demonstration/experimentation notebooks
 
 Most the testing and benchmarking during the design phase of the project was conducted in Jupyter notebooks before refactoring into modules. These notebooks are the best way to understand the approach and the engineered features used to train the classifier.
