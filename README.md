@@ -56,7 +56,7 @@ Malone is ~90% accurate with a binary log loss of ~0.25 on hold-out test data de
 
 ![XGBoost confusion matrix](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/figures/XGBoost_confusion_matrix.png?raw=true)
 
-For more details on the classifier training and performance see: [XGBoost experimentation](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/04.2-XGBoost_classifier_experimentation.ipynb) and [XGBoost finalized](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/04.2-XGBoost_classifier_finalized.ipynb).
+For more details on the classifier training and performance see: [XGBoost experimentation](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/04.1-XGBoost_classifier_experimentation.ipynb) and [XGBoost finalized](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/04.2-XGBoost_classifier_finalized.ipynb).
 
 ## 5. Demonstration/experimentation notebooks
 
