@@ -12,6 +12,9 @@ from logging.handlers import RotatingFileHandler
 import api.configuration as config
 import api.classes.llm as llm_class
 
+# Comment ##############################################################
+# Code ########################################################################
+
 def start_logger() -> Callable:
     '''Sets up logging, returns logger'''
 
@@ -46,7 +49,7 @@ def start_logger() -> Callable:
 def start_models(logger: Callable) -> list[Callable, Callable]:
     '''Initializes, loads and returns the reader and writer LLM'''
 
-    # Configure and load two instances of the model, one base for the 
+    # Configure and load two instances of the model, one base for the
     # reader and one instruct for the writer. Use different GPUs.
     reader_model = llm_class.Llm(
         hf_model_string = config.READER_MODEL,
@@ -95,7 +98,7 @@ def start_flask(flask_app: Callable, logger: Callable):
     # Put the flask app into a thread
     flask_app_thread = Thread(
         target = flask_app.run,
-        kwargs = {'host':config.IP_ADDRESS,'port':config.PORT}
+        kwargs = {'host':config.HOST_IP,'port':config.FLASK_PORT}
     )
 
     logger.info('Flask app thread initialized')
@@ -105,31 +108,31 @@ def start_flask(flask_app: Callable, logger: Callable):
 
 def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
     '''Cleans up text string for TF-IDF'''
-    
+
     # Lowercase everything
     text = text.lower()
 
     # Replace everything with space except (a-z, A-Z, ".", "?", "!", ",")
     text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
 
-    # Remove URLs 
+    # Remove URLs
     text = re.sub(r"http\S+", "",text)
-    
+
     # Remove html tags
-    html = re.compile(r'<.*?>') 
+    html = re.compile(r'<.*?>')
     text = html.sub(r'',text)
-    
+
     punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
 
     # Remove punctuations
     for p in punctuations:
         text = text.replace(p,'')
-        
+
     # Remove stopwords
     text = [word.lower() for word in text.split() if word.lower() not in sw]
     text = [lemmatizer.lemmatize(word) for word in text]
     text = " ".join(text)
-    
+
     # Remove emojis
     emoji_pattern = re.compile("["
         u"\U0001F600-\U0001F64F"  # emoticons
@@ -139,7 +142,7 @@ def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
         u"\U00002702-\U000027B0"
         u"\U000024C2-\U0001F251"
     "]+", flags=re.UNICODE)
-    
+
     text = emoji_pattern.sub(r'', text)
-    
+
     return text
