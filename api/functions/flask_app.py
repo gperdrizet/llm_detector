@@ -2,8 +2,8 @@
 
 from typing import Callable
 import random
-from flask import Flask, request # type: ignore
-from celery import Celery, Task, shared_task # type: ignore
+from flask import Flask, request
+from celery import Celery, Task, shared_task
 from celery.app import trace
 from celery.result import AsyncResult
 from celery.utils.log import get_task_logger
@@ -11,11 +11,14 @@ import api.configuration as config
 import api.functions.scoring as scoring_funcs
 # pylint: disable=W0223
 
+# Comment ##############################################################
+# Code ########################################################################
+
 # Disable return portion task success message log so that
 # user messages don't get logged.
-trace.LOG_SUCCESS = """\
+trace.LOG_SUCCESS = '''\
 Task %(name)s[%(id)s] succeeded in %(runtime)ss\
-"""
+'''
 
 def create_celery_app(app: Flask) -> Celery:
     '''Sets up Celery app object'''
@@ -78,8 +81,13 @@ def create_flask_celery_app(
     # Get task logger
     logger = get_task_logger(__name__)
 
+
     @shared_task(ignore_result = False)
-    def score_text(suspect_string: str = None, response_mode: str = 'default') -> str:
+    def score_text(
+            suspect_string: str = None,
+            response_mode: str = 'default'
+    ) -> str:
+
         '''Takes a string and scores it, returns a dict.
         containing the author call and the original string'''
 
@@ -91,7 +99,8 @@ def create_flask_celery_app(
 
         if text_length < 50 or text_length > 400:
 
-            reply = 'For best results text should be longer than 50 words and shorter than 400 words.'
+            reply = '''For best results text should be longer than 50 words and\
+                  shorter than 400 words.'''
 
         else:
 
@@ -128,24 +137,36 @@ def create_flask_celery_app(
                     machine_probability = response[1] * 100
 
                     if human_probability > machine_probability:
-                        reply = f'{human_probability:.1f}% chance that this text was written by a human.'
+                        reply = f'''{human_probability:.1f}% chance that this text was written by\
+                              a human.'''
 
                     elif human_probability < machine_probability:
-                        reply = f'{machine_probability:.1f}% chance that this text was written by a machine.'
+                        reply = f'''{machine_probability:.1f}% chance that this text was written by\
+                              a machine.'''
 
                 elif response_mode == 'verbose':
 
-                    features = (f"Fragment length (tokens): {response[2]['Fragment length (tokens)']:.0f}\n"
-                                f"Perplexity: {response[2]['Perplexity']:.2f}\n"
-                                f"Cross-perplexity: {response[2]['Cross-perplexity']:.2f}\n"
-                                f"Perplexity ratio score: {response[2]['Perplexity ratio score']:.3f}\n"
-                                f"Perplexity ratio Kullback-Leibler score: {response[2]['Perplexity ratio Kullback-Leibler score']:.3f}\n"
-                                f"Human TF-IDF: {response[2]['Human TF-IDF']:.2f}\n"
-                                f"Synthetic TF-IDF: {response[2]['Synthetic TF-IDF']:.2f}\n"
-                                f"TF-IDF score: {response[2]['TF-IDF score']:.3f}\n"
-                                f"TF-IDF Kullback-Leibler score: {response[2]['TF-IDF Kullback-Leibler score']:.3f}")
+                    features = ('Fragment length (tokens): '
+                                f"{response[2]['Fragment length (tokens)']:.0f}\n"
+                                'Perplexity: '
+                                f"{response[2]['Perplexity']:.2f}\n"
+                                'Cross-perplexity: '
+                                f"{response[2]['Cross-perplexity']:.2f}\n"
+                                'Perplexity ratio score: '
+                                f"{response[2]['Perplexity ratio score']:.3f}\n"
+                                'Perplexity ratio Kullback-Leibler score: '
+                                f"{response[2]['Perplexity ratio Kullback-Leibler score']:.3f}\n"
+                                'Human TF-IDF: '
+                                f"{response[2]['Human TF-IDF']:.2f}\n"
+                                'Synthetic TF-IDF: '
+                                f"{response[2]['Synthetic TF-IDF']:.2f}\n"
+                                'TF-IDF score: '
+                                f"{response[2]['TF-IDF score']:.3f}\n"
+                                'TF-IDF Kullback-Leibler score: '
+                                f"{response[2]['TF-IDF Kullback-Leibler score']:.3f}")
 
-                    reply = f'Class probabilities: human = {response[0]:.3f}, machine = {response[1]:.3f}\n\nFeature values:\n{features}.'
+                    reply = f'''Class probabilities: human = {response[0]:.3f},\
+                          machine = {response[1]:.3f}\n\nFeature values:\n{features}.'''
 
         # Return the result from the output queue
         return {'reply': reply, 'text': suspect_string}
