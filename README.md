@@ -6,7 +6,7 @@
 
 **2024-07-30**: Malone is live in Beta on Telegram, give it a try [here](https://t.me/the_malone_bot). Note: some Firefox users have reported issues with the botlink, you can also find malone by messaging '*/start*' to @the_malone_bot anywhere you use Telegram.
 
-**2024-07-30**: [Lauch video](https://youtu.be/6zdLcsC9I_I?si=R6knOnxMySDIRKDQ) is up on YouTube. Congrats to all of the other Backdrop Build finishers.
+**2024-08-01**: [Lauch video](https://youtu.be/6zdLcsC9I_I?si=R6knOnxMySDIRKDQ) is up on YouTube. Congrats to all of the other Backdrop Build finishers.
 
 ![malone](https://github.com/gperdrizet/llm_detector/blob/main/telegram_bot/assets/malone_A.jpg?raw=true)
 
