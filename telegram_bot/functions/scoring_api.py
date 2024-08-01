@@ -1,14 +1,14 @@
 '''Functions to interact with scoring API'''
 
 import json
-import asyncio
+#import asyncio
 import time
 import urllib.request
 import telegram_bot.configuration as config
 
 async def submit_text(suspect_text: str = None, response_mode: str = 'default') -> str:
     '''Sends user's suspect text to scoring api, get's back a result id
-    so we can poll and wait for the scoring backen to do it's thing.'''
+    so we can poll and wait for the scoring backend to do it's thing.'''
 
     # Assemble the payload
     payload = {'string': suspect_text, 'response_mode': response_mode}
@@ -32,7 +32,7 @@ async def submit_text(suspect_text: str = None, response_mode: str = 'default') 
     return result_id
 
 
-async def retreive_result(result_id: str = None) -> str:
+async def retrieve_result(result_id: str = None) -> str:
     '''Polls for result id, returns result content'''
 
     while True:
