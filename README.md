@@ -72,7 +72,7 @@ Most of the testing and benchmarking during the design phase of the project was 
 My name is Dr. George Perdrizet, I am a biochemistry & molecular biology PhD seeking a career step from academia to professional data science and/or machine learning engineering. This project was conceived from the scientific literature and built solo over the course of a few weeks - I strongly believe that I have a ton to offer the right organization. If you or anyone you know is interested in an ex-researcher from University of Chicago turned builder and data scientist, please reach out, I'd love to learn from and contribute to your project.
 
 - **Email**: <hire.me@perdrizet.org>
-- **LinkedIn**: linkedin.com/gperdrizet
+- **LinkedIn**: [linkedin.com/gperdrizet](https://www.linkedin.com/in/gperdrizet/)
 
 ## 7. Disclaimer
 
