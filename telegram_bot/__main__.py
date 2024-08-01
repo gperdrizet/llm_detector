@@ -2,6 +2,7 @@
 
 import os
 import logging
+import time
 from telegram import Update # pylint: disable=import-error
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -33,6 +34,8 @@ async def score_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     '''Sends user provided text to scoring function, sends
     result back to user.'''
 
+    time_fragment_received = time.time()
+
     # Get the logger
     logger = logging.getLogger('telegram_bot.score_text')
 
@@ -60,6 +63,11 @@ async def score_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         chat_id = update.effective_chat.id, text = reply)
+
+    time_reply_sent = time.time()
+
+    with open(config.FRAGMENT_TURNAROUND_DATA, 'a+') as f:
+        f.write(f'{time_fragment_received},{time_reply_sent}')
 
 
 
