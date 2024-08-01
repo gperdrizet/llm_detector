@@ -18,6 +18,7 @@ Malone is a synthetic text detection service available on [Telegram Messenger](h
 4. Performance
 5. Demonstration/experimentation notebooks
 6. About the author
+7. Disclaimer
 
 ## 1. Features
 
@@ -70,3 +71,7 @@ My name is Dr. George Perdrizet, I am a biochemistry & molecular biology PhD see
 
 - **Email**: <hire.me@perdrizet.org>
 - **LinkedIn**: linkedin.com/gperdrizet
+
+## 7. Disclaimer
+
+Malone is an experimental research project meant for educational, informational and entertainment purposes only. Any predictions made are inherently probabilistic in nature and subject to stochastic errors. Text classifications, no matter how high or low the reported probability, should never be interpreted as proof of authorship or the lack thereof in regard to any text submitted for analysis. Decisions about the source or value of any text are made by the user who considers all factors relevant to themselves and their purpose and takes full responsibility for their own judgment any and actions they may take as a result.
