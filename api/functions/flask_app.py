@@ -72,7 +72,7 @@ def create_flask_celery_app(
         '''Takes a string and scores it, returns a dict.
         containing the author call and the original string'''
 
-        logger.info(f'Submitting for score: {suspect_string}')
+        logger.info(f'Submitting string for score.')
         logger.info(f'Response mode is: {response_mode}')
 
         # Check to make sure that text is of sane length

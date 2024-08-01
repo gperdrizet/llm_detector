@@ -13,7 +13,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     '''Listens for conversation start messages & sends an explanitory gretting.'''
 
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text = config.BOT_GREETING)
+        chat_id = update.effective_chat.id, text = config.BOT_GREETING)
 
 async def set_response_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
     '''Sets user's desired response mode.'''
@@ -57,7 +57,6 @@ async def score_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply = await result
 
     logger.info(f'Result ID: {result_id}')
-    logger.info(f'Reply: {reply}')
 
     await context.bot.send_message(
         chat_id = update.effective_chat.id, text=reply)

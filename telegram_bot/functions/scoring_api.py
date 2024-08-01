@@ -46,8 +46,6 @@ async def retreive_result(result_id: str = None) -> str:
 
         if contents['ready'] is True:
 
-            print(contents)
-
             reply = contents['value']['reply']
             return reply
 
