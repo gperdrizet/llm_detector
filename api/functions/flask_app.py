@@ -4,11 +4,18 @@ from typing import Callable
 import random
 from flask import Flask, request # type: ignore
 from celery import Celery, Task, shared_task # type: ignore
+from celery.app import trace
 from celery.result import AsyncResult
 from celery.utils.log import get_task_logger
 import api.configuration as config
 import api.functions.scoring as scoring_funcs
 # pylint: disable=W0223
+
+# Disable return portion task success message log so that
+# user messages don't get logged.
+trace.LOG_SUCCESS = """\
+Task %(name)s[%(id)s] succeeded in %(runtime)ss\
+"""
 
 def create_celery_app(app: Flask) -> Celery:
     '''Sets up Celery app object'''
@@ -41,7 +48,11 @@ def create_celery_app(app: Flask) -> Celery:
 
 def create_flask_celery_app(
         reader_model: Callable = None,
-        writer_model: Callable = None
+        writer_model: Callable = None,
+        perplexity_ratio_kld_kde: Callable = None,
+        tfidf_luts: Callable = None,
+        tfidf_kld_kde: Callable = None,
+        model: Callable = None
 ) -> Flask:
 
     '''Creates Flask app for use with Celery'''
@@ -72,8 +83,8 @@ def create_flask_celery_app(
         '''Takes a string and scores it, returns a dict.
         containing the author call and the original string'''
 
-        logger.info(f'Submitting string for score.')
-        logger.info(f'Response mode is: {response_mode}')
+        logger.info('Submitting string for score.')
+        logger.info('Response mode is: %s', response_mode)
 
         # Check to make sure that text is of sane length
         text_length = len(suspect_string.split(' '))
@@ -103,6 +114,10 @@ def create_flask_celery_app(
                 response = scoring_funcs.score_string(
                     reader_model,
                     writer_model,
+                    perplexity_ratio_kld_kde,
+                    tfidf_luts,
+                    tfidf_kld_kde,
+                    model,
                     suspect_string,
                     response_mode
                 )

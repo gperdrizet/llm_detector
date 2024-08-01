@@ -67,9 +67,7 @@ async def score_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     time_reply_sent = time.time()
 
     with open(config.FRAGMENT_TURNAROUND_DATA, 'a+') as f:
-        f.write(f'{time_fragment_received},{time_reply_sent}')
-
-
+        f.write(f'{time_fragment_received},{time_reply_sent}\n')
 
 if __name__ == '__main__':
 
