@@ -46,7 +46,7 @@ class Llm:
         self.cpu_cores = cpu_cores
         self.max_new_tokens = max_new_tokens
 
-        # Reserve loading the tokenizer and model for the load method to 
+        # Reserve loading the tokenizer and model for the load method to
         # give the user a chance to override default parameter values
         self.model = None
         self.tokenizer = None
@@ -77,7 +77,7 @@ class Llm:
         )
 
         # Set the model to evaluation mode to deactivate any dropout
-        # modules the is done to ensure reproducibility of results 
+        # modules the is done to ensure reproducibility of results
         # during evaluation
         self.model.eval()
 
