@@ -1,6 +1,7 @@
 '''Collection of helper functions.'''
+
 from __future__ import annotations
-from typing import Callable, List
+from typing import Callable
 
 import os
 import glob
@@ -12,8 +13,8 @@ import telegram_bot.configuration as config
 # Code ########################################################################
 
 def start_logger(
-        logfile_name: str='llm_detector.log',
-        logger_name: str='benchmarking'
+        logfile_name: str = 'llm_detector.log',
+        logger_name: str = 'benchmarking'
 ) -> Callable:
 
     '''Sets up logging, returns logger'''

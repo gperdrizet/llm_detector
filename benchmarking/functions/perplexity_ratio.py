@@ -92,7 +92,7 @@ def perplexity_ratio_score():
     }
 
     # Output file
-    results_datafile = f'{config.HANS_DATA_PATH}/pubmed-scores.json'
+    results_datafile = f'{config.HANS_DATA_PATH}/cnn-scores.json'
 
     # Counter for total text fragments scored
     fragment_count = 0
