@@ -22,7 +22,7 @@ LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
 DATA_PATH=f'{PROJECT_ROOT_PATH}/data'
 
 # Logging stuff
-LOG_LEVEL='DEBUG'
+LOG_LEVEL='INFO'
 LOG_PREFIX='%(levelname)s - %(message)s'
 CLEAR_LOGS=True
 
