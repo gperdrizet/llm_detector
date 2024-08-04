@@ -141,7 +141,8 @@ def create_flask_celery_app(
                               a human.'''
 
                     elif human_probability < machine_probability:
-                        reply = f'{machine_probability:.1f}% chance that this text was written by a machine.'
+                        reply = f'''{machine_probability:.1f}% chance that this text was written by\
+                              a machine.'''
 
                 elif response_mode == 'verbose':
 
