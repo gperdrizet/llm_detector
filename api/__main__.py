@@ -16,7 +16,7 @@ helper_funcs.update_traffic_plot()
 
 # Schedule the bot traffic plot update in a worker thread
 bot_traffic_thread = Thread(
-    target = helper_funcs.schedule_traffic_plot_update()
+    target = helper_funcs.schedule_traffic_plot_update
 )
 
 bot_traffic_thread.start()

@@ -162,6 +162,8 @@ def update_traffic_plot() -> None:
     date = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M")
     fig.savefig(f'{config.LOG_PATH}/{date}_bot_traffic.jpg', dpi = 150)
 
+    return
+
 
 def start_models(logger: Callable) -> list[Callable, Callable]:
     '''Initializes, loads and returns the reader and writer LLM'''
