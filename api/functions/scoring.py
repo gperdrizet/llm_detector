@@ -1,7 +1,7 @@
 '''Collection of functions to score strings'''
 
 from typing import Callable
-import pickle
+#import pickle
 import numpy as np
 import torch
 import transformers
@@ -14,6 +14,10 @@ import api.configuration as config
 def score_string(
         reader_model: Callable,
         writer_model: Callable,
+        perplexity_ratio_kld_kde: Callable,
+        tfidf_luts: Callable,
+        tfidf_kld_kde: Callable,
+        model: Callable,
         string: str = None,
         response_mode: str = 'default'
 ) -> float:
@@ -77,12 +81,8 @@ def score_string(
     features.append(perplexity_ratio_score)
 
     ###############################################################
-    # Get perplexity ratio Kullback-Liebler score #################
+    # Get perplexity ratio Kullback-Leibler score #################
     ###############################################################
-
-    # Load the perplexity ratio Kullback-Leibler kernel density estimate
-    with open(config.PERPLEXITY_RATIO_KLD_KDE, 'rb') as input_file:
-        perplexity_ratio_kld_kde = pickle.load(input_file)
 
     # Calculate perplexity ratio KLD score and add to features
     perplexity_ratio_kld_score = perplexity_ratio_kld_kde.pdf(perplexity_ratio_score)
@@ -91,10 +91,6 @@ def score_string(
     ###############################################################
     # Get human and synthetic TF-IDFs and TF-IDF score ############
     ###############################################################
-
-    # Load the TF-IDF luts
-    with open(config.TFIDF_LUT, 'rb') as input_file:
-        tfidf_luts = pickle.load(input_file)
 
     # Clean the test for TF-IDF scoring
     sw = stopwords.words('english')
@@ -133,45 +129,30 @@ def score_string(
     features.append(product_normalized_dmean_tfidf)
 
     ###############################################################
-    # Get TF-IDF Kullback-Liebler score ###########################
+    # Get TF-IDF Kullback-Leibler score ###########################
     ###############################################################
-
-    # Load the TF_IDF Kullback-Leibler kernel density estimate
-    with open(config.TFIDF_SCORE_KLD_KDE, 'rb') as input_file:
-        tfidf_kld_kde = pickle.load(input_file)
 
     # Calculate TF-IDF LKD score and add to features
     tfidf_kld_score = tfidf_kld_kde.pdf(product_normalized_dmean_tfidf)
     features.append(tfidf_kld_score[0])
 
-    print(f'Features complete:')
-
-    for feature_name, feature_value in zip(feature_names, features):
-        print(f'{feature_name}: {feature_value}')
-
     ###############################################################
-    # Run infrence with the classifier ############################
+    # Run inference with the classifier ############################
     ###############################################################
-
-    # Load the model
-    with open(config.XGBOOST_CLASSIFIER, 'rb') as input_file:
-        model = pickle.load(input_file)
 
     # Make prediction
     prediction = model.predict_proba([features])[0]
 
-    print(f'Predicted class probabilities: {prediction}')
-
     if response_mode == 'default':
 
         return prediction
-    
+
     elif response_mode == 'verbose':
 
         return [prediction[0], prediction[1], dict(zip(feature_names, features))]
 
-# Take some care with '.sum(1)).detach().cpu().float().numpy()'. Had 
-# errors as cribbed from the above repo. Order matters? I don't know, 
+# Take some care with '.sum(1)).detach().cpu().float().numpy()'. Had
+# errors as cribbed from the above repo. Order matters? I don't know,
 # current solution is very 'kitchen sink'
 
 ce_loss_fn = torch.nn.CrossEntropyLoss(reduction = 'none')
