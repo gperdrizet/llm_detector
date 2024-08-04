@@ -12,6 +12,7 @@ PROJECT_ROOT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 # Other project paths
 LOG_PATH = f'{PROJECT_ROOT_PATH}/logs'
+FRAGMENT_TURNAROUND_DATA = f'{LOG_PATH}/fragment_turnaround.dat'
 
 # Logging stuff
 LOG_LEVEL = 'DEBUG'
