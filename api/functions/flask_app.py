@@ -99,8 +99,10 @@ def create_flask_celery_app(
 
         if text_length < 50 or text_length > 400:
 
-            reply = '''For best results text should be longer than 50 words and\
-                  shorter than 400 words.'''
+            reply = (
+                'For best results text should be longer than '
+                '50 words and shorter than 400 words.'
+            )
 
         else:
 
@@ -137,12 +139,16 @@ def create_flask_celery_app(
                     machine_probability = response[1] * 100
 
                     if human_probability > machine_probability:
-                        reply = f'''{human_probability:.1f}% chance that this text was written by\
-                              a human.'''
+                        reply = (
+                            f'{human_probability:.1f}% chance that '
+                            'this text was written by a human.'
+                        )
 
                     elif human_probability < machine_probability:
-                        reply = f'''{machine_probability:.1f}% chance that this text was written by\
-                              a machine.'''
+                        reply = (
+                            f'{machine_probability:.1f}% chance that '
+                            'this text was written by aa machine.'
+                        )
 
                 elif response_mode == 'verbose':
 
@@ -165,8 +171,10 @@ def create_flask_celery_app(
                                 'TF-IDF Kullback-Leibler score: '
                                 f"{response[2]['TF-IDF Kullback-Leibler score']:.3f}")
 
-                    reply = f'''Class probabilities: human = {response[0]:.3f},\
-                          machine = {response[1]:.3f}\n\nFeature values:\n{features}.'''
+                    reply = (
+                        'Class probabilities: human = {response[0]:.3f}, '
+                        'machine = {response[1]:.3f}\n\nFeature values:\n{features}.'
+                    )
 
         # Return the result from the output queue
         return {'reply': reply, 'text': suspect_string}
@@ -174,7 +182,7 @@ def create_flask_celery_app(
     # Set listener for text strings via POST
     @app.post('/submit_text')
     def submit_text() -> dict:
-        '''Submits text for scoring. Returns dict. containing 
+        '''Submits text for scoring. Returns dict. containing
         result id.'''
 
         # Get the suspect text string from the request data
