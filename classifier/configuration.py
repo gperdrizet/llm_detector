@@ -23,6 +23,9 @@ COMBINED_SCORED_HANS_TESTING_DATA_PR = f'{HANS_DATA_PATH}/testing-scores-PR.json
 COMBINED_SCORED_HANS_TRAINING_DATA_PR_TFIDF = f'{HANS_DATA_PATH}/training-scores-PR-TFIDF.json'
 COMBINED_SCORED_HANS_TESTING_DATA_PR_TFIDF = f'{HANS_DATA_PATH}/testing-scores-PR-TFIDF.json'
 
+# Legacy data paths for experimentation notebooks
+COMBINED_SCORED_HANS_DATA_PR_TFIDF = f'{HANS_DATA_PATH}/all-scores-PR-TFIDF.json'
+
 MODELS_PATH = f'{DATA_PATH}/models'
 PERPLEXITY_RATIO_KL_KDE = f'{MODELS_PATH}/perplexity_ratio_KL_KDE.pkl'
 TFIDF_KL_KDE = f'{MODELS_PATH}/TFIDF_KL_KDE.pkl'

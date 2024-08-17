@@ -429,7 +429,7 @@ Installed nltk:
 pip install nltk
 ```
 
-Also, need to download some asset on first use in pyhton. Default save location is *~/nltk_data*.
+Also, need to download some asset on first use in Python. Default save location is *~/nltk_data*.
 
 ```python
 import nltk
@@ -443,7 +443,7 @@ Installed XGBoost:
 pip install xgboost
 ```
 
-Installed hyperopt for Baysian hyperparameter optimization:
+Installed hyperopt for Bayesian hyperparameter optimization:
 
 ```text
 pip install hyperopt
@@ -460,3 +460,11 @@ Installed Luigi to build production data pipeline:
 ```text
 pip install luigi
 ```
+
+## Other utilities
+
+Installed schedule so we can run some periodic logging jobs from within python:
+
+'''text
+pip install schedule
+'''

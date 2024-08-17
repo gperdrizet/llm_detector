@@ -16,10 +16,13 @@ MODE = 'production'
 # Get path to this config file so that we can define
 # other paths relative to it
 PROJECT_ROOT_PATH=os.path.dirname(os.path.realpath(__file__))
+MODULE_PARENT_PATH = os.path.abspath(os.path.join(PROJECT_ROOT_PATH, os.pardir))
+TELEGRAM_BOT_PATH = f'{MODULE_PARENT_PATH}/telegram_bot'
 
 # Other project paths
 LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
 DATA_PATH=f'{PROJECT_ROOT_PATH}/data'
+FRAGMENT_TURNAROUND_DATA = f'{TELEGRAM_BOT_PATH}/logs/fragment_turnaround.dat'
 
 # Logging stuff
 LOG_LEVEL='INFO'
