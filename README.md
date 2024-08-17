@@ -2,11 +2,15 @@
 
 ## News
 
+**2024-08-07**: Malone was just named a Backdrop Build v5 Finalist! Check out the build page [here](https://backdropbuild.com/builds/cadmus)! Let's gooooo!
+
 **2024-08-01**: Backdrop build v5 [launch video](https://youtu.be/6zdLcsC9I_I?si=R6knOnxMySDIRKDQ) is up on YouTube. Congrats to all of the other Backdrop Build finishers!
 
 **2024-07-30**: Malone is live in Beta on Telegram, give it a try [here](https://t.me/the_malone_bot). Note: some Firefox users have reported issues with the botlink page - seems to be a Telegram issue, not a malone issue. You can also find malone by messaging '*/start*' to @the_malone_bot anywhere you use Telegram.
 
 **2024-07-08**: llm_detector is officially part of the Backdrop Build v5 cohort under the tentative name 'malone' starting today. Check out the backdrop [build page](https://backdropbuild.com/builds/v5/cadmus) for updates.
+
+## Project description
 
 ![malone](https://github.com/gperdrizet/llm_detector/blob/main/telegram_bot/assets/malone_A.jpg?raw=true)
 
