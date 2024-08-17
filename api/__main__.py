@@ -2,6 +2,7 @@
 using either Gunicorn or the Flask development server'''
 
 import pickle
+from threading import Thread
 import api.functions.flask_app as app_funcs
 import api.functions.helper as helper_funcs
 import api.configuration as config
@@ -9,6 +10,16 @@ import api.configuration as config
 # Start the logger
 logger = helper_funcs.start_logger()
 logger.info('Running in %s mode', config.MODE)
+
+# Draw a bot traffic plot on app start
+helper_funcs.update_traffic_plot()
+
+# Schedule the bot traffic plot update in a worker thread
+bot_traffic_thread = Thread(
+    target = helper_funcs.schedule_traffic_plot_update
+)
+
+bot_traffic_thread.start()
 
 if config.MODE == 'testing':
 
