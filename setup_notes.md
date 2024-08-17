@@ -420,3 +420,51 @@ Next, we need an access token. To do this, log into Telegram and message @BotFat
 ```text
 export TELEGRAM_TOKEN="TelegramToken"
 ```
+
+## Feature engineering/NLP
+
+Installed nltk:
+
+```text
+pip install nltk
+```
+
+Also, need to download some asset on first use in Python. Default save location is *~/nltk_data*.
+
+```python
+import nltk
+nltk.download('stopwords')
+nltk.download('wordnet')
+```
+
+Installed XGBoost:
+
+```text
+pip install xgboost
+```
+
+Installed hyperopt for Bayesian hyperparameter optimization:
+
+```text
+pip install hyperopt
+```
+
+Installed cupy to move numpy arrays to GPU for accelerated XGBoost:
+
+```text
+pip install cupy-cuda11x
+```
+
+Installed Luigi to build production data pipeline:
+
+```text
+pip install luigi
+```
+
+## Other utilities
+
+Installed schedule so we can run some periodic logging jobs from within python:
+
+'''text
+pip install schedule
+'''

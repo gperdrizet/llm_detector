@@ -10,18 +10,22 @@ import torch
 
 # Set mode to testing to mock scoring function with random output
 # between 0.0 and 1.0 and not load any LLMs. Set to production
-# to run real scoring function
-MODE = 'testing'
+# to run real scoring function.
+MODE = 'production'
 
 # Get path to this config file so that we can define
 # other paths relative to it
 PROJECT_ROOT_PATH=os.path.dirname(os.path.realpath(__file__))
+MODULE_PARENT_PATH = os.path.abspath(os.path.join(PROJECT_ROOT_PATH, os.pardir))
+TELEGRAM_BOT_PATH = f'{MODULE_PARENT_PATH}/telegram_bot'
 
 # Other project paths
 LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
+DATA_PATH=f'{PROJECT_ROOT_PATH}/data'
+FRAGMENT_TURNAROUND_DATA = f'{TELEGRAM_BOT_PATH}/logs/fragment_turnaround.dat'
 
 # Logging stuff
-LOG_LEVEL='DEBUG'
+LOG_LEVEL='INFO'
 LOG_PREFIX='%(levelname)s - %(message)s'
 CLEAR_LOGS=True
 
@@ -41,6 +45,11 @@ WRITER_MODEL='meta-llama/Meta-Llama-3-8B-instruct'
 WRITER_DEVICE='cuda:2'
 
 CALCULATION_DEVICE='cuda:0'
+
+PERPLEXITY_RATIO_KLD_KDE = f'{DATA_PATH}/perplexity_ratio_KLD_KDE.pkl'
+TFIDF_LUT = f'{DATA_PATH}/TFIDF_lut.pkl'
+TFIDF_SCORE_KLD_KDE = f'{DATA_PATH}/TFIDF_score_KLD_KDE.pkl'
+XGBOOST_CLASSIFIER = f'{DATA_PATH}/XGBoost_classifier.pkl'
 
 ######################################################################
 # NON-HF default model parameters ####################################
