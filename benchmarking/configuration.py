@@ -20,7 +20,7 @@ EXPERIMENT_CONFIGS_PATH=f'{PROJECT_ROOT_PATH}/experiments'
 LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
 
 # Logging stuff
-LOG_LEVEL='DEBUG'
+LOG_LEVEL='INFO'
 LOG_PREFIX='%(levelname)s - %(name)s - %(message)s'
 CLEAR_LOGS=True
 
@@ -53,15 +53,20 @@ PROMPT='It was a dark and stormy night '
 # Perplexity ratio score stuff #######################################
 ######################################################################
 
+# Models to use for perplexity scoring of Hans 2024 text samples
+READER_MODEL = 'meta-llama/Meta-Llama-3-8B'
+WRITER_MODEL = 'meta-llama/Meta-Llama-3-8B-instruct'
+PERPLEXITY_OUTPUT_FILE_NAME = 'falcon-7b_scores.json'
+
 # Paths dictionary to JSON lines data files from the
 # original binoculars publication
 HANS_DATA_FILES={
-    #'pubmed-falcon7': f'{HANS_DATA_PATH}/pubmed/pubmed-falcon7.jsonl',
-    #'pubmed-llama2-13': f'{HANS_DATA_PATH}/pubmed/pubmed-llama2_13.jsonl',
-     'cnn-falcon7': f'{HANS_DATA_PATH}/cnn/cnn-falcon7.jsonl',
-     'cnn-llama2-13': f'{HANS_DATA_PATH}/cnn/cnn-llama2_13.jsonl',
-    # 'cc_news-falcon7': f'{HANS_DATA_PATH}/cc_news/cc_news-falcon7.jsonl',
-    # 'cc_news-llama2-13': f'{HANS_DATA_PATH}/cc_news/cc_news-llama2_13.jsonl',
+    'pubmed-falcon7': f'{HANS_DATA_PATH}/pubmed/pubmed-falcon7.jsonl',
+    'pubmed-llama2-13': f'{HANS_DATA_PATH}/pubmed/pubmed-llama2_13.jsonl',
+    'cnn-falcon7': f'{HANS_DATA_PATH}/cnn/cnn-falcon7.jsonl',
+    'cnn-llama2-13': f'{HANS_DATA_PATH}/cnn/cnn-llama2_13.jsonl',
+    'cc_news-falcon7': f'{HANS_DATA_PATH}/cc_news/cc_news-falcon7.jsonl',
+    'cc_news-llama2-13': f'{HANS_DATA_PATH}/cc_news/cc_news-llama2_13.jsonl',
 }
 
 # Written by falcon-7b-instruct via bartleby

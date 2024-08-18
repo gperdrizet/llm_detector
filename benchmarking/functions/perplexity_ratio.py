@@ -27,17 +27,17 @@ def perplexity_ratio_score():
     writer_device = 'cuda:2'
 
     # Set available CPU cores
-    torch.set_num_threads(16)
+    torch.set_num_threads(4)
 
     # Instantiate two instances of the model, one base for the reader
     # and one instruct for the writer. Use different GPUs.
     reader_model = llm_class.Llm(
-        hf_model_string = 'meta-llama/Meta-Llama-3-8B',
+        hf_model_string = config.READER_MODEL,
         device_map = reader_device
     )
 
     writer_model = llm_class.Llm(
-        hf_model_string = 'meta-llama/Meta-Llama-3-8B-instruct',
+        hf_model_string = config.WRITER_MODEL,
         device_map = writer_device
     )
 
@@ -92,7 +92,7 @@ def perplexity_ratio_score():
     }
 
     # Output file
-    results_datafile = f'{config.HANS_DATA_PATH}/cnn-scores.json'
+    results_datafile = f'{config.HANS_DATA_PATH}/{config.PERPLEXITY_OUTPUT_FILE_NAME}'
 
     # Counter for total text fragments scored
     fragment_count = 0
