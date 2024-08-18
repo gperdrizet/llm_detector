@@ -54,8 +54,8 @@ PROMPT='It was a dark and stormy night '
 ######################################################################
 
 # Models to use for perplexity scoring of Hans 2024 text samples
-READER_MODEL = 'meta-llama/Meta-Llama-3-8B'
-WRITER_MODEL = 'meta-llama/Meta-Llama-3-8B-instruct'
+READER_MODEL = 'tiiuae/falcon-7b'
+WRITER_MODEL = 'tiiuae/falcon-7b-instruct'
 PERPLEXITY_OUTPUT_FILE_NAME = 'falcon-7b_scores.json'
 
 # Paths dictionary to JSON lines data files from the
