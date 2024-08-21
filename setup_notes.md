@@ -429,7 +429,7 @@ Installed nltk:
 pip install nltk
 ```
 
-Also, need to download some asset on first use in Python. Default save location is *~/nltk_data*.
+Also, need to download some assets on first use in Python. Default save location is *~/nltk_data*.
 
 ```python
 import nltk
@@ -459,6 +459,12 @@ Installed Luigi to build production data pipeline:
 
 ```text
 pip install luigi
+```
+
+Installed statsmodels for some basics:
+
+```text
+pip install statsmodels
 ```
 
 ## Other utilities
