@@ -44,10 +44,8 @@ def parse_args() -> dict:
     parser.add_argument(
         '--perplexity-ratio-v2',
         required = False,
-        choices = ['True', 'False'],
-        default = 'False',
         help = 'Run updated perplexity ratio score calculation on Hans 2024 datasets',
-        metavar = '<BOOL>'
+        metavar = '<OUTPUT_FILE_NAME>'
     )
 
 

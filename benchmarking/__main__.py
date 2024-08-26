@@ -21,9 +21,9 @@ if __name__ == "__main__":
         perplexity_funcs.perplexity_ratio_score()
 
     # Run perplexity ratio scoring v2 of Hans 2024 data
-    if args.perplexity_ratio_v2 != 'False':
+    if args.perplexity_ratio_v2 != None:
 
-        perplexity_funcs_v2.perplexity_ratio_score()
+        perplexity_funcs_v2.perplexity_ratio_score(args.perplexity_ratio_v2)
 
     # Run benchmark
     if args.run_benchmark is not None:
