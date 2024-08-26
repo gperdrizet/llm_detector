@@ -97,7 +97,7 @@ def perplexity_ratio_score():
     # Counter for total text fragments scored
     fragment_count = 0
 
-    # Loop on JSON lines...
+    # Loop datasets...
     for dataset, dataset_file in config.HANS_DATA_FILES.items():
 
         # Get the correct key for the human text in this dataset
@@ -145,8 +145,7 @@ def perplexity_ratio_score():
                             slice_length = random.randint(50, 300)
 
                             # If the slice length is greater than the
-                            # length of the input tokens, use all of
-                            # them
+                            # length of the input, use all of it them
                             if slice_length > total_length:
                                 slice_length = total_length
 
