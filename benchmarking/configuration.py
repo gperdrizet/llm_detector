@@ -59,6 +59,9 @@ BATCH_SIZE = 10
 WRITER_DEVICE = 'cpu'
 READER_DEVICE = 'cpu'
 
+SHORT_FRAGMENT_LIMIT = 5
+LONG_FRAGMENT_LIMIT = 1000
+
 # Variable names to collect data for
 DEPENDENT_VARS = [
     'Fragment',
@@ -73,16 +76,6 @@ DEPENDENT_VARS = [
     'Perplexity ratio score',
 ]
 
-# The hans datasets use different keys for the human text, use this
-# dict. to look up the correct one based on the data source
-HUMAN_TEXT_KEYS = {
-    'pubmed-falcon7': 'article',
-    'pubmed-llama2-13': 'article',
-    'cnn-falcon7': 'article',
-    'cnn-llama2-13': 'article',
-    'cc_news-falcon7': 'text',
-    'cc_news-llama2-13': 'text'
-}
 
 # Models to use for perplexity scoring of Hans 2024 text samples
 READER_MODEL = 'tiiuae/falcon-7b'
