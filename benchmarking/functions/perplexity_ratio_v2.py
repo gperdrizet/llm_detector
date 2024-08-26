@@ -4,10 +4,14 @@ of data from https://arxiv.org/abs/2401.12070'''
 from __future__ import annotations
 from typing import Callable
 
+import time
 import json
 import random
 import torch
+import logging
+import tracemalloc
 import multiprocessing as mp
+from pathlib import Path
 
 import benchmarking.configuration as config
 import benchmarking.functions.helper as helper_funcs
@@ -28,16 +32,7 @@ def perplexity_ratio_score(output_file_name: str='perplexity_ratio_score_v2'):
     input_datafile = f'{config.HANS_DATA_PATH}/aggregated_hans_data.jsonl'
 
     # Output file
-    results_datafile = f'{config.HANS_DATA_PATH}/{output_file_name}'
-
-    # Construct empty dictionary to collect results
-    results = {}
-
-    # Loop on variable names from config file
-    for var_name in config.DEPENDENT_VARS:
-
-        # Add and empty list for each variable to the results dictionary
-        results[var_name] = []
+    results_datafile = f'{config.HANS_DATA_PATH}/{output_file_name}.json'
 
     # Open the data so we can loop on the lines
     with open(input_datafile, encoding = 'utf-8') as f:
@@ -90,18 +85,48 @@ def perplexity_ratio_score(output_file_name: str='perplexity_ratio_score_v2'):
         pool.join()
 
         # Get the results
-        results = [async_result.get() for async_result in async_results]
+        new_results = [async_result.get() for async_result in async_results]
         
-        for result in results:
-            print(result)
+        ##### Collect and save the results #########################################
+        
+        # If the results file exists, load the data into results
+        if Path(results_datafile).is_file():
+            with open(results_datafile, encoding = 'utf-8') as f:
+                results = json.load(f)
+
+        # If we don't already have results, initialize an empty results
+        # dictionary
+        else:
+
+            results = {}
+
+            # Loop on variable names from config file
+            for var_name in config.DEPENDENT_VARS:
+
+                # Add and empty list for each variable to the results dictionary
+                results[var_name] = []
+
+        # Add the new results
+        for new_result in new_results:
+            for key, value in new_result.items():
+                results[key].extend(value)
+
+        logger.info(results)
+
+        # Save
+        with open(results_datafile, 'w', encoding = 'utf-8') as f:
+            json.dump(results, f)
 
 
-def score_batch(i: int = None, batch: list = None) -> dict:
+def score_batch(worker_num: int = None, batch: list = None) -> dict:
     '''Worker function to score the batch'''
 
-    ##### Prep the worker & batch ########################################
+    # Get the logger
+    logger = logging.getLogger(__name__)
 
-    # Build empty results dictionary for this batch
+    #### Build empty results dictionary for this batch #################
+
+    # Empty dictionary to hold results
     results = {}
 
     # Loop on variable names from config file
@@ -110,12 +135,8 @@ def score_batch(i: int = None, batch: list = None) -> dict:
         # Add and empty list for each variable to the results dictionary
         results[var_name] = []
 
-    # Sample text fragments from each record in the batch
-    fragments = {
-        'Dataset': [],
-        'Source': [],
-        'String': []
-    }
+    ##### Sample text fragments from each record in the batch ##########
+    logger.info(f'Worker {worker_num} - sampling from batch')
 
     for record in batch:
         
@@ -166,38 +187,223 @@ def score_batch(i: int = None, batch: list = None) -> dict:
             # Set the slice window
             j = i + slice_length
 
-            # Un-reverse, if needed
+            # Get the slices
+            human_text_slice = human_text_list[i:j]
+            synthetic_text_slice = synthetic_text_list[i:j]
+
+            # If we reversed the string to sample from the end, reverse it
+            # back so the result is always the same strand
             if reverse_sample == True:
-                human_text_slice = reversed(human_text_list)
-                synthetic_text_slice = reversed(synthetic_text_list)
+                human_text_slice = list(reversed(human_text_slice))
+                synthetic_text_slice = list(reversed(synthetic_text_slice))
 
-            # Grab the slices
-            human_text_slice = ' '.join(human_text_list[i:j])
-            synthetic_text_slice = ' '.join(synthetic_text_list[i:j])
+            # Get true lengths in words
+            human_text_length_words = len(human_text_slice)
+            synthetic_text_length_words = len(synthetic_text_slice)
 
-            # Add sampled fragments
-            fragments['Dataset'].append(record['Data source'])
-            fragments['Source'].append('human')
-            fragments['String'].append(human_text_slice)
-            
-            fragments['Dataset'].append(record['Data source'])
-            fragments['Source'].append('synthetic')
-            fragments['String'].append(synthetic_text_slice)
+            # Make strings
+            human_text_string = ' '.join(human_text_slice)
+            synthetic_text_string = ' '.join(synthetic_text_slice)
 
-    return fragments
+            # Make reversed versions of all of the fragments
+            reversed_human_text_string = ' '.join(list(reversed(human_text_slice)))
+            reversed_synthetic_text_string = ' '.join(list(reversed(synthetic_text_slice)))
 
+            # Add everything to the results
+            results['Dataset'].append(record['Data source'])
+            results['Source'].append('human')
+            results['Fragment length (words)'].append(str(human_text_length_words))
+            results['String'].append(human_text_string)
+            results['Reversed string'].append(reversed_human_text_string)
 
-    ##### Load the LLMs #################################################
-    
+            results['Dataset'].append(record['Data source'])
+            results['Source'].append('synthetic')
+            results['Fragment length (words)'].append(str(synthetic_text_length_words))
+            results['String'].append(synthetic_text_string)
+            results['Reversed string'].append(reversed_synthetic_text_string)
+
+    num_samples = len(results['Dataset'])
+    logger.info(f'Worker {i} - generated {num_samples} samples from batch')
+
+    ##### Calculate perplexity scores for each fragment from batch
+
     # Set available CPU cores, maxing out based on worker count
     torch.set_num_threads(int(mp.cpu_count()/config.WORKERS))
 
+    # Load the models
+    reader_model = llm_class.Llm(
+        hf_model_string = config.READER_MODEL,
+        device_map = config.READER_DEVICE
+    )
+    writer_model = llm_class.Llm(
+        hf_model_string = config.WRITER_MODEL,
+        device_map = config.WRITER_DEVICE
+    )
 
-    result = []
+    reader_model.load()
+    writer_model.load()
+
+    # Set the models to evaluation mode to deactivate any dropout
+    # modules to ensure reproducibility of results during evaluation
+    reader_model.model.eval()
+    writer_model.model.eval()
+
+    # Add end of sequence for the pad token if one has not been defined
+    if not reader_model.tokenizer.pad_token:
+        reader_model.tokenizer.pad_token = reader_model.tokenizer.eos_token
+
+    logger.info(f'Worker {worker_num} - Reader and writer models ready')
+
+    ##### Fragment loop #######################################################
+
+    # Loop on sampled fragments using a counter to scan
+    # and add to the results
+    for i in range(len(results['Dataset'])):
+
+        # Fence to catch CUDA OOM
+        try:
+
+            ##### Do the reader things ############################################
+
+            # Reset peak memory so we can track this iteration's allocation
+            # using an appropriate method based on the device
+            if config.READER_DEVICE != 'cpu':
+                torch.cuda.reset_peak_memory_stats(device = config.READER_DEVICE)
+
+            elif config.READER_DEVICE == 'cpu':
+                tracemalloc.start()
+
+            # Start timer
+            start_time = time.time()
+
+            # Encode
+            encodings = reader_model.tokenizer(
+                results['String'][i],
+                return_tensors = 'pt',
+                return_token_type_ids = False
+            ).to(config.READER_DEVICE)
+
+            reversed_encodings = reader_model.tokenizer(
+                results['Reversed string'][i],
+                return_tensors = 'pt',
+                return_token_type_ids = False
+            ).to(config.READER_DEVICE)
+
+            # Get reader logits
+            reader_logits = reader_model.model(**encodings).logits
+            reader_reversed_logits = reader_model.model(**reversed_encodings).logits
+
+            # Stop timer
+            reader_dT = time.time() - start_time
+
+            logger.info(f'Worker {worker_num} - Reader encoded fragment {i + 1} of {num_samples}')
+
+            # Get length of input in tokens
+            fragment_length_tokens = encodings['input_ids'].shape[1]
+
+            # Get reader peak memory in GB
+            if config.READER_DEVICE != 'cpu':
+                reader_peak_memory = torch.cuda.max_memory_allocated(device = config.READER_DEVICE)
+                reader_peak_memory = reader_peak_memory / (10 ** 9)
+
+            elif config.READER_DEVICE == 'cpu':
+                _, max_memory = tracemalloc.get_traced_memory()
+                reader_peak_memory = max_memory * (1.024 * (10**-3))
+                tracemalloc.stop()
+
+            ##### Do the writer things ######################################################
+
+            # Reset peak memory so we can track this iteration's allocation
+            # using an appropriate method based on the device
+            if config.WRITER_DEVICE != 'cpu':
+                torch.cuda.reset_peak_memory_stats(device = config.WRITER_DEVICE)
+
+            elif config.WRITER_DEVICE == 'cpu':
+                tracemalloc.start()
+
+            # Start timer
+            start_time = time.time()
+
+            # Get the writer logits
+            writer_logits = writer_model.model(**encodings).logits
+            writer_reversed_logits = writer_model.model(**reversed_encodings).logits
+
+            # Stop timer
+            writer_dT = time.time() - start_time
+
+            logger.info(f'Worker {worker_num} - Writer encoded fragment {i + 1} of {num_samples}')
+
+            # Get writer peak memory in GB
+            if config.WRITER_DEVICE != 'cpu':
+                writer_peak_memory = torch.cuda.max_memory_allocated(device = config.WRITER_DEVICE)
+                writer_peak_memory = writer_peak_memory / (10 ** 9)
+
+            elif config.WRITER_DEVICE == 'cpu':
+                _, max_memory = tracemalloc.get_traced_memory()
+                writer_peak_memory = max_memory * (1.024 * (10**-3))
+                tracemalloc.stop()
+
+            ##### Do the perplexity things #########################################################
+            ppl = perplexity(encodings, writer_logits)
+            reverse_ppl = perplexity(reversed_encodings, writer_reversed_logits)
+
+            x_ppl = entropy(
+                reader_logits,
+                writer_logits,
+                encodings,
+                reader_model.tokenizer.pad_token_id
+            )
+
+            reverse_x_ppl = entropy(
+                reader_reversed_logits,
+                writer_reversed_logits,
+                reversed_encodings,
+                reader_model.tokenizer.pad_token_id
+            )
+
+            perplexity_ratio_score = ppl / x_ppl
+            # perplexity_ratio_score = perplexity_ratio_score.tolist()[0]
+
+            reverse_perplexity_ratio_score = reverse_ppl / reverse_x_ppl
+            # reverse_perplexity_ratio_score = perplexity_ratio_score.tolist()[0]
+
+        except RuntimeError as runtime_error:
+
+            logger.error(runtime_error)
+
+            # For out of memory enter OOM
+            if 'CUDA out of memory' in str(runtime_error):
+                error_string = 'OOM'
+
+            # Otherwise enter NAN:
+            else:
+                error_string = 'NAN'
+
+            # Set variables we didn't get values for to the error string
+            reader_dT = error_string
+            writer_dT = error_string
+            fragment_length_tokens = error_string
+            reader_peak_memory = error_string
+            writer_peak_memory = error_string
+            ppl = [error_string]
+            reverse_ppl = [error_string]
+            x_ppl = [error_string]
+            reverse_x_ppl = [error_string]
+            perplexity_ratio_score = [error_string]
+            reverse_perplexity_ratio_score = [error_string]
+
+        # Add everything to results
+        results['Reader time (seconds)'].append(str(reader_dT))
+        results['Writer time (seconds)'].append(str(writer_dT))
+        results['Fragment length (tokens)'].append(str(fragment_length_tokens))
+        results['Reader peak memory (GB)'].append(str(reader_peak_memory))
+        results['Writer peak memory (GB)'].append(str(writer_peak_memory))
+        results['Perplexity'].append(str(ppl[0]))
+        results['Reverse perplexity'].append(str(reverse_ppl[0]))
+        results['Cross-perplexity'].append(str(x_ppl[0]))
+        results['Reverse cross-perplexity'].append(str(reverse_x_ppl[0]))
+        results['Perplexity ratio score'].append(str(perplexity_ratio_score[0]))
+        results['Reverse perplexity ratio score'].append(str(reverse_perplexity_ratio_score[0]))
     
-    for line in batch:
-        line = line.split(' ')[:5]
-        result.append(f'{i}: {line}')
-    
-    return result
+    return results
         

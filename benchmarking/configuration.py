@@ -54,26 +54,32 @@ PROMPT='It was a dark and stormy night '
 ######################################################################
 
 # Parameters for the v2 scoring algorithm
-WORKERS = 2
-BATCH_SIZE = 10
+WORKERS = 1
+BATCH_SIZE = 1
 WRITER_DEVICE = 'cpu'
 READER_DEVICE = 'cpu'
 
-SHORT_FRAGMENT_LIMIT = 5
+SHORT_FRAGMENT_LIMIT = 100
 LONG_FRAGMENT_LIMIT = 1000
 
 # Variable names to collect data for
 DEPENDENT_VARS = [
-    'Fragment',
+    'Fragment length (words)',
     'Fragment length (tokens)',
     'Dataset',
     'Source',
     'String',
+    'Reversed string',
+    'Perplexity',
+    'Reverse perplexity',
+    'Cross-perplexity',
+    'Reverse cross-perplexity',
+    'Perplexity ratio score',
+    'Reverse perplexity ratio score',
+    'Reader time (seconds)',
+    'Writer time (seconds)',
     'Reader peak memory (GB)',
     'Writer peak memory (GB)',
-    'Perplexity',
-    'Cross-perplexity',
-    'Perplexity ratio score',
 ]
 
 
