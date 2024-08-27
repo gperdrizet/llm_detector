@@ -55,15 +55,16 @@ PROMPT='It was a dark and stormy night '
 
 # Parameters for the v2 scoring algorithm
 WORKERS = 1
-BATCH_SIZE = 1
+BATCH_SIZE = 10
 WRITER_DEVICE = 'cpu'
 READER_DEVICE = 'cpu'
 
-SHORT_FRAGMENT_LIMIT = 100
+SHORT_FRAGMENT_LIMIT = 10
 LONG_FRAGMENT_LIMIT = 1000
 
 # Variable names to collect data for
 DEPENDENT_VARS = [
+    'Source record num',
     'Fragment length (words)',
     'Fragment length (tokens)',
     'Dataset',

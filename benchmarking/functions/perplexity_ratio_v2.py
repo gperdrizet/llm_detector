@@ -34,88 +34,117 @@ def perplexity_ratio_score(output_file_name: str='perplexity_ratio_score_v2'):
     # Output file
     results_datafile = f'{config.HANS_DATA_PATH}/{output_file_name}.json'
 
+    # If the results file exists, load the data into results
+    if Path(results_datafile).is_file():
+        with open(results_datafile, encoding = 'utf-8') as f:
+            results = json.load(f)
+
+    # If we don't already have results, initialize an empty results
+    # dictionary
+    else:
+
+        results = {}
+
+        # Loop on variable names from config file
+        for var_name in config.DEPENDENT_VARS:
+
+            # Add and empty list for each variable to the results dictionary
+            results[var_name] = []
+
+    # Get the list of record numbers we have already sampled in the data file
+    # so that we don't repeat them
+    sampled_record_numbers = list(set(results['Source record num']))
+    sampled_record_numbers = list(map(int, sampled_record_numbers))
+
+    # Initialize the record number to the highest already completed 
+    # sample, or zero if we don't have prior data
+    if len(sampled_record_numbers) > 0:
+        record_number = max(sampled_record_numbers) + 1
+
+    else:
+        record_number = 0
+
     # Open the data so we can loop on the lines
     with open(input_datafile, encoding = 'utf-8') as f:
 
-        # Make a set of batches of lines from the input data
-        batches = []
+        # Skip already completed records
+        for _ in range(record_number):
+            next_line = f.readline()
 
-        # Loop on worker count to make a batch for each one
-        for i in range(config.WORKERS):
+        # Set flag to detect EOF
+        next_line = 'next line'
 
-            # Make a batch
-            batch = []
+        while next_line != '':
 
-            # Loop on batch size
-            for j in range(config.BATCH_SIZE):
+            # Make a set of batches of lines from the input data
+            batches = []
 
-                # Read next line from input file and add to batch
-                batch.append(f.readline())
+            # Loop on worker count to make a batch for each one
+            for i in range(config.WORKERS):
 
-            # Once the batch is complete, add it to the batches
-            batches.append(batch)
+                # Make a batch
+                batch = []
 
-        logger.info(f'Have {len(batches)} batches of {len(batches[0])} lines for run.')
+                # Loop on batch size
+                for j in range(config.BATCH_SIZE):
 
-        # Instantiate pool with one worker per batch
-        pool = mp.Pool(
-            processes = len(batches),
-            maxtasksperchild = 1
-        )
+                    # Read next line from input file and add to batch
+                    next_line = f.readline()
 
-        # Holder for returns from workers
-        async_results = []
+                    if next_line == '':
+                        break
 
-        # Loop on jobs for this run
-        for i, batch in enumerate(batches):
+                    batch.append({'record_number': record_number, 'record': next_line})
+                    record_number += 1
+                
+                if next_line == '':
+                    break
 
-            logger.info(f'Submitting batch {i}')
+                # Once the batch is complete, add it to the batches
+                batches.append(batch)
 
-            async_results.append(
-                pool.apply_async(score_batch,
-                    args = (
-                        i, 
-                        batch
-                    )
-                )
+            logger.info(f'Have {len(batches)} batches of {len(batches[0])} lines for run.')
+
+            # Instantiate pool with one worker per batch
+            pool = mp.Pool(
+                processes = len(batches),
+                maxtasksperchild = 1
             )
 
-        # Clean up
-        pool.close()
-        pool.join()
+            # Holder for returns from workers
+            async_results = []
 
-        # Get the results
-        new_results = [async_result.get() for async_result in async_results]
-        
-        ##### Collect and save the results #########################################
-        
-        # If the results file exists, load the data into results
-        if Path(results_datafile).is_file():
-            with open(results_datafile, encoding = 'utf-8') as f:
-                results = json.load(f)
+            # Loop on jobs for this run
+            for i, batch in enumerate(batches):
 
-        # If we don't already have results, initialize an empty results
-        # dictionary
-        else:
+                logger.info(f'Submitting batch {i}')
 
-            results = {}
+                async_results.append(
+                    pool.apply_async(score_batch,
+                        args = (
+                            i, 
+                            batch
+                        )
+                    )
+                )
 
-            # Loop on variable names from config file
-            for var_name in config.DEPENDENT_VARS:
+            # Clean up
+            pool.close()
+            pool.join()
+            
+            ##### Collect and save the results #########################################
 
-                # Add and empty list for each variable to the results dictionary
-                results[var_name] = []
+            # Get the results
+            new_results = [async_result.get() for async_result in async_results]
 
-        # Add the new results
-        for new_result in new_results:
-            for key, value in new_result.items():
-                results[key].extend(value)
+            # Add the new results
+            for new_result in new_results:
+                for key, value in new_result.items():
+                    results[key].extend(value)
 
-        logger.info(results)
-
-        # Save
-        with open(results_datafile, 'w', encoding = 'utf-8') as f:
-            json.dump(results, f)
+            # Save
+            with open(results_datafile, 'w', encoding = 'utf-8') as out_f:
+                json.dump(results, out_f)
 
 
 def score_batch(worker_num: int = None, batch: list = None) -> dict:
@@ -136,10 +165,13 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
         results[var_name] = []
 
     ##### Sample text fragments from each record in the batch ##########
-    logger.info(f'Worker {worker_num} - sampling from batch')
+    logger.info(f'Worker {worker_num} - Sampling from batch')
 
-    for record in batch:
+    for element in batch:
         
+        record_number = element['record_number']
+        record = element['record']
+
         # Load the line into a dictionary
         record = json.loads(record)
 
@@ -164,66 +196,93 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
             human_text_list = list(reversed(human_text_list))
             synthetic_text_list = list(reversed(synthetic_text_list))
 
+        human_text_length = len(human_text_list)
+        synthetic_text_length = len(synthetic_text_list)
+
+        logger.info(f'Worker {worker_num} - Total human text: {human_text_length} words')
+        logger.info(f'Worker {worker_num} - Total synthetic text: {synthetic_text_length} words')
+
         # Get the total lengths, choose the shortest of the two
-        total_length = min(len(human_text_list), len(synthetic_text_list))
+        total_length = min(human_text_length, synthetic_text_length)
+        logger.info(f'Worker {worker_num} - Apparent length: {total_length} words')
 
-        # Counters for sample edges
-        i,j = 0,0
+        # Make sure the fragment is at least as long as the short limit
+        if total_length > config.SHORT_FRAGMENT_LIMIT:
 
-        # Loop until the right edge is past the end
-        while j < total_length:
+            # Counters for sample edges
+            i,j = 0,0
 
-            # Pick a random fragment length
+            # Loop until the right edge is past the end
+            sample_count = 1
 
-            # If the fragment length is shorter than the long limit, use the
-            # fragment length as the upper bound
-            long_limit = config.LONG_FRAGMENT_LIMIT
+            while j < total_length:
 
-            if long_limit > total_length:
-                long_limit = total_length
+                # Pick a random fragment length
 
-            slice_length = random.randint(config.SHORT_FRAGMENT_LIMIT, long_limit)
+                # If the fragment length is shorter than the long limit, use the
+                # fragment length as the upper bound
+                long_limit = config.LONG_FRAGMENT_LIMIT
 
-            # Set the slice window
-            j = i + slice_length
+                if long_limit > total_length:
+                    long_limit = total_length
 
-            # Get the slices
-            human_text_slice = human_text_list[i:j]
-            synthetic_text_slice = synthetic_text_list[i:j]
+                slice_length = random.randint(config.SHORT_FRAGMENT_LIMIT, long_limit)
+                logger.info(f'Worker {worker_num} - Sample {sample_count} - Sample fragment length: {slice_length} words')
 
-            # If we reversed the string to sample from the end, reverse it
-            # back so the result is always the same strand
-            if reverse_sample == True:
-                human_text_slice = list(reversed(human_text_slice))
-                synthetic_text_slice = list(reversed(synthetic_text_slice))
+                # Set the slice window
+                j = i + slice_length
 
-            # Get true lengths in words
-            human_text_length_words = len(human_text_slice)
-            synthetic_text_length_words = len(synthetic_text_slice)
+                if j <= total_length:
 
-            # Make strings
-            human_text_string = ' '.join(human_text_slice)
-            synthetic_text_string = ' '.join(synthetic_text_slice)
+                    # Get the slices
+                    human_text_slice = human_text_list[i:j]
+                    synthetic_text_slice = synthetic_text_list[i:j]
 
-            # Make reversed versions of all of the fragments
-            reversed_human_text_string = ' '.join(list(reversed(human_text_slice)))
-            reversed_synthetic_text_string = ' '.join(list(reversed(synthetic_text_slice)))
+                    # Get true lengths in words
+                    human_text_length_words = len(human_text_slice)
+                    synthetic_text_length_words = len(synthetic_text_slice)
 
-            # Add everything to the results
-            results['Dataset'].append(record['Data source'])
-            results['Source'].append('human')
-            results['Fragment length (words)'].append(str(human_text_length_words))
-            results['String'].append(human_text_string)
-            results['Reversed string'].append(reversed_human_text_string)
+                    logger.info(f'Worker {worker_num} - Sample {sample_count} - Human fragment length: {human_text_length_words} words')
+                    logger.info(f'Worker {worker_num} - Sample {sample_count} - Synthetic fragment length: {synthetic_text_length_words} words')
 
-            results['Dataset'].append(record['Data source'])
-            results['Source'].append('synthetic')
-            results['Fragment length (words)'].append(str(synthetic_text_length_words))
-            results['String'].append(synthetic_text_string)
-            results['Reversed string'].append(reversed_synthetic_text_string)
+                    # Reset for the next loop
+                    i = j
+                    sample_count += 1
 
+                    # If we reversed the string to sample from the end, reverse it
+                    # back so the result is always the same strand
+                    if reverse_sample == True:
+                        human_text_slice = list(reversed(human_text_slice))
+                        synthetic_text_slice = list(reversed(synthetic_text_slice))
+
+                    # Make strings
+                    human_text_string = ' '.join(human_text_slice)
+                    synthetic_text_string = ' '.join(synthetic_text_slice)
+
+                    # Make reversed versions of all of the fragments
+                    reversed_human_text_string = ' '.join(list(reversed(human_text_slice)))
+                    reversed_synthetic_text_string = ' '.join(list(reversed(synthetic_text_slice)))
+
+                    # Add everything to the results
+                    results['Source record num'].append(str(record_number))
+                    results['Dataset'].append(record['Data source'])
+                    results['Source'].append('human')
+                    results['Fragment length (words)'].append(str(human_text_length_words))
+                    results['String'].append(human_text_string)
+                    results['Reversed string'].append(reversed_human_text_string)
+
+                    results['Source record num'].append(str(record_number))
+                    results['Dataset'].append(record['Data source'])
+                    results['Source'].append('synthetic')
+                    results['Fragment length (words)'].append(str(synthetic_text_length_words))
+                    results['String'].append(synthetic_text_string)
+                    results['Reversed string'].append(reversed_synthetic_text_string)
+                
+                else:
+                    logger.info(f'Worker {worker_num} - Sample {sample_count} - Remaining text too short for sample')
+    
     num_samples = len(results['Dataset'])
-    logger.info(f'Worker {i} - generated {num_samples} samples from batch')
+    logger.info(f'Worker {worker_num} - Generated {num_samples} samples from record')
 
     ##### Calculate perplexity scores for each fragment from batch
 
