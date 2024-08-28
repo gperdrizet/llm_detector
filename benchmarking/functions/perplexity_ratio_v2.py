@@ -281,7 +281,7 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
     ##### Calculate perplexity scores for each fragment from batch
 
     # Set available CPU cores, maxing out based on worker count
-    torch.set_num_threads(int(mp.cpu_count()/config.WORKERS))
+    torch.set_num_threads(int(mp.cpu_count()/config.WORKERS) - 2)
 
     # Load the models
     reader_model = llm_class.Llm(
@@ -320,11 +320,15 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
 
             # Reset peak memory so we can track this iteration's allocation
             # using an appropriate method based on the device
-            if config.READER_DEVICE != 'cpu':
+            if 'cuda' in config.READER_DEVICE:
                 torch.cuda.reset_peak_memory_stats(device = config.READER_DEVICE)
 
             elif config.READER_DEVICE == 'cpu':
                 tracemalloc.start()
+
+            elif config.READER_DEVICE == 'auto':
+                for gpu in config.AVAILABLE_GPUS:
+                    torch.cuda.reset_peak_memory_stats(device = gpu)
 
             # Start timer
             start_time = time.time()
@@ -334,7 +338,7 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                 results['String'][i],
                 return_tensors = 'pt',
                 return_token_type_ids = False
-            ).to(config.READER_DEVICE)
+            )
 
             # Get reader logits
             reader_logits = reader_model.model(**encodings).logits
@@ -348,7 +352,7 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
             fragment_length_tokens = encodings['input_ids'].shape[1]
 
             # Get reader peak memory in GB
-            if config.READER_DEVICE != 'cpu':
+            if 'cuda' in config.READER_DEVICE:
                 reader_peak_memory = torch.cuda.max_memory_allocated(device = config.READER_DEVICE)
                 reader_peak_memory = reader_peak_memory / (10 ** 9)
 
@@ -357,15 +361,29 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                 reader_peak_memory = max_memory * (1.024 * (10**-3))
                 tracemalloc.stop()
 
+            elif config.READER_DEVICE == 'auto':
+
+                reader_peak_memory = 0
+
+                for gpu in config.AVAILABLE_GPUS:
+                    gpu_peak_memory = torch.cuda.max_memory_allocated(device = gpu)
+                    gpu_peak_memory = reader_peak_memory / (10 ** 9)
+
+                    reader_peak_memory += gpu_peak_memory
+
             ##### Do the writer things ######################################################
 
             # Reset peak memory so we can track this iteration's allocation
             # using an appropriate method based on the device
-            if config.WRITER_DEVICE != 'cpu':
+            if 'cuda' in config.READER_DEVICE:
                 torch.cuda.reset_peak_memory_stats(device = config.WRITER_DEVICE)
 
             elif config.WRITER_DEVICE == 'cpu':
                 tracemalloc.start()
+
+            elif config.READER_DEVICE == 'auto':
+                for gpu in config.AVAILABLE_GPUS:
+                    torch.cuda.reset_peak_memory_stats(device = gpu)
 
             # Start timer
             start_time = time.time()
@@ -379,7 +397,7 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
             logger.info(f'Worker {worker_num} - Writer encoded fragment {i + 1} of {num_samples}')
 
             # Get writer peak memory in GB
-            if config.WRITER_DEVICE != 'cpu':
+            if 'cuda' in config.READER_DEVICE:
                 writer_peak_memory = torch.cuda.max_memory_allocated(device = config.WRITER_DEVICE)
                 writer_peak_memory = writer_peak_memory / (10 ** 9)
 
@@ -388,13 +406,23 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                 writer_peak_memory = max_memory * (1.024 * (10**-3))
                 tracemalloc.stop()
 
+            elif config.READER_DEVICE == 'auto':
+
+                writer_peak_memory = 0
+
+                for gpu in config.AVAILABLE_GPUS:
+                    gpu_peak_memory = torch.cuda.max_memory_allocated(device = gpu)
+                    gpu_peak_memory = reader_peak_memory / (10 ** 9)
+
+                    writer_peak_memory += gpu_peak_memory
+
             ##### Do the perplexity things #########################################################
-            ppl = perplexity(encodings, writer_logits)
+            ppl = perplexity(encodings.to('cuda:0'), writer_logits.to('cuda:0'))
 
             x_ppl = entropy(
-                reader_logits,
-                writer_logits,
-                encodings,
+                reader_logits.to('cuda:0'),
+                writer_logits.to('cuda:0'),
+                encodings.to('cuda:0'),
                 reader_model.tokenizer.pad_token_id
             )
 

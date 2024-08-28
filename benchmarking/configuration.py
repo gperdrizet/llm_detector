@@ -37,8 +37,11 @@ CPU_CORES=8
 AVAILABLE_GPUS=['cuda:0', 'cuda:1', 'cuda:2']
 
 # Quantization configuration defaults
-QUANTIZATION='4-bit'
+QUANTIZATION='8-bit'
 BNB_4BIT_COMPUTE_DTYPE=torch.float16
+
+# BNB warns that this doesn't exist... setting via bnb_4bit_compute_dtype?
+#BNB_8BIT_COMPUTE_DTYPE=torch.float16
 
 # Generation configuration defaults
 MAX_NEW_TOKENS=32
@@ -56,8 +59,8 @@ PROMPT='It was a dark and stormy night '
 # Parameters for the v2 scoring algorithm
 WORKERS = 1
 BATCH_SIZE = 10
-WRITER_DEVICE = 'cpu'
-READER_DEVICE = 'cpu'
+WRITER_DEVICE = 'auto'
+READER_DEVICE = 'auto'
 
 SHORT_FRAGMENT_LIMIT = 10
 LONG_FRAGMENT_LIMIT = 1000
