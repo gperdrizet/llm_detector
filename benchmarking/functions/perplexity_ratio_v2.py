@@ -259,24 +259,18 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                     human_text_string = ' '.join(human_text_slice)
                     synthetic_text_string = ' '.join(synthetic_text_slice)
 
-                    # Make reversed versions of all of the fragments
-                    reversed_human_text_string = ' '.join(list(reversed(human_text_slice)))
-                    reversed_synthetic_text_string = ' '.join(list(reversed(synthetic_text_slice)))
-
                     # Add everything to the results
                     results['Source record num'].append(str(record_number))
                     results['Dataset'].append(record['Data source'])
                     results['Source'].append('human')
                     results['Fragment length (words)'].append(str(human_text_length_words))
                     results['String'].append(human_text_string)
-                    results['Reversed string'].append(reversed_human_text_string)
 
                     results['Source record num'].append(str(record_number))
                     results['Dataset'].append(record['Data source'])
                     results['Source'].append('synthetic')
                     results['Fragment length (words)'].append(str(synthetic_text_length_words))
                     results['String'].append(synthetic_text_string)
-                    results['Reversed string'].append(reversed_synthetic_text_string)
                 
                 else:
                     logger.info(f'Worker {worker_num} - Sample {sample_count} - Remaining text too short for sample')
@@ -342,15 +336,8 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                 return_token_type_ids = False
             ).to(config.READER_DEVICE)
 
-            reversed_encodings = reader_model.tokenizer(
-                results['Reversed string'][i],
-                return_tensors = 'pt',
-                return_token_type_ids = False
-            ).to(config.READER_DEVICE)
-
             # Get reader logits
             reader_logits = reader_model.model(**encodings).logits
-            reader_reversed_logits = reader_model.model(**reversed_encodings).logits
 
             # Stop timer
             reader_dT = time.time() - start_time
@@ -385,7 +372,6 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
 
             # Get the writer logits
             writer_logits = writer_model.model(**encodings).logits
-            writer_reversed_logits = writer_model.model(**reversed_encodings).logits
 
             # Stop timer
             writer_dT = time.time() - start_time
@@ -404,7 +390,6 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
 
             ##### Do the perplexity things #########################################################
             ppl = perplexity(encodings, writer_logits)
-            reverse_ppl = perplexity(reversed_encodings, writer_reversed_logits)
 
             x_ppl = entropy(
                 reader_logits,
@@ -413,18 +398,7 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                 reader_model.tokenizer.pad_token_id
             )
 
-            reverse_x_ppl = entropy(
-                reader_reversed_logits,
-                writer_reversed_logits,
-                reversed_encodings,
-                reader_model.tokenizer.pad_token_id
-            )
-
             perplexity_ratio_score = ppl / x_ppl
-            # perplexity_ratio_score = perplexity_ratio_score.tolist()[0]
-
-            reverse_perplexity_ratio_score = reverse_ppl / reverse_x_ppl
-            # reverse_perplexity_ratio_score = perplexity_ratio_score.tolist()[0]
 
         except RuntimeError as runtime_error:
 
@@ -445,11 +419,8 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
             reader_peak_memory = error_string
             writer_peak_memory = error_string
             ppl = [error_string]
-            reverse_ppl = [error_string]
             x_ppl = [error_string]
-            reverse_x_ppl = [error_string]
             perplexity_ratio_score = [error_string]
-            reverse_perplexity_ratio_score = [error_string]
 
         # Add everything to results
         results['Reader time (seconds)'].append(str(reader_dT))
@@ -458,11 +429,8 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
         results['Reader peak memory (GB)'].append(str(reader_peak_memory))
         results['Writer peak memory (GB)'].append(str(writer_peak_memory))
         results['Perplexity'].append(str(ppl[0]))
-        results['Reverse perplexity'].append(str(reverse_ppl[0]))
         results['Cross-perplexity'].append(str(x_ppl[0]))
-        results['Reverse cross-perplexity'].append(str(reverse_x_ppl[0]))
         results['Perplexity ratio score'].append(str(perplexity_ratio_score[0]))
-        results['Reverse perplexity ratio score'].append(str(reverse_perplexity_ratio_score[0]))
     
     return results
         
