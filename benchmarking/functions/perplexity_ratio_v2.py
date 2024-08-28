@@ -326,7 +326,7 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
             elif config.READER_DEVICE == 'cpu':
                 tracemalloc.start()
 
-            elif config.READER_DEVICE == 'auto':
+            elif config.READER_DEVICE == 'auto' or config.READER_DEVICE == 'sequential':
                 for gpu in config.AVAILABLE_GPUS:
                     torch.cuda.reset_peak_memory_stats(device = gpu)
 
@@ -338,7 +338,7 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                 results['String'][i],
                 return_tensors = 'pt',
                 return_token_type_ids = False
-            )
+            ).to(config.READER_DEVICE)
 
             # Get reader logits
             reader_logits = reader_model.model(**encodings).logits
@@ -361,7 +361,7 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                 reader_peak_memory = max_memory * (1.024 * (10**-3))
                 tracemalloc.stop()
 
-            elif config.READER_DEVICE == 'auto':
+            elif config.READER_DEVICE == 'auto' or config.READER_DEVICE == 'sequential':
 
                 reader_peak_memory = 0
 
@@ -375,13 +375,13 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
 
             # Reset peak memory so we can track this iteration's allocation
             # using an appropriate method based on the device
-            if 'cuda' in config.READER_DEVICE:
+            if 'cuda' in config.WRITER_DEVICE:
                 torch.cuda.reset_peak_memory_stats(device = config.WRITER_DEVICE)
 
             elif config.WRITER_DEVICE == 'cpu':
                 tracemalloc.start()
 
-            elif config.READER_DEVICE == 'auto':
+            elif config.READER_DEVICE == 'auto' or config.READER_DEVICE == 'sequential':
                 for gpu in config.AVAILABLE_GPUS:
                     torch.cuda.reset_peak_memory_stats(device = gpu)
 
@@ -397,7 +397,7 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
             logger.info(f'Worker {worker_num} - Writer encoded fragment {i + 1} of {num_samples}')
 
             # Get writer peak memory in GB
-            if 'cuda' in config.READER_DEVICE:
+            if 'cuda' in config.WRITER_DEVICE:
                 writer_peak_memory = torch.cuda.max_memory_allocated(device = config.WRITER_DEVICE)
                 writer_peak_memory = writer_peak_memory / (10 ** 9)
 
@@ -406,18 +406,18 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                 writer_peak_memory = max_memory * (1.024 * (10**-3))
                 tracemalloc.stop()
 
-            elif config.READER_DEVICE == 'auto':
+            elif config.WRITER_DEVICE == 'auto' or config.WRITER_DEVICE == 'sequential':
 
                 writer_peak_memory = 0
 
                 for gpu in config.AVAILABLE_GPUS:
                     gpu_peak_memory = torch.cuda.max_memory_allocated(device = gpu)
-                    gpu_peak_memory = reader_peak_memory / (10 ** 9)
+                    gpu_peak_memory = writer_peak_memory / (10 ** 9)
 
                     writer_peak_memory += gpu_peak_memory
 
             ##### Do the perplexity things #########################################################
-            ppl = perplexity(encodings.to('cuda:0'), writer_logits.to('cuda:0'))
+            ppl = perplexity(encodings, writer_logits)
 
             x_ppl = entropy(
                 reader_logits.to('cuda:0'),
