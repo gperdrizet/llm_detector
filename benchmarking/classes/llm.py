@@ -24,6 +24,7 @@ class Llm:
         quantization: str=config.QUANTIZATION,
         decoding_strategy: str=config.DECODING_STRATEGY,
         bnb_4bit_compute_dtype: str=config.BNB_4BIT_COMPUTE_DTYPE,
+        #bnb_8bit_compute_dtype: str=config.BNB_8BIT_COMPUTE_DTYPE,
         max_new_tokens: str=config.MAX_NEW_TOKENS,
         cpu_cores: int=config.CPU_CORES
     ) -> None:
@@ -43,6 +44,7 @@ class Llm:
         self.quantization=quantization
         self.decoding_strategy=decoding_strategy
         self.bnb_4bit_compute_dtype=bnb_4bit_compute_dtype
+        #self.bnb_8bit_compute_dtype=bnb_8bit_compute_dtype
         self.cpu_cores=cpu_cores
         self.max_new_tokens=max_new_tokens
 

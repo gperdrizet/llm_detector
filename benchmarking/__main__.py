@@ -3,6 +3,7 @@
 import benchmarking.functions.helper as helper_funcs
 import benchmarking.functions.runner as runner_funcs
 import benchmarking.functions.perplexity_ratio as perplexity_funcs
+import benchmarking.functions.perplexity_ratio_v2 as perplexity_funcs_v2
 
 if __name__ == "__main__":
 
@@ -14,10 +15,15 @@ if __name__ == "__main__":
     # Parse command line arguments
     args = helper_funcs.parse_args()
 
-    # Run binoculars
+    # Run perplexity ratio scoring of Hans 2024 data
     if args.perplexity_ratio != 'False':
 
         perplexity_funcs.perplexity_ratio_score()
+
+    # Run perplexity ratio scoring v2 of Hans 2024 data
+    if args.perplexity_ratio_v2 != None:
+
+        perplexity_funcs_v2.perplexity_ratio_score(args.perplexity_ratio_v2)
 
     # Run benchmark
     if args.run_benchmark is not None:
