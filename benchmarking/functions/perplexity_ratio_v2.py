@@ -420,9 +420,9 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
             ppl = perplexity(encodings, writer_logits)
 
             x_ppl = entropy(
-                reader_logits.to('cuda:0'),
-                writer_logits.to('cuda:0'),
-                encodings.to('cuda:0'),
+                reader_logits,#.to('cuda:0'),
+                writer_logits.to(config.READER_DEVICE),
+                encodings,#.to('cuda:0'),
                 reader_model.tokenizer.pad_token_id
             )
 
