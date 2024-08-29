@@ -1,4 +1,4 @@
-'''Luigi feature engineering and XGBoost classifier training pipeling'''
+'''Luigi feature engineering and XGBoost classifier training pipeline'''
 
 import json
 import luigi

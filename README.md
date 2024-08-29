@@ -2,6 +2,8 @@
 
 ## News
 
+**2024-08-17**: Malone is temporarily off-line so that compute resources can be dedicated to benchmarking and improvements to the classifier. Check out what is going on in the [benchmarking](https://github.com/gperdrizet/llm_detector/tree/classifier/benchmarking/notebooks) and [classifier](https://github.com/gperdrizet/llm_detector/tree/classifier/classifier/notebooks) notebooks on the classifier branch. If you would really like to try malone out, get in touch and I will fire it up for you.
+
 **2024-08-07**: Malone was just named a Backdrop Build v5 Finalist! Check out the build page [here](https://backdropbuild.com/builds/cadmus)! Let's gooooo!
 
 **2024-08-01**: Backdrop build v5 [launch video](https://youtu.be/6zdLcsC9I_I?si=R6knOnxMySDIRKDQ) is up on YouTube. Congrats to all of the other Backdrop Build finishers!
