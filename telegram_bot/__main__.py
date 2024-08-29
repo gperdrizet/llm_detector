@@ -34,40 +34,50 @@ async def score_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     '''Sends user provided text to scoring function, sends
     result back to user.'''
 
-    time_fragment_received = time.time()
+    if config.MODE == 'online':
 
-    # Get the logger
-    function_logger = logging.getLogger('telegram_bot.score_text')
+        time_fragment_received = time.time()
 
-    # Get the message text
-    text = update.message.text
-    function_logger.info('Got text fragment from user')
+        # Get the logger
+        function_logger = logging.getLogger('telegram_bot.score_text')
 
-    # Check the user's chosen response mode, setting default if
-    # it hasn't been set yet
-    if 'response_mode' not in context.user_data.keys():
-        context.user_data['response_mode'] = 'default'
+        # Get the message text
+        text = update.message.text
+        function_logger.info('Got text fragment from user')
 
-    response_mode = context.user_data['response_mode']
-    function_logger.debug('User has requested %s response mode', response_mode)
+        # Check the user's chosen response mode, setting default if
+        # it hasn't been set yet
+        if 'response_mode' not in context.user_data.keys():
+            context.user_data['response_mode'] = 'default'
 
-    # Send the text to be scored
-    submission = api_funcs.submit_text(suspect_text = text, response_mode = response_mode)
-    result_id = await submission
+        response_mode = context.user_data['response_mode']
+        function_logger.debug('User has requested %s response mode', response_mode)
 
-    # Get the result, when ready
-    result = api_funcs.retrieve_result(result_id = result_id)
-    reply = await result
+        # Send the text to be scored
+        submission = api_funcs.submit_text(suspect_text = text, response_mode = response_mode)
+        result_id = await submission
 
-    function_logger.info('Result ID: %s', result_id)
+        # Get the result, when ready
+        result = api_funcs.retrieve_result(result_id = result_id)
+        reply = await result
 
-    await context.bot.send_message(
-        chat_id = update.effective_chat.id, text = reply)
+        function_logger.info('Result ID: %s', result_id)
 
-    time_reply_sent = time.time()
+        await context.bot.send_message(
+            chat_id = update.effective_chat.id, text = reply)
 
-    with open(config.FRAGMENT_TURNAROUND_DATA, 'a+', encoding = 'utf-8') as f:
-        f.write(f'{time_fragment_received},{time_reply_sent}\n')
+        time_reply_sent = time.time()
+
+        with open(config.FRAGMENT_TURNAROUND_DATA, 'a+', encoding = 'utf-8') as f:
+            f.write(f'{time_fragment_received},{time_reply_sent}\n')
+
+    elif config.MODE == 'offline':
+
+        reply = 'Malone is temporarily off-line so that compute resources can be dedicated to benchmarking and improvements to the classifier. Check out what is going on in the benchmarking and classifier notebooks on the classifier branch of the GitHub repo (https://github.com/gperdrizet/llm_detector/tree/classifier). If you would really like to try malone out, get in touch and I will fire it up for you.'
+
+        await context.bot.send_message(
+            chat_id = update.effective_chat.id, text = reply)
+
 
 if __name__ == '__main__':
 
