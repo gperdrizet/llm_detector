@@ -4,6 +4,7 @@ of data from https://arxiv.org/abs/2401.12070'''
 from __future__ import annotations
 from typing import Callable
 
+import os
 import time
 import json
 import random
@@ -17,6 +18,8 @@ import benchmarking.configuration as config
 import benchmarking.functions.helper as helper_funcs
 import benchmarking.classes.llm as llm_class
 from benchmarking.functions.metrics import perplexity, entropy
+
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 # Comment ##############################################################
 # Code ########################################################################
