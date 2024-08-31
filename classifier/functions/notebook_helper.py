@@ -1,12 +1,15 @@
 '''Collection of functions refactored from notebooks for data
 handling and plotting'''
 
+import cupy as cp
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, log_loss, confusion_matrix
 
+cp.cuda.Device(0).use()
 
 def add_cv_scores(results, scores, condition):
     '''Adds results of sklearn cross-validation run to
@@ -93,20 +96,37 @@ def hyperopt(
       labels_validation: np.ndarray = None
 ) -> float:
    
-   '''Cross validate a HistGradientBoostingClassifier classifier with a set of hyperparameters, 
-   using a single, static training/validation split and early stopping. Return scores.'''
+    '''Cross validate a HistGradientBoostingClassifier classifier with a set of hyperparameters, 
+    using a single, static training/validation split and early stopping. Return scores.'''
 
-   # Set the model parameters
-   model.set_params(**params)
-   
-   # Fit the model
-   model.fit(features_training, labels_training)
+    # Let XGBoost use the GPU
+    if isinstance(model, XGBClassifier):
 
-   # Make predictions for validation data
-   labels_predicted = model.predict(features_validation)
+        # Set model parameters
+        model.set_params(device = 'cuda', **params)
 
-   # Return the binary cross-entropy
-   return log_loss(labels_validation, labels_predicted)
+        # Fit the model
+        model.fit(cp.array(features_training), cp.array(labels_training))
+
+        # Make predictions for validation data
+        labels_predicted = model.predict(cp.array(features_validation))
+
+        # Return the binary cross-entropy
+        return log_loss(labels_validation, labels_predicted)
+
+    else:
+
+        # Set model parameters
+        model.set_params(**params)
+
+        # Fit the model
+        model.fit(features_training, labels_training)
+
+        # Make predictions for validation data
+        labels_predicted = model.predict(features_validation)
+
+        # Return the binary cross-entropy
+        return log_loss(labels_validation, labels_predicted)
 
 
 def hyperopt_cv(
