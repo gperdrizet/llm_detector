@@ -15,6 +15,10 @@ PROJECT_ROOT_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = f'{PROJECT_ROOT_PATH}/data'
 BENCHMARKING_DATA_PATH = f'{DATA_PATH}/benchmarking'
 HANS_DATA_PATH = f'{DATA_PATH}/hans_2024'
+
+RAW_INPUT_DATA = f'{HANS_DATA_PATH}/falcon-7b_scores_v2.json'
+FEATURE_ENGINEERING_CLASS_INSTANCE = f'{HANS_DATA_PATH}/feature_engineering_class_instance.plk'
+
 COMBINED_SCORED_HANS_DATA = f'{HANS_DATA_PATH}/all-scores_falcon_v2_no_PMC.json'
 COMBINED_SCORED_HANS_TRAINING_DATA = f'{HANS_DATA_PATH}/training-scores_falcon_v2_no_PMC.json'
 COMBINED_SCORED_HANS_TESTING_DATA = f'{HANS_DATA_PATH}/testing-scores_falcon_v2.json'
