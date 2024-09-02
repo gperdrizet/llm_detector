@@ -98,7 +98,15 @@ class FeatureEngineering:
         '''
 
         # Get unique values from the dataset column
-        self.dataset_names = self.all.combined['Dataset'].unique()
+        self.dataset_names = list(self.all.combined['Dataset'].unique())
+
+        # Get unique values from the generator column. This will be either
+        # 'human' or the name of the model that generated the fragment
+        # if it is synthetic
+        self.generation_models = list(self.all.combined['Generator'].unique())
+
+        # Remove 'human' so we get just the models
+        self.generation_models.remove('human')
 
         # Make train/test split and place each into instance of TrainTestSplitHolder class
         training = self.all.combined.sample(frac = 0.8, random_state = 42)
@@ -123,6 +131,8 @@ class TrainTestSplitHolder:
 
             # Get data subset
             dataset_data = data[data['Dataset'] == dataset_name]
+
+            # Add it to the class by name
             setattr(self, dataset_name, dataset_data)
 
 
@@ -133,5 +143,17 @@ class AllDataHolder:
     def __init__(self, data: pd.DataFrame = None) -> None:
 
         self.combined = data
-        self.human = data[data['Source'] == 'human']
-        self.synthetic = data[data['Source'] == 'synthetic']
+        #self.human = data[data['Source'] == 'human']
+        self.synthetic_combined = data[data['Source'] == 'synthetic']
+
+        # Get all of the generation sources present in the data, including
+        # human so we can add the data for each on individually.
+        generation_sources = data['Generator'].unique()
+
+        for generation_source in generation_sources:
+
+            # Get data subset
+            generation_source_data = data[data['Generator'] == generation_source]
+
+            # Add it to the class by name
+            setattr(self, generation_source, generation_source_data)
