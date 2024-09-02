@@ -44,11 +44,8 @@ def perplexity_ratio_score(output_file_name: str='perplexity_ratio_score_v2'):
 
         # Skip already completed records
         for i in range(record_number):
-            next_line = f.readline()
+            _ = f.readline()
             logger.info(f'Skipped record {i}, already sampled')
-
-        # Set flag to detect EOF
-        next_line = 'next line'
 
         # Loop until we break
         while True:
