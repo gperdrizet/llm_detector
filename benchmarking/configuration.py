@@ -72,6 +72,7 @@ DEPENDENT_VARS = [
     'Fragment length (tokens)',
     'Dataset',
     'Source',
+    'Generator',
     'String',
     'Perplexity',
     'Cross-perplexity',

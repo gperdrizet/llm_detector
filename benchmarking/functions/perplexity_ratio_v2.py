@@ -446,12 +446,14 @@ def make_text_fragment_samples(
                 results['Source record num'].append(str(record_number))
                 results['Dataset'].append(record['Data source'])
                 results['Source'].append('human')
+                results['Generator'].append('human')
                 results['Fragment length (words)'].append(str(human_text_length_words))
                 results['String'].append(human_text_string)
 
                 results['Source record num'].append(str(record_number))
                 results['Dataset'].append(record['Data source'])
                 results['Source'].append('synthetic')
+                results['Generator'].append(record['Generation model'])
                 results['Fragment length (words)'].append(str(synthetic_text_length_words))
                 results['String'].append(synthetic_text_string)
             
