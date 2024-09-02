@@ -16,7 +16,7 @@ DATA_PATH = f'{PROJECT_ROOT_PATH}/data'
 BENCHMARKING_DATA_PATH = f'{DATA_PATH}/benchmarking'
 HANS_DATA_PATH = f'{DATA_PATH}/hans_2024'
 
-RAW_INPUT_DATA = f'{HANS_DATA_PATH}/falcon-7b_scores_v2.json'
+RAW_INPUT_DATA = f'{HANS_DATA_PATH}/falcon-7b_scores_v2.1.json'
 FEATURE_ENGINEERING_CLASS_INSTANCE = f'{HANS_DATA_PATH}/feature_engineering_class_instance.plk'
 
 COMBINED_SCORED_HANS_DATA = f'{HANS_DATA_PATH}/all-scores_falcon_v2_no_PMC.json'
