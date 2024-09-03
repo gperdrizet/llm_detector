@@ -52,7 +52,7 @@ class FeatureEngineering:
         data_df = data_df.sample(frac = 1).reset_index(drop = True)
         data_df.reset_index(inplace = True, drop = True)
 
-        self.all = AllDataHolder(data_df)
+        self.all = DataHolder(data_df)
 
     def parse_source(self) -> None:
         '''Splits data by original source dataset.
@@ -63,38 +63,55 @@ class FeatureEngineering:
         
         data (FeatureEngineering class instance)
         |
-        |--all
-        |
+        |--raw_input_data_file_name
         |--dataset_names
+        |--generation_models
+        |
+        |--all
+        |  |
+        |  |--combined
+        |  |--human
+        |  |--synthetic_combined
+        |  |--falcon7
+        |  |--llama2
+        |
         |--training
         |  |
         |  |--all
         |  |  |
+        |  |  |--combined
         |  |  |--human
-        |  |  |--falcon
-        |  |  |--llama
+        |  |  |--synthetic_combined
+        |  |  |--falcon7
+        |  |  |--llama2
         |  |
         |  |--cc_news
         |  |  |
+        |  |  |--combined
         |  |  |--human
-        |  |  |--falcon
-        |  |  |--llama
+        |  |  |--synthetic_combined
+        |  |  |--falcon7
+        |  |  |--llama2
         |  |
         |  |--cnn
         |  |  |
+        |  |  |--combined
         |  |  |--human
-        |  |  |--falcon
-        |  |  |--llama
+        |  |  |--synthetic_combined
+        |  |  |--falcon7
+        |  |  |--llama2
         |  |
         |  |--pub_med
         |     |
+        |     |--combined
         |     |--human
-        |     |--falcon
-        |     |--llama
+        |     |--synthetic_combined
+        |     |--falcon7
+        |     |--llama2
         |
         |--testing
         |  |
-        ...
+        |  |--...
         '''
 
         # Get unique values from the dataset column
@@ -124,7 +141,7 @@ class TrainTestSplitHolder:
     def __init__(self, data: pd.DataFrame = None, dataset_names: list = None) -> None:
 
         # Add the complete dataset
-        self.combined = data
+        self.all = DataHolder(data)
 
         # Add subsets for data from each original dataset source
         for dataset_name in dataset_names:
@@ -133,17 +150,16 @@ class TrainTestSplitHolder:
             dataset_data = data[data['Dataset'] == dataset_name]
 
             # Add it to the class by name
-            setattr(self, dataset_name, dataset_data)
+            setattr(self, dataset_name, DataHolder(dataset_data))
 
 
-class AllDataHolder:
-    '''Holds master copy of data before train test split.
-    has three attributes: combined, human, synthetic.'''
+class DataHolder:
+    '''Holds master copy of data in attributes: 
+    combined, synthetic_combined, human, and one for each model.'''
 
     def __init__(self, data: pd.DataFrame = None) -> None:
 
         self.combined = data
-        #self.human = data[data['Source'] == 'human']
         self.synthetic_combined = data[data['Source'] == 'synthetic']
 
         # Get all of the generation sources present in the data, including
