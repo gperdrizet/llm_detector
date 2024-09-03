@@ -13,13 +13,13 @@ class FeatureEngineering:
         self.raw_input_data_file_name = raw_input_data_file_name
 
         # Load and clean the data
-        self.load_and_clean_raw_data()
+        data_df = self.load_and_clean_raw_data()
 
         # Train test split the data and parse by original dataset source
-        self.parse_source()
+        self.parse_source(data_df)
 
 
-    def load_and_clean_raw_data(self) -> None:
+    def load_and_clean_raw_data(self) -> pd.DataFrame:
         '''Loads raw data into a Pandas dataframe, does
         basic clean-up and enforces data types'''
 
@@ -52,9 +52,9 @@ class FeatureEngineering:
         data_df = data_df.sample(frac = 1).reset_index(drop = True)
         data_df.reset_index(inplace = True, drop = True)
 
-        self.all = DataHolder(data_df)
+        return data_df
 
-    def parse_source(self) -> None:
+    def parse_source(self, data_df: pd.DataFrame = None) -> None:
         '''Splits data by original source dataset.
 
         Going to build a few levels of dictionary structure here
@@ -114,6 +114,8 @@ class FeatureEngineering:
         |  |--...
         '''
 
+        self.all = DataHolder(data_df)
+
         # Get unique values from the dataset column
         self.dataset_names = list(self.all.combined['Dataset'].unique())
 
@@ -135,6 +137,10 @@ class FeatureEngineering:
         self.training = TrainTestSplitHolder(training, self.dataset_names)
         self.testing = TrainTestSplitHolder(testing, self.dataset_names)
 
+    def update_data(self, data_df: pd.DataFrame = None) -> None:
+        '''Updates all data in class'''
+
+        self.parse_source(data_df)
 class TrainTestSplitHolder:
     '''Holds training or testing data from train test split.'''
 
