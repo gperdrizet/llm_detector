@@ -412,6 +412,17 @@ def binary_cross_entropy(labels, predictions):
 
     return log_loss_score
 
+def negated_binary_cross_entropy(labels, predictions):
+    '''Scoring function for use with scikit-learn make_scorer
+    takes a model, features and labels. Returns negated log loss 
+    for binary classification. For use in situations where 
+    'larger-is-better is desirable'''
+
+    # Get the scikit-learn normalized accuracy score
+    log_loss_score = log_loss(labels, predictions, normalize = True)
+
+    return -log_loss_score
+
 
 def false_positive_rate(labels, predictions):
     '''Scoring function for use with scikit-learn make_scorer
