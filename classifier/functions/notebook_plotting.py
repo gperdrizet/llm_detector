@@ -4,6 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+import functions.notebook_helper as helper_funcs
+
 
 def data_exploration_plot(data):
     '''Takes instance of class FeatureEngineering, makes some correlation
@@ -77,12 +79,150 @@ def perplexity_ratio_by_length(data):
     return plt
 
 
+def plot_score_distribution_fits(
+        plot_title,
+        bin_centers,
+        human_density,
+        human_exp_gaussian_values,
+        human_kde_values,
+        synthetic_density,
+        synthetic_exp_gaussian_values,
+        synthetic_kde_values
+):
+    '''Plot score density and fits for human and synthetic data'''
+
+    plt.scatter(bin_centers, human_density, label = 'human data', color = 'tab:blue', s = 10)
+    plt.plot(bin_centers, human_exp_gaussian_values, label = 'human exp. gaussian', color = 'tab:blue')
+    plt.plot(bin_centers, human_kde_values, label = 'human KDE', linestyle = 'dashed', color = 'tab:blue')
+    plt.scatter(bin_centers, synthetic_density, label = 'synthetic data', color = 'tab:orange', s = 10)
+    plt.plot(bin_centers, synthetic_exp_gaussian_values, label = 'synthetic exp. gaussian', color = 'tab:orange')
+    plt.plot(bin_centers, synthetic_kde_values, label = 'human KDE', linestyle = 'dashed', color = 'tab:orange')
+
+    plt.title(plot_title)
+    plt.xlabel('Score')
+    plt.ylabel('Density')
+    plt.legend(loc = 'upper left', fontsize = 'small', markerscale = 2)
+
+    return plt
+
+
+def plot_fit_diagnostics(
+        figure_title,
+        bin_centers,
+        human_density,
+        synthetic_density,
+        human_exp_gaussian_values,
+        synthetic_exp_gaussian_values,
+        human_kde_values,
+        synthetic_kde_values
+):
+    '''Plot score density fit diagnostics'''
+
+    fig, axs = plt.subplots(
+        2,
+        2,
+        figsize = (8, 8),
+        gridspec_kw = {'wspace':0.3, 'hspace':0.3},
+        sharex='row',
+        sharey='row'
+    )
+
+    fig.suptitle(figure_title, fontsize='x-large')
+
+    axs[0,0].set_title('True value vs exponential\ngaussian fit')
+    axs[0,0].scatter(human_density, human_exp_gaussian_values, label = 'human', s = 10)
+    axs[0,0].scatter(synthetic_density, synthetic_exp_gaussian_values, label = 'synthetic', s = 10)
+    axs[0,0].legend(loc = 'upper left', fontsize = 'small', markerscale = 2)
+    axs[0,0].set_xlabel('True value')
+    axs[0,0].set_ylabel('Fit value')
+
+    axs[0,1].set_title('True value vs gaussian\nkernel density estimate')
+    axs[0,1].scatter(human_density, human_kde_values, label = 'human', s = 10)
+    axs[0,1].scatter(synthetic_density, synthetic_kde_values, label = 'synthetic', s = 10)
+    axs[0,1].legend(loc = 'upper left', fontsize = 'small', markerscale = 2)
+    axs[0,1].set_xlabel('True value')
+    axs[0,1].set_ylabel('Fit value')
+
+    axs[1,0].set_title('Exponential gaussian fit residuals')
+    axs[1,0].scatter(bin_centers, human_density - human_exp_gaussian_values, label = 'human exp. gaussian', s = 10)
+    axs[1,0].scatter(bin_centers, synthetic_density - synthetic_exp_gaussian_values, label = 'synthetic exp. gaussian', s = 10)
+    axs[1,0].legend(loc = 'upper left', fontsize = 'small', markerscale = 2)
+    axs[1,0].set_xlabel('Score')
+    axs[1,0].set_ylabel('True - fitted value')
+
+    axs[1,1].set_title('Gaussian kernel density estimate residuals')
+    axs[1,1].scatter(bin_centers, human_density - human_kde_values, label = 'human KDE', s = 10)
+    axs[1,1].scatter(bin_centers, synthetic_density - synthetic_kde_values, label = 'synthetic KDE', s = 10)
+    axs[1,1].legend(loc = 'upper left', fontsize = 'small', markerscale = 2)
+    axs[1,1].set_xlabel('Score')
+    axs[1,1].set_ylabel('True - fitted value')
+
+    return plt
+
+
+def plot_kl_divergences(
+        plot_title,
+        bin_centers,
+        human_exp_gaussian_values,
+        synthetic_exp_gaussian_values,
+        human_kde_values,
+        synthetic_kde_values
+
+):
+    '''Plot Kullback-Leibler divergences'''
+    
+    fig, axs = plt.subplots(
+        2,
+        2,
+        figsize = (8, 8),
+        gridspec_kw = {'wspace':0.3, 'hspace':0.4},
+        sharex='row',
+        sharey='row'
+    )
+
+    fig.suptitle(plot_title, fontsize='x-large')
+
+    axs[0,0].set_title('Exponential gaussian fits:\nsynthetic-human')
+    axs[0,0].plot(bin_centers, human_exp_gaussian_values, label = 'human')
+    axs[0,0].plot(bin_centers, synthetic_exp_gaussian_values, label = 'synthetic')
+    axs[0,0].plot(bin_centers, helper_funcs.kl_divergence(synthetic_exp_gaussian_values, human_exp_gaussian_values), label = 'KL divergence')
+    axs[0,0].set_xlabel('Score')
+    axs[0,0].set_ylabel('Density')
+    axs[0,0].legend(loc = 'upper right', fontsize = 'small')
+
+    axs[0,1].set_title('Exponential gaussian fits:\nhuman-synthetic')
+    axs[0,1].plot(bin_centers, human_exp_gaussian_values, label = 'human')
+    axs[0,1].plot(bin_centers, synthetic_exp_gaussian_values, label = 'synthetic')
+    axs[0,1].plot(bin_centers, helper_funcs.kl_divergence(human_exp_gaussian_values, synthetic_exp_gaussian_values), label = 'KL divergence')
+    axs[0,1].set_xlabel('Score')
+    axs[0,1].set_ylabel('Density')
+    axs[0,1].legend(loc = 'upper left', fontsize = 'small')
+
+    axs[1,0].set_title('Gaussian kernel density estimates:\nsynthetic-human')
+    axs[1,0].plot(bin_centers, human_kde_values, label = 'human')
+    axs[1,0].plot(bin_centers, synthetic_kde_values, label = 'synthetic')
+    axs[1,0].plot(bin_centers, helper_funcs.kl_divergence(synthetic_kde_values, human_kde_values), label = 'KL divergence')
+    axs[1,0].set_xlabel('Score')
+    axs[1,0].set_ylabel('Density')
+    axs[1,0].legend(loc = 'upper right', fontsize = 'small')
+
+    axs[1,1].set_title('Gaussian kernel density estimates:\nhuman-synthetic')
+    axs[1,1].plot(bin_centers, human_kde_values, label = 'human')
+    axs[1,1].plot(bin_centers, synthetic_kde_values, label = 'synthetic')
+    axs[1,1].plot(bin_centers, helper_funcs.kl_divergence(human_kde_values, synthetic_kde_values), label = 'KL divergence')
+    axs[1,1].set_xlabel('Score')
+    axs[1,1].set_ylabel('Density')
+    axs[1,1].legend(loc = 'upper left', fontsize = 'small')
+
+    return plt
+
 def plot_cross_validation(plots, results):
     '''Takes a list of independent variables and the results dictionary,
     makes and returns boxplots.'''
 
     # Set-up the subplots
-    fig, axes = plt.subplots(5, 1, figsize=(7, 7))
+    num_conditions = len(set(results['Condition']))
+    fig, axes = plt.subplots(5, 1, figsize=(7, num_conditions + 3))
 
     # Draw each boxplot
     for plot, ax in zip(plots, axes.flatten()):

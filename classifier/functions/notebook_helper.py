@@ -6,12 +6,14 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import statsmodels.stats.api as sms
+import matplotlib.pyplot as plt
 
 from math import log2
 from statistics import mean
 from scipy.stats import ttest_ind
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, log_loss, confusion_matrix
+from scipy.stats import fit, exponnorm, gaussian_kde
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
@@ -62,14 +64,169 @@ def mean_difference_ci(data):
             print(f'  p-value (human > synthetic) = {ttest_result.pvalue}\n')
 
 
+def exp_gaussian_fit(scores):
+    '''Fit and return exponnorm on score'''
+
+    # Set parameter bounds
+    bounds = [[0.001, 1.0], [0.001, 1.0], [0.001, 1.0]]
+
+    # Do the fit
+    exponnorm_fit = fit(exponnorm, scores.astype(np.float64), bounds = bounds)
+
+    # Build function from rit
+    exponnorm_func = exponnorm(exponnorm_fit.params.K, exponnorm_fit.params.loc, exponnorm_fit.params.scale)
+
+    # Print the fitted parameters
+    print(f'  Rate: {exponnorm_fit.params.K}')
+    print(f'  Mean: {exponnorm_fit.params.loc}')
+    print(f'  Variance: {exponnorm_fit.params.scale}')
+
+    # Return the function
+    return exponnorm_func
+
+
 def kl_divergence(p, q):
-    
     '''Takes two lists, calculates KD divergence'''
-    return [p[i] * log2(p[i]/q[i]) for i in range(len(p))]
+
+    results = []
+
+    for i, j in zip(p, q):
+        if i > 0 and j > 0:
+            results.append(i * log2(i/j))
+
+        else:
+            results.append(np.nan)
+
+    return np.asarray(results)
+
+    #return [p[i] * log2(p[i]/q[i]) for i in range(len(p))]
 
 
-nltk.download('stopwords')
-nltk.download('wordnet')
+def get_kl_kde(figure_title, scores, human_fit_func, synthetic_fit_func, padding, sample_frequency):
+    '''Get kernel density estimate of Kullback-Leibler divergence'''
+
+    # Get a list of points covering the range of score values and extend
+    # the left and right edges a little bit, otherwise the kernel density
+    # estimate tends to droop at the edges for the range. We will clip
+    # the padding off later.
+    x = np.arange(min(scores) - padding, max(scores) + padding, sample_frequency).tolist()
+    print(f'Will calculate {len(x)} fitted values')
+
+    # Get fitted values for the points
+    human_fitted_values = human_fit_func.pdf(x)
+    synthetic_fitted_values = synthetic_fit_func.pdf(x)
+
+    # Calculate the KL divergences of the fitted values
+    synthetic_human_kld = kl_divergence(synthetic_fitted_values, human_fitted_values)
+    human_synthetic_kld = kl_divergence(human_fitted_values, synthetic_fitted_values)
+
+    print(type(synthetic_human_kld))
+
+    # Get rid of any np.nan
+    # synthetic_human_kld = synthetic_human_kld[~np.isnan(synthetic_human_kld)]
+    # human_synthetic_kld = human_synthetic_kld[~np.isnan(human_synthetic_kld)]
+    mask = np.isnan(synthetic_human_kld)
+    synthetic_human_kld[mask] = 0
+
+    mask = np.isnan(human_synthetic_kld)
+    human_synthetic_kld[mask] = 0
+
+    # Convert the kl 'density' values into integer 'count' values
+    synthetic_human_kld = synthetic_human_kld + abs(min(synthetic_human_kld))
+    synthetic_human_kld = synthetic_human_kld * 100
+    synthetic_human_kld_counts = [int(density) for density in synthetic_human_kld]
+
+    print(f'Min synthetic-human KLD count value {min(synthetic_human_kld_counts)}')
+    print(f'Max synthetic-human KLD count value: {max(synthetic_human_kld_counts)}')
+
+    human_synthetic_kld = human_synthetic_kld + abs(min(human_synthetic_kld))
+    human_synthetic_kld = human_synthetic_kld * 100
+    human_synthetic_kld_counts = [int(density) for density in human_synthetic_kld]
+
+    print(f'Min human-synthetic KLD count value {min(human_synthetic_kld_counts)}')
+    print(f'Max human-synthetic KLD count value: {max(human_synthetic_kld_counts)}')
+
+    # Now, construct a list where each value of x appears a number of times
+    # equal to it's kld 'count'
+    synthetic_human_kld_scores = []
+    human_synthetic_kld_scores = []
+
+    for i in range(len(synthetic_human_kld_counts)):
+        synthetic_human_kld_scores.extend([x[i]] * synthetic_human_kld_counts[i])
+
+    for i in range(len(human_synthetic_kld_counts)):
+        human_synthetic_kld_scores.extend([x[i]] * human_synthetic_kld_counts[i])
+
+    # Then, run a KDE on the reconstructed KL scores
+    synthetic_human_kld_kde = gaussian_kde(synthetic_human_kld_scores)
+    human_synthetic_kld_kde = gaussian_kde(human_synthetic_kld_scores)
+
+    # Finally, use the PDF to get density for x after re-clipping x to the
+    # range of the original data
+    clipped_x = []
+    clipped_synthetic_human_kld = []
+    clipped_synthetic_human_kld_counts = []
+    clipped_human_synthetic_kld = []
+    clipped_human_synthetic_kld_counts = []
+
+    for i, j in enumerate(x):
+        if j > min(scores) and j < max(scores):
+
+            clipped_x.append(j)
+
+            clipped_synthetic_human_kld.append(synthetic_human_kld[i])
+            clipped_human_synthetic_kld.append(human_synthetic_kld[i])
+
+            clipped_synthetic_human_kld_counts.append(synthetic_human_kld_counts[i])
+            clipped_human_synthetic_kld_counts.append(human_synthetic_kld_counts[i])
+
+    clipped_synthetic_human_kld_kde_values = synthetic_human_kld_kde.pdf(clipped_x)
+    clipped_human_synthetic_kld_kde_values = human_synthetic_kld_kde.pdf(clipped_x)
+
+    fig, axs = plt.subplots(
+        2,
+        2,
+        figsize = (8, 8),
+        gridspec_kw = {'wspace':0.3, 'hspace':0.3}
+    )
+
+    fig.suptitle(figure_title, fontsize='x-large')
+
+    axs[0,0].set_title('KL divergence density')
+    axs[0,0].scatter(clipped_x, clipped_synthetic_human_kld, s = 1, label = 'synthetic-human')
+    axs[0,0].scatter(clipped_x, clipped_human_synthetic_kld, s = 1, label = 'human-synthetic')
+    axs[0,0].set_xlabel('Score')
+    axs[0,0].set_ylabel('Density')
+    axs[0,0].legend(loc = 'upper right', fontsize = 'small', markerscale = 5)
+
+    axs[0,1].set_title('KL divergence counts')
+    axs[0,1].scatter(clipped_x, clipped_synthetic_human_kld_counts, s = 1, label = 'synthetic-human')
+    axs[0,1].scatter(clipped_x, clipped_human_synthetic_kld_counts, s = 1, label = 'human-synthetic')
+    axs[0,1].set_xlabel('Score')
+    axs[0,1].set_ylabel('Count')
+    axs[0,1].legend(loc = 'upper right', fontsize = 'small', markerscale = 5)
+
+    axs[1,0].set_title('KL score counts')
+    axs[1,0].hist(synthetic_human_kld_scores, bins = 50, density = True, alpha = 0.5, label = 'synthetic-human')
+    axs[1,0].hist(human_synthetic_kld_scores, bins = 50, density = True, alpha = 0.5, label = 'human-synthetic')
+    axs[1,0].set_xlabel('Score')
+    axs[1,0].set_ylabel('Count')
+    axs[1,0].legend(loc = 'upper right', fontsize = 'small')
+
+    axs[1,1].set_title('KL KDE')
+    axs[1,1].scatter(clipped_x, clipped_synthetic_human_kld_kde_values, s = 1, label = 'synthetic-human')
+    axs[1,1].scatter(clipped_x, clipped_human_synthetic_kld_kde_values, s = 1, label = 'human-synthetic')
+    axs[1,1].set_xlabel('Score')
+    axs[1,1].set_ylabel('Count')
+    axs[1,1].legend(loc = 'upper right', fontsize = 'small', markerscale = 5)
+
+    plt.show()
+
+    return synthetic_human_kld_kde, human_synthetic_kld_kde, plt
+
+
+nltk.download('stopwords', quiet = True)
+nltk.download('wordnet', quiet = True)
 stop_words = stopwords.words('english')
 
 sw = stopwords.words('english')
@@ -378,59 +535,3 @@ def hyperopt_cv(
 
    # Return negated mean score for minimization
    return score / kfolds
-
-
-#################################################################################
-# Plotting functions
-
-def plot_cross_validation(plots, results):
-    '''Takes a list of independent variables and the results dictionary,
-    makes and returns boxplots.'''
-
-    # Set-up the subplots
-    fig, axes = plt.subplots(5, 1, figsize=(7, 7))
-
-    # Draw each boxplot
-    for plot, ax in zip(plots, axes.flatten()):
-        sns.boxplot(y = 'Condition', x = plot, data = pd.DataFrame.from_dict(results), orient = 'h', ax = ax)
-        
-    plt.tight_layout()
-
-    return plt
-
-
-def make_optimization_plot(trials):
-    '''Parse optimization trial results, make and return plot.'''
-
-    # Find the parameter names
-    parameters = list(trials[0]['misc']['vals'].keys())
-    column_names = ['loss'] + parameters
-
-    # Make and empty dictionary to hold the parsed results
-    plot_data = {}
-
-    # Add the column names as keys with empty list as value
-    for column_name in column_names:
-        plot_data[column_name] = []
-
-    # Loop on the optimization trials
-    for trial in trials:
-
-        # Loop on the column names
-        for column_name in column_names:
-
-            # Grab the loss
-            if column_name == 'loss':
-                plot_data['loss'].append(trial['result']['loss'])
-
-            # Grab the parameters
-            else:
-                plot_data[column_name].append(trial['misc']['vals'][column_name][0])
-
-    # Convert to dataframe for plotting
-    plot_data_df = pd.DataFrame.from_dict(plot_data)
-
-    # Draw the plot
-    optimization_plot = plot_data_df.plot(subplots = True, figsize = (12, 8))
-
-    return optimization_plot
