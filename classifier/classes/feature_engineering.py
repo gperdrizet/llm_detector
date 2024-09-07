@@ -54,7 +54,7 @@ class FeatureEngineering:
 
         return data_df
 
-    def parse_source(self, data_df: pd.DataFrame = None) -> None:
+    def parse_source(self, data_df: pd.DataFrame = None, rebin: bool = True) -> None:
         '''Splits data by original source dataset.
 
         Going to build a few levels of dictionary structure here
@@ -75,6 +75,20 @@ class FeatureEngineering:
         |  |--falcon7
         |  |--llama2
         |
+        |--length_binned
+        |  |
+        |  |--combined
+        |  |  |--a
+        |  |  |--b
+        |  |
+        |  |--human
+        |  |  |--a
+        |  |  |--b
+        |  |
+        |  |--synthetic_combined
+        |     |--a
+        |     |--b
+        |
         |--training
         |  |
         |  |--all
@@ -84,6 +98,20 @@ class FeatureEngineering:
         |  |  |--synthetic_combined
         |  |  |--falcon7
         |  |  |--llama2
+        |  |  
+        |  |--length_binned
+        |  |  |
+        |  |  |--combined
+        |  |  |  |--bin_a
+        |  |  |  |--bin_b
+        |  |  |
+        |  |  |--human
+        |  |  |  |--bin_a
+        |  |  |  |--bin_b
+        |  |  |
+        |  |  |--synthetic_combined
+        |  |     |--bin_a
+        |  |     |--bin_b
         |  |
         |  |--cc_news
         |  |  |
@@ -116,6 +144,10 @@ class FeatureEngineering:
 
         self.all = DataHolder(data_df)
 
+        # Length bin the data on class instantiation
+        if rebin == True:
+            self.length_binned = LengthBinnedDataHolder(data_df)
+
         # Get unique values from the dataset column
         self.dataset_names = list(self.all.combined['Dataset'].unique())
 
@@ -134,20 +166,26 @@ class FeatureEngineering:
         training.reset_index(inplace = True, drop = True)
         testing.reset_index(inplace = True, drop = True)
 
-        self.training = TrainTestSplitHolder(training, self.dataset_names)
-        self.testing = TrainTestSplitHolder(testing, self.dataset_names)
+        self.training = TrainTestSplitHolder(training, self.dataset_names, rebin)
+        self.testing = TrainTestSplitHolder(testing, self.dataset_names, rebin)
 
     def update_data(self, data_df: pd.DataFrame = None) -> None:
         '''Updates all data in class'''
 
-        self.parse_source(data_df)
+        self.parse_source(data_df, rebin = False)
+
+
 class TrainTestSplitHolder:
     '''Holds training or testing data from train test split.'''
 
-    def __init__(self, data: pd.DataFrame = None, dataset_names: list = None) -> None:
+    def __init__(self, data: pd.DataFrame = None, dataset_names: list = None, rebin: bool = False) -> None:
 
         # Add the complete dataset
         self.all = DataHolder(data)
+
+        # Add the length binned data
+        if rebin == True:
+            self.length_binned = LengthBinnedDataHolder(data)
 
         # Add subsets for data from each original dataset source
         for dataset_name in dataset_names:
@@ -179,3 +217,44 @@ class DataHolder:
 
             # Add it to the class by name
             setattr(self, generation_source, generation_source_data)
+
+
+class LengthBinnedDataHolder:
+    '''Holds set of Combined, human and synthetic_combined data
+    binned by length of text fragments'''
+
+    def __init__(self, data: pd.DataFrame = None) -> None:
+
+        # Set up the overlapping bins with string IDs in a dictionary
+        self.bins = {
+            'bin_a': [1, 100],
+            'bin_b': [51, 150],
+            'bin_c': [101, 200],
+            'bin_d': [151, 250],
+            'bin_e': [201, 300],
+            'bin_f': [251, 350],
+            'bin_g': [301, 400],
+            'bin_h': [351, 450],
+            'bin_i': [401, 500],
+            'bin_j': [451, 550],
+            'bin_k': [501, 600]
+        }
+
+        self.combined = LengthBins(data, self.bins)
+        self.human = LengthBins(data[data['Source'] == 'human'], self.bins)
+        self.synthetic_combined = LengthBins(data[data['Source'] == 'synthetic'], self.bins)
+
+
+class LengthBins:
+    '''Holds binned data'''
+
+    def __init__(self, data: pd.DataFrame = None, bins: dict = None) -> None:
+
+        # Loop on the bins
+        for bin_id, bin_range in bins.items():
+
+            # Get the data for this bin
+            bin_data = data[(data['Fragment length (words)'] >= bin_range[0]) & (data['Fragment length (words)'] <= bin_range[1])]
+            
+            # Add it to the class by bin id
+            setattr(self, bin_id, bin_data)
