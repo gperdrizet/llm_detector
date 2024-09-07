@@ -7,13 +7,17 @@ import numpy as np
 import pandas as pd
 import statsmodels.stats.api as sms
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+from xgboost import XGBClassifier
+from sklearn.feature_selection import RFECV, SequentialFeatureSelector
+from sklearn.model_selection import KFold
+from sklearn.metrics import accuracy_score, log_loss, confusion_matrix, make_scorer
+from sklearn.preprocessing import LabelEncoder, StandardScaler, PolynomialFeatures, SplineTransformer
 
 from math import log2
 from statistics import mean
-from scipy.stats import ttest_ind
-from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score, log_loss, confusion_matrix
-from scipy.stats import fit, exponnorm, gaussian_kde
+from scipy.stats import ttest_ind, fit, exponnorm, gaussian_kde
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
@@ -98,8 +102,6 @@ def kl_divergence(p, q):
             results.append(np.nan)
 
     return np.asarray(results)
-
-    #return [p[i] * log2(p[i]/q[i]) for i in range(len(p))]
 
 
 def get_kl_kde(figure_title, scores, human_fit_func, synthetic_fit_func, padding, sample_frequency):
@@ -364,6 +366,167 @@ def score_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) -> dict
         tfidf_scores.append(product_normalized_dmean_tfidf)
 
     return {'human_tfidf': human_tfidf, 'synthetic_tfidf': synthetic_tfidf, 'tfidf_score': tfidf_scores}
+
+
+def prep_training_data(data):
+    '''Takes instance of feature engineering class, prepares data for classifier training'''
+
+    # Retrieve training and testing data
+    training_data_df = data.training.all.combined.copy()
+    testing_data_df = data.testing.all.combined.copy()
+
+    # Remove rows containing NAN
+    training_data_df.dropna(inplace = True)
+    testing_data_df.dropna(inplace = True)
+
+    # Drop unnecessary or un-trainable features
+    feature_drops = [
+        'Source record num',
+        'Dataset',
+        'Generator',
+        'String',
+        'Reader time (seconds)',
+        'Writer time (seconds)',
+        'Reader peak memory (GB)',
+        'Writer peak memory (GB)'
+    ]
+
+    training_data_df.drop(feature_drops, axis = 1, inplace = True)
+    testing_data_df.drop(feature_drops, axis = 1, inplace = True)
+
+    # Split the data into features and labels
+    labels_train = training_data_df['Source']
+    features_train_df = training_data_df.drop('Source', axis = 1)
+
+    labels_test = testing_data_df['Source']
+    features_test_df = testing_data_df.drop('Source', axis = 1)
+
+    # Encode string class values as integers
+    label_encoder = LabelEncoder()
+    label_encoder = label_encoder.fit(labels_train)
+    labels_train = label_encoder.transform(labels_train)
+    labels_test = label_encoder.transform(labels_test)
+
+    print(f'Training data: {len(labels_train)} examples')
+    print(f'Test data: {len(labels_test)} examples')
+
+    return features_train_df, features_test_df, labels_train, labels_test
+
+
+def standard_scale_data(features_train_df, features_test_df, feature_column_names):
+    '''Standard scales the training and testing data, returns
+    pandas dataframes with column names preserved.'''
+
+    # Instantiate standard scaler instance
+    scaler = StandardScaler()
+
+    # Fit on and transform training data
+    scaled_features_train = scaler.fit_transform(features_train_df)
+
+    # Use the scaler fit from the training data to transform the test data
+    scaled_features_test = scaler.fit_transform(features_test_df)
+
+    # Convert the scaled features back to pandas dataframe
+    features_train_df = pd.DataFrame.from_records(scaled_features_train, columns = feature_column_names)
+    features_test_df = pd.DataFrame.from_records(scaled_features_test, columns = feature_column_names)
+
+    return features_train_df, features_test_df
+
+
+def add_poly_features(features_train_df, features_test_df):
+    '''Adds second order polynomial features, returns numpy array'''
+
+    # Instantiate polynomial features instance
+    trans = PolynomialFeatures(degree = 2)
+
+    # Fit on and transform training data
+    poly_features_train = trans.fit_transform(features_train_df)
+
+    # Use the scaler fit from the training data to transform the test data
+    poly_features_test = trans.fit_transform(features_test_df)
+
+    print(f'Polynomial training data shape: {poly_features_train.shape}')
+    print(f'Polynomial testing data shape: {poly_features_test.shape}')
+
+    return poly_features_train, poly_features_test
+
+def add_spline_features(features_train_df, features_test_df):
+    '''Adds third order spline features, returns numpy array'''
+
+    # Instantiate polynomial features instance
+    trans = SplineTransformer()
+
+    # Fit on and transform training data
+    spline_features_train = trans.fit_transform(features_train_df)
+
+    # Use the scaler fit from the training data to transform the test data
+    spline_features_test = trans.fit_transform(features_test_df)
+
+    print(f'Spline training data shape: {spline_features_train.shape}')
+    print(f'Spline testing data shape: {spline_features_test.shape}')
+
+    return spline_features_train, spline_features_test
+
+
+def recursive_feature_elimination(features_train_df, labels_train, cv_folds, n_jobs):
+    '''Does recursive feature elimination with cross-validation'''
+
+    rfecv = RFECV(
+        estimator = XGBClassifier(),
+        cv = KFold(cv_folds),
+        scoring = make_scorer(negated_binary_cross_entropy),
+        min_features_to_select = 1,
+        step = 1,
+        n_jobs = n_jobs
+    )
+
+    rfecv.fit(features_train_df, labels_train)
+    optimal_feature_count = rfecv.n_features_
+
+    print(f'Optimal number of features: {optimal_feature_count}')
+
+    cv_results = pd.DataFrame(rfecv.cv_results_)
+
+    # Plot the data, if we have less than 20 feature sets, use a boxplot.
+    # If we have more than that, use a scatter with error bars
+
+    if len(cv_results) <= 20:
+
+        long_cv_results = pd.melt(cv_results.drop(['mean_test_score', 'std_test_score'], axis = 1).reset_index(), id_vars='index')
+        long_cv_results.drop(['variable'], axis = 1, inplace = True)
+        long_cv_results.rename({'index': 'n features', 'value': 'negated binary cross-entropy'}, axis = 1, inplace = True)
+        long_cv_results['n features'] = long_cv_results['n features'] + 1
+
+        sns.boxplot(y = 'negated binary cross-entropy', x = 'n features', data = long_cv_results)
+        plt.title('Recursive Feature Elimination')
+
+    else:
+        plt.figure()
+        plt.xlabel('Number of features selected')
+        plt.ylabel('Mean test accuracy')
+        plt.errorbar(
+            x=np.arange(len(cv_results['mean_test_score'])),
+            y=cv_results['mean_test_score'],
+            yerr=cv_results['std_test_score'],
+        )
+        plt.title('Recursive Feature Elimination')
+
+    return rfecv, cv_results, plt
+
+def sequential_feature_selection(features_train, labels_train, feature_count, cv_folds, n_jobs):
+    '''Uses greedy sequential feature selection to choose n best features'''
+
+    sfs = SequentialFeatureSelector(
+        estimator = XGBClassifier(),
+        cv = KFold(cv_folds),
+        scoring = make_scorer(negated_binary_cross_entropy),
+        n_features_to_select = feature_count,
+        n_jobs = n_jobs
+    )
+
+    fitted_sfs = sfs.fit(features_train, labels_train)
+
+    return sfs, fitted_sfs
 
 
 def add_cv_scores(results, scores, condition):

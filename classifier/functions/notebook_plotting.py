@@ -3,6 +3,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pandas.plotting import scatter_matrix
 
 import functions.notebook_helper as helper_funcs
 
@@ -215,6 +216,65 @@ def plot_kl_divergences(
     axs[1,1].legend(loc = 'upper left', fontsize = 'small')
 
     return plt
+
+def plot_cross_correlation_matrix(features_df):
+    '''Plots cross correlation matrix for features dataframe.'''
+
+    plt.matshow(features_df.corr())
+    plt.xticks(range(features_df.select_dtypes(['number']).shape[1]), fontsize = 10)
+    plt.yticks(range(features_df.select_dtypes(['number']).shape[1]), fontsize = 10)
+    cb = plt.colorbar()
+    _ = cb.ax.tick_params(labelsize = 12)
+    plt.title('Feature cross correlation matrix')
+
+    return plt
+
+
+def plot_feature_distributions(features_df):
+    '''Plots density distribution for each feature in dataframe.'''
+
+    plot_titles = list(features_df.columns)
+    plot_titles = ['Synthetic-human\nperplexity ratio\nexponential gaussian fit\nKullback-Leibler score' if x=='Synthetic-human perplexity ratio exponential gaussian fit Kullback-Leibler score' else x for x in plot_titles]
+    plot_titles = ['Human-synthetic\nperplexity ratio\nexponential gaussian fit\nKullback-Leibler score' if x=='Human-synthetic perplexity ratio exponential gaussian fit Kullback-Leibler score' else x for x in plot_titles]
+    plot_titles = ['Synthetic-human\nperplexity ratio\nkernel density estimate\nKullback-Leibler score' if x=='Synthetic-human perplexity ratio kernel density estimate Kullback-Leibler score' else x for x in plot_titles]
+    plot_titles = ['Human-synthetic\nperplexity ratio\nkernel density estimate\nKullback-Leibler score' if x=='Human-synthetic perplexity ratio kernel density estimate Kullback-Leibler score' else x for x in plot_titles]
+
+    plot_titles = ['Synthetic-human\nTF-IDF\nexponential gaussian fit\nKullback-Leibler score' if x=='Synthetic-human TF-IDF exponential gaussian fit Kullback-Leibler score' else x for x in plot_titles]
+    plot_titles = ['Human-synthetic\nTF-IDF\nexponential gaussian fit\nKullback-Leibler score' if x=='Human-synthetic TF-IDF exponential gaussian fit Kullback-Leibler score' else x for x in plot_titles]
+    plot_titles = ['Synthetic-human\nTF-IDF\nkernel density estimate\nKullback-Leibler score' if x=='Synthetic-human TF-IDF kernel density estimate Kullback-Leibler score' else x for x in plot_titles]
+    plot_titles = ['Human-synthetic\nTF-IDF\nkernel density estimate\nKullback-Leibler score' if x=='Human-synthetic TF-IDF kernel density estimate Kullback-Leibler score' else x for x in plot_titles]
+
+    plot_titles = ['Perplexity\nratio score' if x=='Perplexity ratio score' else x for x in plot_titles]
+    plot_titles = ['Fragment length\n(words)' if x=='Fragment length (words)' else x for x in plot_titles]
+    plot_titles = ['Fragment length\n(tokens)' if x=='Fragment length (tokens)' else x for x in plot_titles]
+
+    n_cols = len(features_df.columns) // 4
+    n_rows = (len(features_df.columns) // 4) + (len(features_df.columns) % 4)
+
+    features_df.plot(title = plot_titles, kind = 'density', subplots = True, sharex = False, legend = False, layout = (n_rows,n_cols), figsize = (10,10))
+
+    plt.tight_layout()
+
+    return plt
+
+
+def plot_scatter_matrix(features_df):
+    '''Plots scatter matrix of features in dataframe'''
+
+    axes = scatter_matrix(features_df, figsize = (10, 10), diagonal = 'kde')
+
+    for ax in axes.flatten():
+
+        ax.xaxis.set_ticks([])
+        ax.yaxis.set_ticks([])
+        ax.set_ylabel("")
+        ax.set_xlabel("")
+
+    plt.tight_layout()
+    plt.gcf().subplots_adjust(wspace = 0, hspace = 0)
+    
+    return plt
+
 
 def plot_cross_validation(plots, results):
     '''Takes a list of independent variables and the results dictionary,
