@@ -474,3 +474,9 @@ Installed schedule so we can run some periodic logging jobs from within python:
 '''text
 pip install schedule
 '''
+
+Installed h5py for data storage:
+
+'''text
+pip install h5py
+'''
