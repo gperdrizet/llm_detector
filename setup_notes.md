@@ -475,8 +475,9 @@ Installed schedule so we can run some periodic logging jobs from within python:
 pip install schedule
 '''
 
-Installed h5py for data storage:
+Installed h5py for data storage along with PyTables so it can interface with Pandas:
 
 '''text
 pip install h5py
+pip install tables
 '''
