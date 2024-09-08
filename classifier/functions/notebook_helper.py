@@ -124,13 +124,18 @@ def get_kl_kde(figure_title, scores, human_fit_func, synthetic_fit_func, padding
 
     print(type(synthetic_human_kld))
 
-    # Get rid of any np.nan
-    # synthetic_human_kld = synthetic_human_kld[~np.isnan(synthetic_human_kld)]
-    # human_synthetic_kld = human_synthetic_kld[~np.isnan(human_synthetic_kld)]
+    # Get rid of any np.nan, without changing the length
     mask = np.isnan(synthetic_human_kld)
     synthetic_human_kld[mask] = 0
 
     mask = np.isnan(human_synthetic_kld)
+    human_synthetic_kld[mask] = 0
+
+    # Get rid of any inf without changing the length
+    mask = np.isinf(synthetic_human_kld)
+    synthetic_human_kld[mask] = 0
+
+    mask = np.isinf(human_synthetic_kld)
     human_synthetic_kld[mask] = 0
 
     # Convert the kl 'density' values into integer 'count' values
