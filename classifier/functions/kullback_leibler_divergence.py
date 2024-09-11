@@ -6,6 +6,7 @@ the data as a new feature.'''
 
 from __future__ import annotations
 
+import h5py
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
@@ -16,7 +17,7 @@ from scipy.stats import gaussian_kde
 
 def kullback_leibler_score(
         feature_name: str,
-        bins: dict,
+        #bins: dict,
         hdf5_file: str,
         padding: float,
         sample_frequency: float,
@@ -25,6 +26,11 @@ def kullback_leibler_score(
 
     '''Main function to parallelize computation of Kullback-Leibler score
     over length bins.'''
+
+    # Get the bins from the hdf5 file's metadata
+    data_lake = h5py.File(hdf5_file, 'r')
+    bins = dict(data_lake.attrs.items())
+    data_lake.close()
 
     # Calculate worker number whichever is less, the number of avalible
     # CPU or the humber of bins
@@ -39,7 +45,7 @@ def kullback_leibler_score(
     # Holder for returns from workers
     async_results = []
 
-    # Open a connection to the hdf5 dataset
+    # Open a connection to the hdf5 dataset via PyTables with Pandas
     data_lake = pd.HDFStore(hdf5_file)
 
     # Loop on the bins
