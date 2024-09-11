@@ -7,12 +7,20 @@ the data as a new feature.'''
 from __future__ import annotations
 
 import h5py
+
+import pkg_resources
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
+import scipy as sp
 
 from math import log2
 from scipy.stats import gaussian_kde
+
+print(f'H5py: {h5py.__version__}')
+print(f'Numpy: {np.__version__}')
+print(f'Pandas: {pd.__version__}')
+print(f'SciPy: {sp.__version__}')
 
 
 def kullback_leibler_score(
@@ -92,10 +100,6 @@ def kullback_leibler_score(
         bin_id = new_result[0]
         training_features_df = new_result[1]
         testing_features_df = new_result[2]
-
-        # Print info for sanity check
-        print(f'\n\n{bin_id} training features:\n')
-        training_features_df.info()
 
         # Put data back into hdf5
         data_lake.put(f'training/{bin_id}/features', training_features_df)
