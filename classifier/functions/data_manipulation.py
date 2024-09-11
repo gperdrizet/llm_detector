@@ -106,7 +106,7 @@ def perplexity_ratio_kld_kde() -> gaussian_kde:
     # Do the exponential gaussian fits on the human and synthetic
     # scores and get fit values for f(x)
 
-    # Seperate human and synnthetic perplexity ratio scores
+    # Separate human and synthetic perplexity ratio scores
     human = training_data_df[training_data_df['Source'] == 'human']
     synthetic = training_data_df[training_data_df['Source'] == 'synthetic']
     human_scores = human['Perplexity ratio score']
@@ -135,7 +135,7 @@ def perplexity_ratio_kld_kde() -> gaussian_kde:
         synthetic_exponnorm.params.scale
     ).pdf(x)
 
-    # Get the Kulback-Leibler divergence of the fitted values
+    # Get the Kullback-Leibler divergence of the fitted values
     kl = helper_funcs.kl_divergence(synthetic_exponnorm_fit, human_exponnorm_fit)
 
     # Convert the kl values into integer 'count' values
@@ -172,7 +172,7 @@ def add_perplexity_ratio_kld_score() -> dict:
     # Empty dict for results
     results = {}
 
-    # Loop on the training & testing datsets
+    # Loop on the training & testing datasets
     for dataset, data in datasets.items():
 
         data_df = pd.DataFrame.from_dict(json.loads(data))
@@ -215,7 +215,7 @@ def make_tfidf_lut() -> dict:
     with open(config.PERPLEXITY_RATIO_KLD_SCORE_ADDED, 'r', encoding='utf-8') as input_file:
         data = json.load(input_file)
 
-    # Seperate the training and testing data
+    # Separate the training and testing data
     data_dfs = {
         'training': pd.DataFrame.from_dict(json.loads(data['training'])),
         'testing': pd.DataFrame.from_dict(json.loads(data['testing']))
@@ -231,7 +231,7 @@ def make_tfidf_lut() -> dict:
         'synthetic': training_data_df_sample['String'][training_data_df_sample['Source'] == 'synthetic']
     }
 
-    # Loop on the training & testing datsets
+    # Loop on the training & testing datasets
     for text_source, text in text_samples.items():
 
         # Split the data up for n workers
@@ -262,7 +262,7 @@ def make_tfidf_lut() -> dict:
     # of look-up tables
     tfidf_luts = {}
 
-    # Loop on the training & testing datsets
+    # Loop on the training & testing datasets
     for text_source, text in text_samples.items():
 
         # Start multiprocessing manager and use it to create and empty dict
@@ -296,7 +296,7 @@ def add_tfidf_score() -> dict:
     with open(config.PERPLEXITY_RATIO_KLD_SCORE_ADDED, 'r', encoding='utf-8') as input_file:
         data = json.load(input_file)
 
-    # Seperate the training and testing data
+    # Separate the training and testing data
     data_dfs = {
         'training': pd.DataFrame.from_dict(json.loads(data['training'])),
         'testing': pd.DataFrame.from_dict(json.loads(data['testing']))
@@ -335,7 +335,7 @@ def add_tfidf_score() -> dict:
 
 def tfidf_score_kld_kde():
     '''Calculates gaussian kernel density estimate of TF-IDF score.
-    Saves model for use in subsiquent steps.'''
+    Saves model for use in subsequent steps.'''
 
     # Load the data
     with open(config.TFIDF_SCORE_ADDED, 'r', encoding='utf-8') as input_file:
@@ -400,7 +400,7 @@ def add_tfidf_kld_score():
     # Empty dict for results
     results = {}
 
-    # Loop on the training & testing datsets
+    # Loop on the training & testing datasets
     for dataset, data in datasets.items():
 
         data_df = pd.DataFrame.from_dict(json.loads(data))
@@ -441,7 +441,7 @@ def train_xgboost_classifier():
     with open(config.TFIDF_KLD_SCORE_ADDED, 'r', encoding='utf-8') as input_file:
         data = json.load(input_file)
 
-    # Seperate the training and testing data
+    # Separate the training and testing data
     training_data_df = pd.DataFrame.from_dict(json.loads(data['training']))
     testing_data_df = pd.DataFrame.from_dict(json.loads(data['testing']))
 
