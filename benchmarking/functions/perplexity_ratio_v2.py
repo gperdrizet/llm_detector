@@ -19,16 +19,16 @@ import benchmarking.functions.helper as helper_funcs
 import benchmarking.classes.llm as llm_class
 from benchmarking.functions.metrics import perplexity, entropy
 
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
+os.environ['TRANSFORMERS_OFFLINE'] = '1'
 
 # Comment ##############################################################
 # Code ########################################################################
 
-def perplexity_ratio_score(output_file_name: str='perplexity_ratio_score_v2'):
+def perplexity_ratio_score(output_file_name: str) -> None:
     '''Main function to load and batch data and submit jobs.'''
 
     # Start logger
-    logger = helper_funcs.start_logger('hans_data_perplexity_ratio_score_v2')
+    logger = helper_funcs.start_logger(f'{output_file_name}.log')
     logger.info('Starting v2 perplexity ratio score')
 
     # Input file
@@ -147,10 +147,9 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
 
     ##### Calculate perplexity scores for each fragment from batch
 
-    # Set available CPU cores based on worker count
-    cpus = int(mp.cpu_count()/config.WORKERS) - 2
-    torch.set_num_threads(cpus)
-    logger.info(f'Worker {worker_num} - {cpus} CPU threads avalible')
+    # Set available CPU cores
+    torch.set_num_threads(config.CPUS_PER_WORKER)
+    logger.info(f'Worker {worker_num} - {config.CPUS_PER_WORKER} CPU threads avalible')
 
     # Load the models
     reader_model, writer_model = load_models()
