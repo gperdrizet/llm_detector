@@ -149,7 +149,7 @@ def add_feature_kld_score(
         kld_kde = get_kld_kde(feature_kld, x)
     
     except Exception as err_string:
-        print(f'\nWorker {worker_num} -  get_kld_kde() error: {err_string}', end = '')
+        print(f'\nWorker {worker_num} - get_kld_kde() error: {err_string}', end = '')
 
     # Calculate Kullback-Leibler scores for the training and testing data
     # in this bin and add the to the features
@@ -161,7 +161,7 @@ def add_feature_kld_score(
         bin_testing_features_df = add_kld_score(bin_testing_features_df, feature_name, kld_kde)
 
     except Exception as err_string:
-        print(f'\nWorker {worker_num} -  add_kld_score() error: {err_string}', end = '')
+        print(f'\nWorker {worker_num} - add_kld_score() error: {err_string}', end = '')
 
     return bin_id, bin_training_features_df, bin_testing_features_df
 
