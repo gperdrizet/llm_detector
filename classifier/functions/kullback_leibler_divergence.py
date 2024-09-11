@@ -123,35 +123,45 @@ def add_feature_kld_score(
     divergence of the human and synthetic feature data. '''
     
     # Calculate the feature's distribution kernel density estimates
-
     try:
         human_feature_kde, synthetic_feature_kde = get_kdes(bin_training_features_df, feature_name)
 
-    except ValueError as err_string:
+    except Exception as err_string:
         print(f'\nWorker {worker_num} - get_pr_score_kdes() error: {err_string}', end = '')
 
-    # Calculate the Kullback-Leibler divergence
-    feature_kld, x = get_kld(
-        bin_training_features_df,
-        feature_name,
-        human_feature_kde, 
-        synthetic_feature_kde,
-        padding = padding,
-        sample_frequency = sample_frequency
-    )
+    try:
+        # Calculate the Kullback-Leibler divergence
+        feature_kld, x = get_kld(
+            bin_training_features_df,
+            feature_name,
+            human_feature_kde, 
+            synthetic_feature_kde,
+            padding = padding,
+            sample_frequency = sample_frequency
+        )
+
+    except Exception as err_string:
+        print(f'\nWorker {worker_num} - get_kld() error: {err_string}', end = '')
     
+    # Calculate the Kullback-Leibler divergence of the feature's distributions
+    # in the human and synthetic data
     try:
         kld_kde = get_kld_kde(feature_kld, x)
     
-    except ValueError as err_string:
+    except Exception as err_string:
         print(f'\nWorker {worker_num} -  get_kld_kde() error: {err_string}', end = '')
 
     # Calculate Kullback-Leibler scores for the training and testing data
     # in this bin and add the to the features
-    print(f'\nWorker {worker_num} - adding Kullback-Leibler score to training features', end = '')
-    bin_training_features_df = add_kld_score(bin_training_features_df, feature_name, kld_kde)
-    print(f'\nWorker {worker_num} - adding Kullback-Leibler score to testing features', end = '')
-    bin_testing_features_df = add_kld_score(bin_testing_features_df, feature_name, kld_kde)
+    try:
+        print(f'\nWorker {worker_num} - adding Kullback-Leibler score to training features', end = '')
+        bin_training_features_df = add_kld_score(bin_training_features_df, feature_name, kld_kde)
+
+        print(f'\nWorker {worker_num} - adding Kullback-Leibler score to testing features', end = '')
+        bin_testing_features_df = add_kld_score(bin_testing_features_df, feature_name, kld_kde)
+
+    except Exception as err_string:
+        print(f'\nWorker {worker_num} -  add_kld_score() error: {err_string}', end = '')
 
     return bin_id, bin_training_features_df, bin_testing_features_df
 
