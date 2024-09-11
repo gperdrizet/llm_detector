@@ -17,7 +17,6 @@ from scipy.stats import gaussian_kde
 
 def kullback_leibler_score(
         feature_name: str,
-        #bins: dict,
         hdf5_file: str,
         padding: float,
         sample_frequency: float,
