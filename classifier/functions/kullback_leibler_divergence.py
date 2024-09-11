@@ -187,7 +187,11 @@ def get_kdes(data_df: pd.DataFrame, feature_name: str) -> tuple[gaussian_kde, ga
 
 
 def kl_divergence(p: list, q: list) -> np.ndarray:
-    '''Takes two lists, calculates Kullback-Leibler divergence'''
+    '''Takes two lists, calculates Kullback-Leibler divergence.'''
+
+    # Set handling for overflows - just ignore. We will handle infinite 
+    # values later by just filtering them out.
+    np.seterr(over = 'ignore')
 
     # Holder for results
     results = []
