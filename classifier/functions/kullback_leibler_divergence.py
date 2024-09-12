@@ -5,14 +5,20 @@ calculate 'Kullback-Leibler score' for each text fragment and add it back to
 the data as a new feature.'''
 
 from __future__ import annotations
+from typing import Callable
 
 import h5py
+import time
+import logging
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
 
 from math import log2
 from scipy.stats import gaussian_kde
+
+import functions.multiprocess_logging as log_funcs
+import configuration as config
 
 
 def kullback_leibler_score(
@@ -21,10 +27,24 @@ def kullback_leibler_score(
         padding: float,
         sample_frequency: float,
         score_sample: bool = False,
+        logfile_name: str = 'kld.log'
 ) -> None:
 
     '''Main function to parallelize computation of Kullback-Leibler score
     over length bins.'''
+
+    # Set-up logging
+    logfile = f'{config.LOG_PATH}/{logfile_name}'
+    print(f'Will log to: {logfile}')
+    
+    logging_queue = mp.Manager().Queue(-1)
+
+    log_listener = mp.Process(
+        target = log_funcs.listener_process,
+        args = (logging_queue, log_funcs.configure_listener, logfile)
+    )
+
+    log_listener.start()
 
     # Get the bins from the hdf5 file's metadata
     data_lake = h5py.File(hdf5_file, 'r')
@@ -52,7 +72,6 @@ def kullback_leibler_score(
 
         # Pull the training features for this bin
         bin_training_features_df = data_lake[f'training/{bin_id}/features']
-        print(f'\nWorker {worker_num} - {len(bin_training_features_df)} fragments in {bin_id}', end = '')
 
         # Pull the testing features for this bin
         bin_testing_features_df = data_lake[f'testing/{bin_id}/features']
@@ -71,7 +90,9 @@ def kullback_leibler_score(
                     padding,
                     sample_frequency,
                     worker_num,
-                    bin_id
+                    bin_id,
+                    logging_queue, 
+                    log_funcs.configure_worker
                 )
             )
         )
@@ -80,7 +101,8 @@ def kullback_leibler_score(
     pool.close()
     pool.join()
 
-    ##### Collect and save the results #########################################
+    logging_queue.put_nowait(None)
+    log_listener.join()
 
     # Get the results
     new_results = [async_result.get() for async_result in async_results]
@@ -107,7 +129,9 @@ def add_feature_kld_score(
         padding: float,
         sample_frequency: float,
         worker_num: int,
-        bin_id: str
+        bin_id: str,
+        logging_queue: Callable,
+        configure_logging: Callable,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     
     '''Takes feature name, training and testing features dataframes and calculates
@@ -116,17 +140,27 @@ def add_feature_kld_score(
     feature column and returns updated dataframes.
     
     Padding and sample frequency refer to the range used to calculate the Kullback-Leibler
-    divergence of the human and synthetic feature data. '''
-    
+    divergence of the human and synthetic feature data.'''
+
+    # Set-up logging
+    configure_logging(logging_queue)
+    logger = logging.getLogger(__name__)
+    logger.info(f'Worker {worker_num} - {len(bin_training_features_df)} fragments in {bin_id}')
+
+
     # Calculate the feature's distribution kernel density estimates
     try:
+        start_time = time.time()
         human_feature_kde, synthetic_feature_kde = get_kdes(bin_training_features_df, feature_name)
+        logger.info(f'Worker {worker_num} - get_kdes() took {round(time.time() - start_time, 1)} seconds')
 
     except Exception as err_string:
-        print(f'\nWorker {worker_num} - get_pr_score_kdes() error: {err_string}', end = '')
+        logger.error(f'Worker {worker_num} - get_pr_score_kdes() error: {err_string}')
 
     try:
         # Calculate the Kullback-Leibler divergence
+        start_time = time.time()
+
         feature_kld, x = get_kld(
             bin_training_features_df,
             feature_name,
@@ -136,28 +170,37 @@ def add_feature_kld_score(
             sample_frequency = sample_frequency
         )
 
+        logger.info(f'Worker {worker_num} - get_kld() took {round(time.time() - start_time, 1)} seconds')
+
     except Exception as err_string:
-        print(f'\nWorker {worker_num} - get_kld() error: {err_string}', end = '')
+        logger.error(f'Worker {worker_num} - get_kld() error: {err_string}')
     
     # Calculate the Kullback-Leibler divergence of the feature's distributions
     # in the human and synthetic data
     try:
+
+        start_time = time.time()
         kld_kde = get_kld_kde(feature_kld, x)
+        logger.info(f'Worker {worker_num} - get_kld_kde() took {round(time.time() - start_time, 1)} seconds')
     
     except Exception as err_string:
-        print(f'\nWorker {worker_num} - get_kld_kde() error: {err_string}', end = '')
+        logger.error(f'Worker {worker_num} - get_kld_kde() error: {err_string}')
 
     # Calculate Kullback-Leibler scores for the training and testing data
     # in this bin and add the to the features
     try:
-        print(f'\nWorker {worker_num} - adding Kullback-Leibler score to training features', end = '')
+        logger.info(f'Worker {worker_num} - adding Kullback-Leibler score to training features')
+        start_time = time.time()
         bin_training_features_df = add_kld_score(bin_training_features_df, feature_name, kld_kde)
+        logger.info(f'Worker {worker_num} - add_kld_score(), training data took {round(time.time() - start_time, 1)} seconds')
 
-        print(f'\nWorker {worker_num} - adding Kullback-Leibler score to testing features', end = '')
+        logger.info(f'Worker {worker_num} - adding Kullback-Leibler score to testing features')
+        start_time = time.time()
         bin_testing_features_df = add_kld_score(bin_testing_features_df, feature_name, kld_kde)
+        logger.info(f'Worker {worker_num} - add_kld_score(), testing data took {round(time.time() - start_time, 1)} seconds')
 
     except Exception as err_string:
-        print(f'\nWorker {worker_num} - add_kld_score() error: {err_string}', end = '')
+        logger.error(f'Worker {worker_num} - add_kld_score() error: {err_string}')
 
     return bin_id, bin_training_features_df, bin_testing_features_df
 
@@ -181,29 +224,34 @@ def get_kdes(data_df: pd.DataFrame, feature_name: str) -> tuple[gaussian_kde, ga
 def kl_divergence(p: list, q: list) -> np.ndarray:
     '''Takes two lists, calculates Kullback-Leibler divergence.'''
 
-    # Set handling for overflows - just ignore. We will handle infinite 
-    # values later by just filtering them out.
-    np.seterr(over = 'ignore')
+    # Set handling for overflows/underflows - just ignore. We will handle infinite 
+    # or nan values later by just filtering them out.
+    np.seterr(over = 'ignore', under = 'ignore')
 
-    # Holder for results
-    results = []
+    kld = lambda i, j: i * log2(i/j)
+    kld_values = kld(np.asarray(p), np.asarray(q))
 
-    # Loop on lists of values
-    for i, j in zip(p, q):
+    return kld_values
 
-        # Check for zeros
-        if i > 0 and j > 0:
+    # # Holder for results
+    # results = []
 
-            # Add KLD to results
-            kld_value = i * log2(i/j)
-            results.append(kld_value)
+    # # Loop on lists of values
+    # for i, j in zip(p, q):
 
-        # Add np.nan for cases where we have zeros
-        else:
-            results.append(np.nan)
+    #     # Check for zeros
+    #     if i > 0 and j > 0:
+
+    #         # Add KLD to results
+    #         kld_value = i * log2(i/j)
+    #         results.append(kld_value)
+
+    #     # Add np.nan for cases where we have zeros
+    #     else:
+    #         results.append(np.nan)
             
-    # Return the result as numpy array
-    return np.asarray(results)
+    # # Return the result as numpy array
+    # return np.asarray(results)
 
 
 def get_kld(

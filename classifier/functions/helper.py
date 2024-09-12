@@ -9,7 +9,8 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-import classifier.configuration as config
+import configuration as config
+
 
 def force_after(task_name: str = None):
     '''Forces all to be re-run starting with given task by removing their output'''
@@ -232,54 +233,3 @@ def tfidf_score_text_fragments(data_chunk: pd.DataFrame, tfidf_luts: dict = None
     data_chunk['TF-IDF score'] = product_normalized_dmean_tfidfs
 
     return_list.append(data_chunk)
-
-
-
-# def score_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) -> dict:
-#     '''Scores text fragments, returns human and synthetic TF-IDF and product 
-#     normalized difference in log2 TF-IDF mean'''
-
-#     # Holders for new features
-#     tfidf_scores = []
-#     human_tfidf = []
-#     synthetic_tfidf = []
-
-#     # Loop on dataframe rows
-#     for _, row in data_df.iterrows():
-        
-#         human_tfidf_sum = 0
-#         synthetic_tfidf_sum = 0
-
-#         # Get the text from this row
-#         text = row['String']
-
-#         # Clean the text
-#         text = clean_text(text)
-
-#         # Split the text into words
-#         words = text.split(' ')
-
-#         # Score the words using the human and synthetic luts
-#         for word in words:
-
-#             if word in tfidf_luts['human'].keys():
-#                 human_tfidf_sum += tfidf_luts['human'][word]
-
-#             if word in tfidf_luts['synthetic'].keys():
-#                 synthetic_tfidf_sum += tfidf_luts['synthetic'][word]
-
-#         # Get the means
-#         human_tfidf_mean = human_tfidf_sum / len(words)
-#         synthetic_tfidf_mean = synthetic_tfidf_sum / len(words)
-#         dmean_tfidf = human_tfidf_mean - synthetic_tfidf_mean
-#         product_normalized_dmean_tfidf = dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
-
-#         human_tfidf.append(human_tfidf_mean)
-#         synthetic_tfidf.append(synthetic_tfidf_mean)
-#         tfidf_scores.append(product_normalized_dmean_tfidf)
-
-#     data_df['human_tfidf'] = human_tfidf
-#     data_df['synthetic_tfidf'] = synthetic_tfidf
-#     data_df['tfidf_score'] = tfidf_scores
-
-#     return {'human_tfidf': human_tfidf, 'synthetic_tfidf': synthetic_tfidf, 'tfidf_score': tfidf_scores}

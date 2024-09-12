@@ -11,6 +11,11 @@ import multiprocessing
 # other paths relative to it
 PROJECT_ROOT_PATH = os.path.dirname(os.path.realpath(__file__))
 
+# Logging
+LOG_LEVEL = 'INFO'
+LOG_PATH = f'{PROJECT_ROOT_PATH}/logs'
+LOG_PREFIX = '%(levelname)s - %(name)s - %(message)s'
+
 # Other project paths
 DATA_PATH = f'{PROJECT_ROOT_PATH}/data'
 BENCHMARKING_DATA_PATH = f'{DATA_PATH}/benchmarking'
