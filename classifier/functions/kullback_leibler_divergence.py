@@ -7,20 +7,12 @@ the data as a new feature.'''
 from __future__ import annotations
 
 import h5py
-
-import pkg_resources
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
-import scipy as sp
 
 from math import log2
 from scipy.stats import gaussian_kde
-
-print(f'H5py: {h5py.__version__}')
-print(f'Numpy: {np.__version__}')
-print(f'Pandas: {pd.__version__}')
-print(f'SciPy: {sp.__version__}')
 
 
 def kullback_leibler_score(

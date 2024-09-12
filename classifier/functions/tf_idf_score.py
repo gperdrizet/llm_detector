@@ -9,17 +9,12 @@ import h5py
 import nltk
 import numpy as np
 import pandas as pd
-import sklearn as sk
 import multiprocessing as mp
 
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-print(f'H5py: {h5py.__version__}')
-print(f'Numpy: {np.__version__}')
-print(f'Pandas: {pd.__version__}')
-print(f'SciKit-Learn: {sk.__version__}')
 
 # Get and set up stop words and an instance of the Word Net
 # Lemmatizer for use in cleaning text for vectorization
