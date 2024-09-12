@@ -12,7 +12,7 @@ import multiprocessing
 PROJECT_ROOT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 # Logging
-LOG_LEVEL = 'INFO'
+LOG_LEVEL = 'DEBUG'
 LOG_PATH = f'{PROJECT_ROOT_PATH}/logs'
 LOG_PREFIX = '%(levelname)s - %(name)s - %(message)s'
 

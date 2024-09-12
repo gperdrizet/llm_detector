@@ -36,7 +36,7 @@ def kullback_leibler_score(
     # Set-up logging
     logfile = f'{config.LOG_PATH}/{logfile_name}'
     print(f'Will log to: {logfile}')
-    
+
     logging_queue = mp.Manager().Queue(-1)
 
     log_listener = mp.Process(
@@ -144,7 +144,7 @@ def add_feature_kld_score(
 
     # Set-up logging
     configure_logging(logging_queue)
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(f'{__name__}.add_feature_kld_score')
     logger.info(f'Worker {worker_num} - {len(bin_training_features_df)} fragments in {bin_id}')
 
 
@@ -224,34 +224,17 @@ def get_kdes(data_df: pd.DataFrame, feature_name: str) -> tuple[gaussian_kde, ga
 def kl_divergence(p: list, q: list) -> np.ndarray:
     '''Takes two lists, calculates Kullback-Leibler divergence.'''
 
+    # Convert inputs to numpy
+    p = np.asarray(p)
+    q = np.asarray(q)
+
     # Set handling for overflows/underflows - just ignore. We will handle infinite 
     # or nan values later by just filtering them out.
-    np.seterr(over = 'ignore', under = 'ignore')
+    with np.errstate(over = 'ignore', under = 'ignore', divide = 'ignore'):
 
-    kld = lambda i, j: i * log2(i/j)
-    kld_values = kld(np.asarray(p), np.asarray(q))
+        kld_values = p * np.log2(p/q)
 
     return kld_values
-
-    # # Holder for results
-    # results = []
-
-    # # Loop on lists of values
-    # for i, j in zip(p, q):
-
-    #     # Check for zeros
-    #     if i > 0 and j > 0:
-
-    #         # Add KLD to results
-    #         kld_value = i * log2(i/j)
-    #         results.append(kld_value)
-
-    #     # Add np.nan for cases where we have zeros
-    #     else:
-    #         results.append(np.nan)
-            
-    # # Return the result as numpy array
-    # return np.asarray(results)
 
 
 def get_kld(
