@@ -14,8 +14,7 @@ import numpy as np
 import pandas as pd
 import multiprocessing as mp
 
-from math import log2
-from scipy.stats import gaussian_kde
+from sklearn.neighbors import KernelDensity
 
 import functions.multiprocess_logging as log_funcs
 import configuration as config
@@ -205,7 +204,7 @@ def add_feature_kld_score(
     return bin_id, bin_training_features_df, bin_testing_features_df
 
 
-def get_kdes(data_df: pd.DataFrame, feature_name: str) -> tuple[gaussian_kde, gaussian_kde]:
+def get_kdes(data_df: pd.DataFrame, feature_name: str) -> tuple[KernelDensity, KernelDensity]:
     '''Takes Pandas dataframe and a feature name. Splits data by text 'Source'
     feature. Gets kernel density estimates of distributions of data specified 
     by feature name for human and synthetic text. Returns KDEs.'''
@@ -215,8 +214,8 @@ def get_kdes(data_df: pd.DataFrame, feature_name: str) -> tuple[gaussian_kde, ga
     synthetic_data = data_df[feature_name][data_df['Source'] == 'synthetic']
 
     # Get KDEs
-    human_feature_kde = gaussian_kde(human_data)
-    synthetic_feature_kde = gaussian_kde(synthetic_data)
+    human_feature_kde = KernelDensity(kernel = 'gaussian').fit(np.asarray(human_data).reshape(-1, 1))
+    synthetic_feature_kde = KernelDensity(kernel = 'gaussian').fit(np.asarray(synthetic_data).reshape(-1, 1))
 
     return human_feature_kde, synthetic_feature_kde
 
@@ -240,8 +239,8 @@ def kl_divergence(p: list, q: list) -> np.ndarray:
 def get_kld(
         data_df: pd.DataFrame,
         feature_name: str,
-        human_feature_kde: gaussian_kde, 
-        synthetic_feature_kde: gaussian_kde,
+        human_feature_kde: KernelDensity, 
+        synthetic_feature_kde: KernelDensity,
         padding: float = 0.1,
         sample_frequency: float = 0.001
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -266,8 +265,8 @@ def get_kld(
     )
 
     # Get fitted values for the points
-    human_fitted_values = human_feature_kde.pdf(x)
-    synthetic_fitted_values = synthetic_feature_kde.pdf(x)
+    human_fitted_values = human_feature_kde.score_samples(x.reshape(-1, 1))
+    synthetic_fitted_values = synthetic_feature_kde.score_samples(x.reshape(-1, 1))
 
     # Calculate the KL divergences of the fitted values
     kld = kl_divergence(synthetic_fitted_values, human_fitted_values)
@@ -283,7 +282,7 @@ def get_kld(
     return kld, x
 
 
-def get_kld_kde(kld: np.ndarray, x: np.ndarray) -> gaussian_kde:
+def get_kld_kde(kld: np.ndarray, x: np.ndarray) -> KernelDensity:
     '''Takes list of Kullback-Leibler divergence values, and regularly
     spaced sample points taken from original data's range used to generate 
     them. Generates and returns gaussian kernel density estimate. Trick 
@@ -312,21 +311,27 @@ def get_kld_kde(kld: np.ndarray, x: np.ndarray) -> gaussian_kde:
         kld_scores.extend([x[i]] * kld_counts[i])
 
     # Then, run a KDE on the reconstructed KLD scores
-    kld_kde = gaussian_kde(kld_scores)
+    kld_kde = KernelDensity(kernel = 'gaussian').fit(np.asarray(kld_scores).reshape(-1, 1))
 
     return kld_kde
 
 
-def add_kld_score(data_df: pd.DataFrame, feature_name: str, kld_kde: gaussian_kde) -> pd.DataFrame:
+def add_kld_score(data_df: pd.DataFrame, feature_name: str, kld_kde: KernelDensity) -> pd.DataFrame:
     '''Takes a features dataframe, feature name and Kullback-Leibler kernel density estimate,
     calculates a Kullback-Leibler score from each text fragment's value for the named feature
     and adds it back to the dataframe as a new feature using the caller specified feature name
     with 'Kullback-Leibler divergence' appended'''
 
+    logger = logging.getLogger(f'{__name__}.add_kld_score')
+
     # Calculate the KLD scores
-    kld_scores = kld_kde.pdf(data_df[feature_name])
+    start_time = time.time()
+    kld_scores = kld_kde.score_samples(np.asarray(data_df[feature_name]).reshape(-1, 1))
+    logger.info(f'KLD PDF calculation took {round(time.time() - start_time, 1)} sec.')
 
     # Add the scores back to the dataframe in a new column
+    start_time = time.time()
     data_df[f'{feature_name} Kullback-Leibler divergence'] = kld_scores
+    logger.info(f'KLD feature creation took {round(time.time() - start_time, 1)} sec.')
 
     return data_df
