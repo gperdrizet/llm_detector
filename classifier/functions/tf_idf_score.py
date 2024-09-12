@@ -2,11 +2,13 @@
 on binned data. Parallelizes calculation over bins.'''
 
 from __future__ import annotations
+from typing import Callable
 
 import re
 import gc
 import h5py
 import nltk
+import logging
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
@@ -14,6 +16,9 @@ import multiprocessing as mp
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
+
+import functions.multiprocess_logging as log_funcs
+import configuration as config
 
 
 # Get and set up stop words and an instance of the Word Net
@@ -28,10 +33,24 @@ lemmatizer = WordNetLemmatizer()
 def tf_idf_score(
         hdf5_file: str,
         score_sample: bool = False,
+        logfile_name: str = 'tf_idf.log'
 ) -> None:
 
     '''Main function to parallelize computation of TF-IDF score
     over length bins.'''
+
+    # Set-up logging
+    logfile = f'{config.LOG_PATH}/{logfile_name}'
+    print(f'Will log to: {logfile}')
+
+    logging_queue = mp.Manager().Queue(-1)
+
+    log_listener = mp.Process(
+        target = log_funcs.listener_process,
+        args = (logging_queue, log_funcs.configure_listener, logfile)
+    )
+
+    log_listener.start()
 
     # Get the bins from the hdf5 file's metadata
     data_lake = h5py.File(hdf5_file, 'r')
@@ -59,7 +78,6 @@ def tf_idf_score(
 
         # Pull the training features for this bin
         bin_training_features_df = data_lake[f'training/{bin_id}/features']
-        print(f'\nWorker {worker_num} - {len(bin_training_features_df)} fragments in {bin_id}', end = '')
 
         # Pull the testing features for this bin
         bin_testing_features_df = data_lake[f'testing/{bin_id}/features']
@@ -75,7 +93,9 @@ def tf_idf_score(
                     bin_training_features_df,
                     bin_testing_features_df,
                     worker_num,
-                    bin_id
+                    bin_id,
+                    logging_queue, 
+                    log_funcs.configure_worker
                 )
             )
         )
@@ -84,7 +104,8 @@ def tf_idf_score(
     pool.close()
     pool.join()
 
-    ##### Collect and save the results #########################################
+    logging_queue.put_nowait(None)
+    log_listener.join()
 
     # Get the results
     new_results = [async_result.get() for async_result in async_results]
@@ -108,7 +129,9 @@ def add_tf_idf_score(
         bin_training_data_df: pd.DataFrame, 
         bin_testing_data_df: pd.DataFrame,
         worker_num: str,
-        bin_id: int
+        bin_id: int,
+        logging_queue: Callable,
+        configure_logging: Callable,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     
     '''Takes training and testing datasets in dataframes. Uses training
@@ -117,24 +140,30 @@ def add_tf_idf_score(
     each text fragment in the training and testing data. Adds TF-IDF score
     to dataframes as new features and return the updated dataframes.'''
 
+
+    # Set-up logging
+    configure_logging(logging_queue)
+    logger = logging.getLogger(f'{__name__}.add_feature_kld_score')
+    logger.info(f'Worker {worker_num} - {len(bin_training_data_df)} fragments in {bin_id}')
+
     try:
         human_texts, synthetic_texts = get_text(bin_training_data_df)
 
     except Exception as err_string:
-        print(f'\nWorker {worker_num} - get_text() error: {err_string}', end = '')
+        logger.error(f'Worker {worker_num} - get_text() error: {err_string}')
 
     try:
         tfidf_luts = get_term_tf_idf(human_texts, synthetic_texts)
 
     except Exception as err_string:
-        print(f'\nWorker {worker_num} - get_term_tf_idf() error: {err_string}', end = '')
+        logger.error(f'Worker {worker_num} - get_term_tf_idf() error: {err_string}')
 
     try:
         bin_training_data_df = tf_idf_score_text_fragments(bin_training_data_df, tfidf_luts)
         bin_testing_data_df = tf_idf_score_text_fragments(bin_testing_data_df, tfidf_luts)
 
     except Exception as err_string:
-        print(f'\nWorker {worker_num} - tf_idf_score_text_fragments() error: {err_string}', end = '')
+        logger.error(f'Worker {worker_num} - tf_idf_score_text_fragments() error: {err_string}')
 
     return bin_id, bin_training_data_df, bin_testing_data_df
 

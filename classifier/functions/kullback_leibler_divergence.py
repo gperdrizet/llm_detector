@@ -23,8 +23,6 @@ import configuration as config
 def kullback_leibler_score(
         feature_name: str,
         hdf5_file: str,
-        padding: float,
-        sample_frequency: float,
         score_sample: bool = False,
         logfile_name: str = 'kld.log'
 ) -> None:
@@ -86,8 +84,6 @@ def kullback_leibler_score(
                     feature_name,
                     bin_training_features_df, 
                     bin_testing_features_df,
-                    padding,
-                    sample_frequency,
                     worker_num,
                     bin_id,
                     logging_queue, 
@@ -125,8 +121,6 @@ def add_feature_kld_score(
         feature_name: str,
         bin_training_features_df: pd.DataFrame, 
         bin_testing_features_df: pd.DataFrame,
-        padding: float,
-        sample_frequency: float,
         worker_num: int,
         bin_id: str,
         logging_queue: Callable,
@@ -136,16 +130,12 @@ def add_feature_kld_score(
     '''Takes feature name, training and testing features dataframes and calculates
     Kullback-Leibler divergence score for the specified feature based on training
     data. Scores each fragment in training and testing data, adds result as new 
-    feature column and returns updated dataframes.
-    
-    Padding and sample frequency refer to the range used to calculate the Kullback-Leibler
-    divergence of the human and synthetic feature data.'''
+    feature column and returns updated dataframes.'''
 
     # Set-up logging
     configure_logging(logging_queue)
     logger = logging.getLogger(f'{__name__}.add_feature_kld_score')
     logger.info(f'Worker {worker_num} - {len(bin_training_features_df)} fragments in {bin_id}')
-
 
     # Calculate the feature's distribution kernel density estimates
     try:
@@ -164,9 +154,7 @@ def add_feature_kld_score(
             bin_training_features_df,
             feature_name,
             human_feature_kde, 
-            synthetic_feature_kde,
-            padding = padding,
-            sample_frequency = sample_frequency
+            synthetic_feature_kde
         )
 
         logger.info(f'Worker {worker_num} - get_kld() took {round(time.time() - start_time, 1)} seconds')
@@ -240,9 +228,7 @@ def get_kld(
         data_df: pd.DataFrame,
         feature_name: str,
         human_feature_kde: KernelDensity, 
-        synthetic_feature_kde: KernelDensity,
-        padding: float = 0.1,
-        sample_frequency: float = 0.001
+        synthetic_feature_kde: KernelDensity
 ) -> tuple[np.ndarray, np.ndarray]:
     
     '''Takes kernel density estimates of data distributions for human and 
@@ -251,18 +237,35 @@ def get_kld(
     the original data's range plus some padding on either edge. Returns the 
     Kullback-Leibler divergence values and the sample points used to calculate them.'''
 
+    logger = logging.getLogger(f'{__name__}.get_kld')
+
     # Get feature data
-    pr_scores = data_df[feature_name]
+    scores = data_df[feature_name]
 
     # Get a list of points covering the range of score values and extend
     # the left and right edges a little bit, otherwise the kernel density
     # estimate tends to droop at the edges of the range. We will clip
     # the padding off later.
+    data_range = max(scores) - min(scores)
+    logger.debug(f'Data range: {data_range}, {min(scores)}, {max(scores)}')
+
+    padding = data_range * 0.1
+    logger.debug(f'Padding: {padding}')
+
+    x_max = max(scores) + padding
+    x_min = min(scores) - padding
+    logger.debug(f'Sample range: {x_max - x_min}, {x_min} - {x_max}')
+
+    sample_frequency = (x_max - x_min) / 100
+    logger.debug(f'Sample frequency: {sample_frequency}')
+
     x = np.arange(
-        min(pr_scores) - padding, 
-        max(pr_scores) + padding, 
+        min(scores) - padding, 
+        max(scores) + padding, 
         sample_frequency
     )
+
+    logger.debug(f'Num samples: {x.shape}')
 
     # Get fitted values for the points
     human_fitted_values = human_feature_kde.score_samples(x.reshape(-1, 1))
@@ -327,11 +330,11 @@ def add_kld_score(data_df: pd.DataFrame, feature_name: str, kld_kde: KernelDensi
     # Calculate the KLD scores
     start_time = time.time()
     kld_scores = kld_kde.score_samples(np.asarray(data_df[feature_name]).reshape(-1, 1))
-    logger.info(f'KLD PDF calculation took {round(time.time() - start_time, 1)} sec.')
+    logger.debug(f'KLD PDF calculation took {round(time.time() - start_time, 1)} sec.')
 
     # Add the scores back to the dataframe in a new column
     start_time = time.time()
     data_df[f'{feature_name} Kullback-Leibler divergence'] = kld_scores
-    logger.info(f'KLD feature creation took {round(time.time() - start_time, 1)} sec.')
+    logger.debug(f'KLD feature creation took {round(time.time() - start_time, 1)} sec.')
 
     return data_df
