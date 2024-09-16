@@ -22,7 +22,7 @@ BENCHMARKING_DATA_PATH = f'{DATA_PATH}/benchmarking'
 HANS_DATA_PATH = f'{DATA_PATH}/hans_2024'
 
 # Data paths
-RAW_INPUT_DATA = f'{HANS_DATA_PATH}/falcon-7b_scores_v2.1.json'
+RAW_INPUT_DATA = f'{HANS_DATA_PATH}/falcon-7b_scores_v2_10-300_words.json'
 LENGTH_BINNED_DATASET = f'{DATA_PATH}/length_binned_dataset.h5'
 
 # Luigi feature engineering/data pipeline parameters
