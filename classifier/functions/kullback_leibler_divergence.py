@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import multiprocessing as mp
 
+from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KernelDensity
 
 import functions.multiprocess_logging as log_funcs
@@ -144,7 +145,7 @@ def add_feature_kld_score(
         logger.info(f'Worker {worker_num} - get_kdes() took {round(time.time() - start_time, 1)} seconds')
 
     except Exception as err_string:
-        logger.error(f'Worker {worker_num} - get_pr_score_kdes() error: {err_string}')
+        logger.error(f'Worker {worker_num} - get_kdes() error: {err_string}')
 
     try:
         # Calculate the Kullback-Leibler divergence
@@ -197,13 +198,23 @@ def get_kdes(data_df: pd.DataFrame, feature_name: str) -> tuple[KernelDensity, K
     feature. Gets kernel density estimates of distributions of data specified 
     by feature name for human and synthetic text. Returns KDEs.'''
 
+    logger = logging.getLogger(f'{__name__}.get_kdes')
+
+    # Fit the standard scalar from on the combined feature data
+    scaler = StandardScaler().fit(np.asarray(data_df[feature_name]).reshape(-1, 1))
+
     # Get caller specified data for human and synthetic text fragments
     human_data = data_df[feature_name][data_df['Source'] == 'human']
     synthetic_data = data_df[feature_name][data_df['Source'] == 'synthetic']
 
-    # Get KDEs
-    human_feature_kde = KernelDensity(kernel = 'gaussian').fit(np.asarray(human_data).reshape(-1, 1))
-    synthetic_feature_kde = KernelDensity(kernel = 'gaussian').fit(np.asarray(synthetic_data).reshape(-1, 1))
+    # Standardize
+    human_data = scaler.transform(np.asarray(human_data).reshape(-1, 1))
+    synthetic_data = scaler.transform(np.asarray(synthetic_data).reshape(-1, 1))
+    logger.debug(f'Scaled data shape: {human_data.shape}')
+
+    # Get gaussian KDEs using Silverman estimate for bandwidth because the underlying data is normal-ish
+    human_feature_kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(np.asarray(human_data).reshape(-1, 1))
+    synthetic_feature_kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(np.asarray(synthetic_data).reshape(-1, 1))
 
     return human_feature_kde, synthetic_feature_kde
 
@@ -314,7 +325,7 @@ def get_kld_kde(kld: np.ndarray, x: np.ndarray) -> KernelDensity:
         kld_scores.extend([x[i]] * kld_counts[i])
 
     # Then, run a KDE on the reconstructed KLD scores
-    kld_kde = KernelDensity(kernel = 'gaussian').fit(np.asarray(kld_scores).reshape(-1, 1))
+    kld_kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(np.asarray(kld_scores).reshape(-1, 1))
 
     return kld_kde
 
