@@ -2,12 +2,15 @@
 
 import re
 import pathlib
+from math import log2
+
 import numpy as np
 import pandas as pd
-from math import log2
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KernelDensity
 
 import configuration as config
 
@@ -43,8 +46,12 @@ def force_after(task_name: str = None):
             pathlib.Path(output_file).unlink(missing_ok = True)
 
 
-def add_perplexity_ratio_kl_divergence_score(data_chunk: pd.DataFrame = None, kl_kde = None, return_list = None):
-    '''Calculates and adds perplexity ratio Kulback-Leibler divergence to a
+def add_perplexity_ratio_kl_divergence_score(
+        data_chunk: pd.DataFrame = None,
+        kl_kde = None,
+        return_list = None
+):
+    '''Calculates and adds perplexity ratio Kullback-Leibler divergence to a
     dataframe chunk. Added result to shared memory list.'''
 
     kl_scores = kl_kde.pdf(data_chunk['Perplexity ratio score'])
@@ -52,8 +59,12 @@ def add_perplexity_ratio_kl_divergence_score(data_chunk: pd.DataFrame = None, kl
 
     return_list.append(data_chunk)
 
-def add_tfidf_kl_divergence_score(data_chunk: pd.DataFrame = None, kl_kde = None, return_list = None):
-    '''Calculates and adds tfidf Kulback-Leibler divergence to a
+def add_tfidf_kl_divergence_score(
+        data_chunk: pd.DataFrame = None,
+        kl_kde = None,
+        return_list = None
+):
+    '''Calculates and adds tfidf Kullback-Leibler divergence to a
     dataframe chunk. Added result to shared memory list.'''
 
     kl_scores = kl_kde.pdf(data_chunk['TF-IDF score'])
@@ -111,35 +122,35 @@ def submitt_text_for_cleaning(texts_chunk: list = None, return_list = None):
         )
 
     return_list.extend(cleaned_texts)
-    
+
 
 def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
     '''Cleans up text string for TF-IDF'''
-    
+
     # Lowercase everything
     text = text.lower()
 
     # Replace everything with space except (a-z, A-Z, ".", "?", "!", ",")
     text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
 
-    # Remove URLs 
+    # Remove URLs
     text = re.sub(r"http\S+", "",text)
-    
+
     # Remove html tags
-    html = re.compile(r'<.*?>') 
+    html = re.compile(r'<.*?>')
     text = html.sub(r'',text)
-    
+
     punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
 
     # Remove punctuations
     for p in punctuations:
         text = text.replace(p,'')
-        
+
     # Remove stopwords
     text = [word.lower() for word in text.split() if word.lower() not in sw]
     text = [lemmatizer.lemmatize(word) for word in text]
     text = " ".join(text)
-    
+
     # Remove emojis
     emoji_pattern = re.compile("["
         u"\U0001F600-\U0001F64F"  # emoticons
@@ -149,9 +160,9 @@ def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
         u"\U00002702-\U000027B0"
         u"\U000024C2-\U0001F251"
     "]+", flags=re.UNICODE)
-    
+
     text = emoji_pattern.sub(r'', text)
-    
+
     return text
 
 
@@ -177,7 +188,11 @@ def make_tfidf_lut(texts: list = None, text_source: str = None, return_dict = No
     return_dict[text_source] = dict(zip(features, log_tfidf_mean))
 
 
-def tfidf_score_text_fragments(data_chunk: pd.DataFrame, tfidf_luts: dict = None, return_list = None) -> dict:
+def tfidf_score_text_fragments(
+        data_chunk: pd.DataFrame,
+        tfidf_luts: dict = None,
+        return_list = None
+) -> dict:
     '''Scores text fragments with product normalized difference in
     log2 TF-IDF mean.'''
 
@@ -192,7 +207,7 @@ def tfidf_score_text_fragments(data_chunk: pd.DataFrame, tfidf_luts: dict = None
 
     # Loop on dataframe rows
     for _, row in data_chunk.iterrows():
-        
+
         human_tfidf_sum = 0
         synthetic_tfidf_sum = 0
 
@@ -233,3 +248,97 @@ def tfidf_score_text_fragments(data_chunk: pd.DataFrame, tfidf_luts: dict = None
     data_chunk['TF-IDF score'] = product_normalized_dmean_tfidfs
 
     return_list.append(data_chunk)
+
+
+def make_padded_range(data: np.array, n_points: int = 100) -> np.array:
+    '''Takes an input array and optionally a number of points. Generates
+    a set of n_points sample points which span the data's range plus
+    10% on either end. Returns the sample points.'''
+
+    # Find the range of the data
+    data_range = max(data) - min(data)
+
+    # Calculate the padding amount as 10% of the data's range
+    padding = data_range * 0.1
+
+    # Get the padded min and max values
+    x_max = max(data) + padding
+    x_min = min(data) - padding
+
+    # Determine the sampling frequency based on the caller
+    # specified number of points
+    sample_frequency = (x_max - x_min) / n_points
+
+    # Make the points
+    x = np.arange(x_min, x_max, sample_frequency)
+
+    return x
+
+
+def estimate_kde_bandwidth(
+        data: np.array,
+        bandwidths: list,
+        kernel: str = 'gaussian',
+        replicates: int = 3
+) -> dict:
+
+    '''Takes 1D dataset and uses cross-validation to try and
+    determine a reasonable bandwidth for KDE. Returns dictionary of
+    scores for each bandwidth value attempted.
+    '''
+
+    # Pick a set of sample points which span the range of the input
+    # data to use for evaluation
+    eval_points = make_padded_range(data)
+
+    # Empty dictionary to store results
+    results = {}
+
+    # Add empty lists for other values
+    results['Bandwidth'] = []
+    results['Replicate'] = []
+    results['Total absolute error'] = []
+    results['Mean absolute error'] = []
+
+    # Loop on the bandwidths to test
+    for bandwidth in bandwidths:
+
+        # Loop on replicates
+        for i in range(replicates):
+
+            # Add bandwidth to results
+            results['Bandwidth'].append(bandwidth)
+
+            # Add replicate to results
+            results['Replicate'].append(i)
+
+            # Do a 50:50 train test split
+            x1, x2 = train_test_split(data, test_size = 0.5)
+
+            # Get KDEs for each half of the data using the
+            # specified bandwidth
+            x1_kde = KernelDensity(
+                kernel = kernel,
+                bandwidth = bandwidth
+            ).fit(x1.reshape(-1, 1))
+
+            x2_kde = KernelDensity(
+                kernel = kernel,
+                bandwidth = bandwidth
+            ).fit(x2.reshape(-1, 1))
+
+            # Get the KDE's value at the sample points
+            # for both estimates
+            x1_values = x1_kde.score_samples(eval_points.reshape(-1, 1))
+            x2_values = x2_kde.score_samples(eval_points.reshape(-1, 1))
+
+            # Get the absolute difference between the sample point values
+            absolute_errors = abs(x1_values - x2_values)
+            total_absolute_error = sum(absolute_errors)
+            mean_absolute_error = total_absolute_error / len(eval_points)
+
+            # Add total and mean absolute error to results
+            results['Total absolute error'].append(total_absolute_error)
+            results['Mean absolute error'].append(mean_absolute_error)
+
+    return results

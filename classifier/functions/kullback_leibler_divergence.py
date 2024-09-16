@@ -17,6 +17,7 @@ import multiprocessing as mp
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KernelDensity
 
+import functions.helper as helper_funcs
 import functions.multiprocess_logging as log_funcs
 import configuration as config
 
@@ -127,7 +128,7 @@ def add_feature_kld_score(
         logging_queue: Callable,
         configure_logging: Callable,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    
+
     '''Takes feature name, training and testing features dataframes and calculates
     Kullback-Leibler divergence score for the specified feature based on training
     data. Scores each fragment in training and testing data, adds result as new 
@@ -141,8 +142,8 @@ def add_feature_kld_score(
     # Calculate the feature's distribution kernel density estimates
     try:
         start_time = time.time()
-        human_feature_kde, synthetic_feature_kde = get_kdes(bin_training_features_df, feature_name)
-        logger.info(f'Worker {worker_num} - get_kdes() took {round(time.time() - start_time, 1)} seconds')
+        feature_scaler, human_feature_kde, synthetic_feature_kde = get_kdes(bin_training_features_df, feature_name)
+        logger.info(f'Worker {worker_num} - get_kdes() took {(time.time() - start_time):.3f} seconds')
 
     except Exception as err_string:
         logger.error(f'Worker {worker_num} - get_kdes() error: {err_string}')
@@ -154,11 +155,12 @@ def add_feature_kld_score(
         feature_kld, x = get_kld(
             bin_training_features_df,
             feature_name,
+            feature_scaler,
             human_feature_kde, 
             synthetic_feature_kde
         )
 
-        logger.info(f'Worker {worker_num} - get_kld() took {round(time.time() - start_time, 1)} seconds')
+        logger.info(f'Worker {worker_num} - get_kld() took {(time.time() - start_time):.3f} seconds')
 
     except Exception as err_string:
         logger.error(f'Worker {worker_num} - get_kld() error: {err_string}')
@@ -169,7 +171,7 @@ def add_feature_kld_score(
 
         start_time = time.time()
         kld_kde = get_kld_kde(feature_kld, x)
-        logger.info(f'Worker {worker_num} - get_kld_kde() took {round(time.time() - start_time, 1)} seconds')
+        logger.info(f'Worker {worker_num} - get_kld_kde() took {(time.time() - start_time):.3f} seconds')
     
     except Exception as err_string:
         logger.error(f'Worker {worker_num} - get_kld_kde() error: {err_string}')
@@ -179,13 +181,13 @@ def add_feature_kld_score(
     try:
         logger.info(f'Worker {worker_num} - adding Kullback-Leibler score to training features')
         start_time = time.time()
-        bin_training_features_df = add_kld_score(bin_training_features_df, feature_name, kld_kde)
-        logger.info(f'Worker {worker_num} - add_kld_score(), training data took {round(time.time() - start_time, 1)} seconds')
+        bin_training_features_df = add_kld_score(bin_training_features_df, feature_name, feature_scaler, kld_kde)
+        logger.info(f'Worker {worker_num} - add_kld_score(), training data took {(time.time() - start_time):.3f} seconds')
 
         logger.info(f'Worker {worker_num} - adding Kullback-Leibler score to testing features')
         start_time = time.time()
-        bin_testing_features_df = add_kld_score(bin_testing_features_df, feature_name, kld_kde)
-        logger.info(f'Worker {worker_num} - add_kld_score(), testing data took {round(time.time() - start_time, 1)} seconds')
+        bin_testing_features_df = add_kld_score(bin_testing_features_df, feature_name, feature_scaler, kld_kde)
+        logger.info(f'Worker {worker_num} - add_kld_score(), testing data took {(time.time() - start_time):.3f} seconds')
 
     except Exception as err_string:
         logger.error(f'Worker {worker_num} - add_kld_score() error: {err_string}')
@@ -193,30 +195,57 @@ def add_feature_kld_score(
     return bin_id, bin_training_features_df, bin_testing_features_df
 
 
-def get_kdes(data_df: pd.DataFrame, feature_name: str) -> tuple[KernelDensity, KernelDensity]:
+def get_kdes(
+        data_df: pd.DataFrame, 
+        feature_name: str
+) -> tuple[StandardScaler, KernelDensity, KernelDensity]:
     '''Takes Pandas dataframe and a feature name. Splits data by text 'Source'
-    feature. Gets kernel density estimates of distributions of data specified 
-    by feature name for human and synthetic text. Returns KDEs.'''
+    feature. Standard scales data specified by feature name and gets kernel 
+    density estimates of distributions of scaled data for human and synthetic 
+    text. Returns scaler and KDEs.'''
 
     logger = logging.getLogger(f'{__name__}.get_kdes')
 
-    # Fit the standard scalar from on the combined feature data
-    scaler = StandardScaler().fit(np.asarray(data_df[feature_name]).reshape(-1, 1))
+    # Fit the standard scalar from on the combined feature training data
+    start_time = time.time()
+    feature_scaler = StandardScaler().fit(np.asarray(data_df[feature_name]).reshape(-1, 1))
 
     # Get caller specified data for human and synthetic text fragments
     human_data = data_df[feature_name][data_df['Source'] == 'human']
     synthetic_data = data_df[feature_name][data_df['Source'] == 'synthetic']
 
     # Standardize
-    human_data = scaler.transform(np.asarray(human_data).reshape(-1, 1))
-    synthetic_data = scaler.transform(np.asarray(synthetic_data).reshape(-1, 1))
+    human_data = feature_scaler.transform(np.asarray(human_data).reshape(-1, 1))
+    synthetic_data = feature_scaler.transform(np.asarray(synthetic_data).reshape(-1, 1))
+    logger.debug(f'Scaling for KDE took {(time.time() - start_time):.3f} sec.')
     logger.debug(f'Scaled data shape: {human_data.shape}')
+    logger.debug(f'Scaled means: human = {np.mean(human_data):.3f}, synthetic = {np.mean(synthetic_data):.3f}')
+    logger.debug(f'Scaled standard deviation: human = {np.std(human_data):.3f}, synthetic = {np.std(synthetic_data):.3f}')
 
-    # Get gaussian KDEs using Silverman estimate for bandwidth because the underlying data is normal-ish
+    # Get bandwidth estimates for gaussian KDE
+    start_time = time.time()
+    human_band_widths = helper_funcs.estimate_kde_bandwidth(
+        data = human_data,
+        bandwidths = [2, 1, 0.5, 0.25]
+    )
+    logger.debug(f'Human bandwidth estimation took: {(time.time() - start_time):.3f} sec.')
+    logger.debug(f'Human bandwidth errors: {human_band_widths}')
+
+    start_time = time.time()
+    synthetic_band_widths = helper_funcs.estimate_kde_bandwidth(
+        data = synthetic_data,
+        bandwidths = [2, 1, 0.5, 0.25]
+    )
+    logger.debug(f'Synthetic bandwidth estimation took: {(time.time() - start_time):.3f} sec.')
+    logger.debug(f'Synthetic bandwidth errors: {synthetic_band_widths}')
+
+    # Get gaussian KDEs
+    start_time = time.time()
     human_feature_kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(np.asarray(human_data).reshape(-1, 1))
     synthetic_feature_kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(np.asarray(synthetic_data).reshape(-1, 1))
+    logger.debug(f'KDEs took {(time.time() - start_time):.3f} seconds')
 
-    return human_feature_kde, synthetic_feature_kde
+    return feature_scaler, human_feature_kde, synthetic_feature_kde
 
 
 def kl_divergence(p: list, q: list) -> np.ndarray:
@@ -238,20 +267,25 @@ def kl_divergence(p: list, q: list) -> np.ndarray:
 def get_kld(
         data_df: pd.DataFrame,
         feature_name: str,
+        feature_scaler: StandardScaler,
         human_feature_kde: KernelDensity, 
         synthetic_feature_kde: KernelDensity
 ) -> tuple[np.ndarray, np.ndarray]:
     
     '''Takes kernel density estimates of data distributions for human and 
-    synthetic data and original dataset as dataframe. Calculates Kullback-Leibler
-    divergences of distributions at set of regularly spaced sample points covering
-    the original data's range plus some padding on either edge. Returns the 
-    Kullback-Leibler divergence values and the sample points used to calculate them.'''
+    synthetic data, the feature scaler and original dataset as dataframe. 
+    Calculates Kullback-Leibler divergences of distributions at set of 
+    regularly spaced sample points covering the scaled data's range plus 
+    some padding on either edge. Returns the Kullback-Leibler divergence
+    values and the sample points used to calculate them.'''
 
     logger = logging.getLogger(f'{__name__}.get_kld')
 
     # Get feature data
     scores = data_df[feature_name]
+
+    # Standardize
+    scores = feature_scaler.transform(np.asarray(scores).reshape(-1, 1))
 
     # Get a list of points covering the range of score values and extend
     # the left and right edges a little bit, otherwise the kernel density
@@ -330,17 +364,24 @@ def get_kld_kde(kld: np.ndarray, x: np.ndarray) -> KernelDensity:
     return kld_kde
 
 
-def add_kld_score(data_df: pd.DataFrame, feature_name: str, kld_kde: KernelDensity) -> pd.DataFrame:
+def add_kld_score(
+        data_df: pd.DataFrame, 
+        feature_name: str,
+        feature_scaler: StandardScaler,
+        kld_kde: KernelDensity
+) -> pd.DataFrame:
+    
     '''Takes a features dataframe, feature name and Kullback-Leibler kernel density estimate,
     calculates a Kullback-Leibler score from each text fragment's value for the named feature
     and adds it back to the dataframe as a new feature using the caller specified feature name
-    with 'Kullback-Leibler divergence' appended'''
+    with 'Kullback-Leibler divergence' appended as the new column name'''
 
     logger = logging.getLogger(f'{__name__}.add_kld_score')
 
     # Calculate the KLD scores
     start_time = time.time()
-    kld_scores = kld_kde.score_samples(np.asarray(data_df[feature_name]).reshape(-1, 1))
+    scores = feature_scaler.transform(np.asarray(data_df[feature_name]).reshape(-1, 1))
+    kld_scores = kld_kde.score_samples(np.asarray(scores).reshape(-1, 1))
     logger.debug(f'KLD PDF calculation took {round(time.time() - start_time, 1)} sec.')
 
     # Add the scores back to the dataframe in a new column
