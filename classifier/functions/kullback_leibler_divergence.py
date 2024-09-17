@@ -450,8 +450,6 @@ def plot_results(hdf5_file: str, feature_name: str) -> plt:
     # the Kullback-Leibler divergence kernel density estimate, and the distribution of 
     # Kullback-Leibler score values
 
-    feature_name = 'Perplexity ratio score'
-
     # Set up a figure for n bins x 3 plots
     fig, axs = plt.subplots(
         len(bin_ids),
