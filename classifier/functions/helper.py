@@ -1,7 +1,11 @@
 '''Helper functions for running jobs'''
 
+from __future__ import annotations
+from typing import Callable
+
 import re
 import pathlib
+import logging
 from math import log2
 
 import numpy as np
@@ -13,6 +17,39 @@ from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KernelDensity
 
 import configuration as config
+
+def start_logger(
+        logfile_name: str='llm_detector.log',
+        logger_name: str='benchmarking'
+) -> Callable:
+
+    '''Sets up logging, returns logger'''
+
+    # Build logfile name
+    logfile = f'{config.LOG_PATH}/{logfile_name}'
+    print(f'Will log to: {logfile}\n')
+
+    # Clear logs from previous runs
+    pathlib.Path(logfile).unlink(missing_ok=True)
+
+    # Create logger
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(config.LOG_LEVEL)
+
+    handler = logging.handlers.RotatingFileHandler(
+        f'{config.LOG_PATH}/{logfile_name}',
+        encoding = 'utf-8',
+        maxBytes = 1 * 1024 * 1024,  # 1 MiB
+        backupCount = 5
+    )
+
+    formatter = logging.Formatter(config.LOG_PREFIX,
+                                  datefmt = '%Y-%m-%d %I:%M:%S %p')
+
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+    return logger
 
 
 def force_after(task_name: str = None):
@@ -274,71 +311,20 @@ def make_padded_range(data: np.array, n_points: int = 100) -> np.array:
 
     return x
 
+def sigma_clip_data(data: np.array, n_sigma: float = 5.0) -> np.array:
+    '''Takes data and removes any points above or below the
+    specified number of standard deviations away from the mean.'''
 
-def estimate_kde_bandwidth(
-        data: np.array,
-        bandwidths: list,
-        kernel: str = 'gaussian',
-        replicates: int = 3
-) -> dict:
+    # Get mean and standard deviation
+    data_std_dev = np.std(data)
+    data_mean = np.mean(data)
 
-    '''Takes 1D dataset and uses cross-validation to try and
-    determine a reasonable bandwidth for KDE. Returns dictionary of
-    scores for each bandwidth value attempted.
-    '''
+    # Remove points that more than n standard deviations below mean
+    mask = data > data_mean - (data_std_dev * n_sigma)
+    data = data[mask]
 
-    # Pick a set of sample points which span the range of the input
-    # data to use for evaluation
-    eval_points = make_padded_range(data)
+    # Remove data that are more than n standard deviations above the mean
+    mask = data < data_mean + (data_std_dev * n_sigma)
+    data = data[mask]
 
-    # Empty dictionary to store results
-    results = {}
-
-    # Add empty lists for other values
-    results['Bandwidth'] = []
-    results['Replicate'] = []
-    results['Total absolute error'] = []
-    results['Mean absolute error'] = []
-
-    # Loop on the bandwidths to test
-    for bandwidth in bandwidths:
-
-        # Loop on replicates
-        for i in range(replicates):
-
-            # Add bandwidth to results
-            results['Bandwidth'].append(bandwidth)
-
-            # Add replicate to results
-            results['Replicate'].append(i)
-
-            # Do a 50:50 train test split
-            x1, x2 = train_test_split(data, test_size = 0.5)
-
-            # Get KDEs for each half of the data using the
-            # specified bandwidth
-            x1_kde = KernelDensity(
-                kernel = kernel,
-                bandwidth = bandwidth
-            ).fit(x1.reshape(-1, 1))
-
-            x2_kde = KernelDensity(
-                kernel = kernel,
-                bandwidth = bandwidth
-            ).fit(x2.reshape(-1, 1))
-
-            # Get the KDE's value at the sample points
-            # for both estimates
-            x1_values = x1_kde.score_samples(eval_points.reshape(-1, 1))
-            x2_values = x2_kde.score_samples(eval_points.reshape(-1, 1))
-
-            # Get the absolute difference between the sample point values
-            absolute_errors = abs(x1_values - x2_values)
-            total_absolute_error = sum(absolute_errors)
-            mean_absolute_error = total_absolute_error / len(eval_points)
-
-            # Add total and mean absolute error to results
-            results['Total absolute error'].append(total_absolute_error)
-            results['Mean absolute error'].append(mean_absolute_error)
-
-    return results
+    return data
