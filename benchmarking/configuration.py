@@ -84,10 +84,9 @@ DEPENDENT_VARS = [
     'Writer peak memory (GB)',
 ]
 
-
 # Models to use for perplexity scoring of Hans 2024 text samples
-READER_MODEL = 'tiiuae/falcon-7b'
-WRITER_MODEL = 'tiiuae/falcon-7b-instruct'
+READER_MODEL = 'meta-llama/Llama-2-7b-hf'
+WRITER_MODEL = 'meta-llama/Llama-2-7b-chat-hf'
 
 # Paths dictionary to JSON lines data files from the
 # original binoculars publication
