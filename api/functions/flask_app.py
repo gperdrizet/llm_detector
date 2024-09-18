@@ -97,11 +97,10 @@ def create_flask_celery_app(
         # Check to make sure that text is of sane length
         text_length = len(suspect_string.split(' '))
 
-        if text_length < 50 or text_length > 400:
+        if text_length > 400:
 
             reply = (
-                'For best results text should be longer than '
-                '50 words and shorter than 400 words.'
+                'Input text length is currently capped at 400 words. '
             )
 
         else:
@@ -147,8 +146,11 @@ def create_flask_celery_app(
                     elif human_probability < machine_probability:
                         reply = (
                             f'{machine_probability:.1f}% chance that '
-                            'this text was written by aa machine.'
+                            'this text was written by a machine.'
                         )
+
+                    if text_length <= 50:
+                        reply = f'{reply} Note: for best performance input text should be longer than ~50 words.'
 
                 elif response_mode == 'verbose':
 
