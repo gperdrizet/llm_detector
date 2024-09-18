@@ -468,3 +468,9 @@ Installed schedule so we can run some periodic logging jobs from within python:
 '''text
 pip install schedule
 '''
+
+Installed pytesseract so we can do optical character recognition in python.
+
+'''text
+pip install pytesseract
+'''
