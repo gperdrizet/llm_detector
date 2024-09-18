@@ -76,7 +76,7 @@ async def score_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif config.MODE == 'offline':
 
-        reply = 'Malone is temporarily off-line so that compute resources can be dedicated to benchmarking and improvements to the classifier. Check out what is going on in the benchmarking and classifier notebooks on the classifier branch of the GitHub repo (https://github.com/gperdrizet/llm_detector/tree/classifier). If you would really like to try malone out, get in touch and I will fire it up for you.'
+        reply = 'Agatha is temporarily off-line so that compute resources can be dedicated to benchmarking and improvements to the classifier. Check out what is going on in the benchmarking and classifier notebooks on the classifier branch of the GitHub repo (https://github.com/gperdrizet/llm_detector/tree/classifier). If you would really like to try agatha out, get in touch and I will fire it up for you.'
 
         await context.bot.send_message(
             chat_id = update.effective_chat.id, text = reply)
@@ -85,46 +85,56 @@ async def score_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def score_image_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     '''Receives image and extracts text for scoring.'''
 
-    time_image_received = time.time()
+    if config.MODE == 'online':
 
-    # Get the logger
-    function_logger = logging.getLogger('telegram_bot.score_image_text')
+        time_image_received = time.time()
 
-    # Get the image into memory as a file object
-    incoming_file = await context.bot.get_file(update.message.photo[-1].file_id)
-    file = await incoming_file.download_as_bytearray()
-    file_object = BytesIO(file)
-    function_logger.info('Got image from user')
+        # Get the logger
+        function_logger = logging.getLogger('telegram_bot.score_image_text')
 
-    text = pytesseract.image_to_string(Image.open(file_object)).strip()
-    function_logger.info('Extracted text from user image')
+        # Get the image into memory as a file object
+        incoming_file = await context.bot.get_file(update.message.photo[-1].file_id)
+        file = await incoming_file.download_as_bytearray()
+        file_object = BytesIO(file)
+        function_logger.info('Got image from user')
 
-    # Check the user's chosen response mode, setting default if
-    # it hasn't been set yet
-    if 'response_mode' not in context.user_data.keys():
-        context.user_data['response_mode'] = 'default'
+        text = pytesseract.image_to_string(Image.open(file_object)).strip()
+        function_logger.info('Extracted text from user image')
 
-    response_mode = context.user_data['response_mode']
-    function_logger.debug('User has requested %s response mode', response_mode)
+        # Check the user's chosen response mode, setting default if
+        # it hasn't been set yet
+        if 'response_mode' not in context.user_data.keys():
+            context.user_data['response_mode'] = 'default'
 
-    # Send the text to be scored
-    submission = api_funcs.submit_text(suspect_text = text, response_mode = response_mode)
-    result_id = await submission
+        response_mode = context.user_data['response_mode']
+        function_logger.debug('User has requested %s response mode', response_mode)
 
-    # Get the result, when ready
-    result = api_funcs.retrieve_result(result_id = result_id)
-    api_reply = await result
-    reply = f'{api_reply}\n\nRecovered text: "{text}"'
+        # Send the text to be scored
+        submission = api_funcs.submit_text(suspect_text = text, response_mode = response_mode)
+        result_id = await submission
 
-    function_logger.info('Result ID: %s', result_id)
+        # Get the result, when ready
+        result = api_funcs.retrieve_result(result_id = result_id)
+        api_reply = await result
+        reply = f'{api_reply}\n\nRecovered text: "{text}"'
 
-    await context.bot.send_message(
-        chat_id = update.effective_chat.id, text = reply)
+        function_logger.info('Result ID: %s', result_id)
 
-    time_reply_sent = time.time()
+        await context.bot.send_message(
+            chat_id = update.effective_chat.id, text = reply)
 
-    with open(config.FRAGMENT_TURNAROUND_DATA, 'a+', encoding = 'utf-8') as f:
-        f.write(f'{time_image_received},{time_reply_sent}\n')
+        time_reply_sent = time.time()
+
+        with open(config.FRAGMENT_TURNAROUND_DATA, 'a+', encoding = 'utf-8') as f:
+            f.write(f'{time_image_received},{time_reply_sent}\n')
+
+    elif config.MODE == 'offline':
+
+        reply = 'Agatha is temporarily off-line so that compute resources can be dedicated to benchmarking and improvements to the classifier. Check out what is going on in the benchmarking and classifier notebooks on the classifier branch of the GitHub repo (https://github.com/gperdrizet/llm_detector/tree/classifier). If you would really like to try agatha out, get in touch and I will fire it up for you.'
+
+        await context.bot.send_message(
+            chat_id = update.effective_chat.id, text = reply)
+
 
 if __name__ == '__main__':
 
