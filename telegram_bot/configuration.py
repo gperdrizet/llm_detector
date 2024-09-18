@@ -6,6 +6,11 @@ import os
 # Project meta-stuff: paths, logging, etc. ###########################
 ######################################################################
 
+# Mode to run bot in. 'offline' means that a stock response will be
+# returned to anyone who messages the bot with no traffic to the API.
+# 'online' sets the bot up and running.
+MODE = 'online'
+
 # Get path to this config file so that we can define
 # other paths relative to it
 PROJECT_ROOT_PATH = os.path.dirname(os.path.realpath(__file__))

@@ -263,14 +263,31 @@ class Experiment:
 
         self.logger.debug('Batching %s runs', len(self.run_dicts_list))
 
+        run_dict_counter = 0
+
         for run_dict in self.run_dicts_list:
             batch_list.append(run_dict)
             self.logger.debug('Run: %s', run_dict)
 
-            if run_dict['iteration'] == self.iteration:
-                batches_lists.append(batch_list)
-                self.logger.debug('Batch complete')
-                batch_list = []
+            if 'hf_model_string' in run_dict.keys():
+                if run_dict_counter == len(self.run_dicts_list):
+                    batches_lists.append(batch_list)
+                    self.logger.debug('Batch complete')
+                    batch_list = []
+
+                elif run_dict['iteration'] == self.iteration or run_dict['hf_model_string'] != self.run_dicts_list[run_dict_counter + 1]['hf_model_string']:
+                    batches_lists.append(batch_list)
+                    self.logger.debug('Batch complete')
+                    batch_list = []
+
+            else:
+                if run_dict['iteration'] == self.iteration:
+                    batches_lists.append(batch_list)
+                    self.logger.debug('Batch complete')
+                    batch_list = []
+
+
+            run_dict_counter += 1
 
         if len(self.run_dicts_list) != 0:
             self.logger.debug('Run dictionary list batched: %s batches of %s runs',

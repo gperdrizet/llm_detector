@@ -40,6 +40,9 @@ AVAILABLE_GPUS=['cuda:0', 'cuda:1', 'cuda:2']
 QUANTIZATION='4-bit'
 BNB_4BIT_COMPUTE_DTYPE=torch.float16
 
+# BNB warns that this doesn't exist... setting via bnb_4bit_compute_dtype?
+#BNB_8BIT_COMPUTE_DTYPE=torch.float16
+
 # Generation configuration defaults
 MAX_NEW_TOKENS=32
 
@@ -53,15 +56,47 @@ PROMPT='It was a dark and stormy night '
 # Perplexity ratio score stuff #######################################
 ######################################################################
 
+# Parameters for the v2 scoring algorithm
+WORKERS = 1
+BATCH_SIZE = 10
+WRITER_DEVICE = 'cuda:2'
+READER_DEVICE = 'cuda:1'
+CPUS_PER_WORKER = 4
+
+SHORT_FRAGMENT_LIMIT = 10
+LONG_FRAGMENT_LIMIT = 300
+
+# Variable names to collect data for
+DEPENDENT_VARS = [
+    'Source record num',
+    'Fragment length (words)',
+    'Fragment length (tokens)',
+    'Dataset',
+    'Source',
+    'Generator',
+    'String',
+    'Perplexity',
+    'Cross-perplexity',
+    'Perplexity ratio score',
+    'Reader time (seconds)',
+    'Writer time (seconds)',
+    'Reader peak memory (GB)',
+    'Writer peak memory (GB)',
+]
+
+# Models to use for perplexity scoring of Hans 2024 text samples
+READER_MODEL = 'meta-llama/Llama-2-7b-hf'
+WRITER_MODEL = 'meta-llama/Llama-2-7b-chat-hf'
+
 # Paths dictionary to JSON lines data files from the
 # original binoculars publication
 HANS_DATA_FILES={
-    #'pubmed-falcon7': f'{HANS_DATA_PATH}/pubmed/pubmed-falcon7.jsonl',
-    #'pubmed-llama2-13': f'{HANS_DATA_PATH}/pubmed/pubmed-llama2_13.jsonl',
-     'cnn-falcon7': f'{HANS_DATA_PATH}/cnn/cnn-falcon7.jsonl',
-     'cnn-llama2-13': f'{HANS_DATA_PATH}/cnn/cnn-llama2_13.jsonl',
-    # 'cc_news-falcon7': f'{HANS_DATA_PATH}/cc_news/cc_news-falcon7.jsonl',
-    # 'cc_news-llama2-13': f'{HANS_DATA_PATH}/cc_news/cc_news-llama2_13.jsonl',
+    'pubmed-falcon7': f'{HANS_DATA_PATH}/pubmed/pubmed-falcon7.jsonl',
+    'pubmed-llama2-13': f'{HANS_DATA_PATH}/pubmed/pubmed-llama2_13.jsonl',
+    'cnn-falcon7': f'{HANS_DATA_PATH}/cnn/cnn-falcon7.jsonl',
+    'cnn-llama2-13': f'{HANS_DATA_PATH}/cnn/cnn-llama2_13.jsonl',
+    'cc_news-falcon7': f'{HANS_DATA_PATH}/cc_news/cc_news-falcon7.jsonl',
+    'cc_news-llama2-13': f'{HANS_DATA_PATH}/cc_news/cc_news-llama2_13.jsonl',
 }
 
 # Written by falcon-7b-instruct via bartleby

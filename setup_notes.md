@@ -429,7 +429,7 @@ Installed nltk:
 pip install nltk
 ```
 
-Also, need to download some asset on first use in Python. Default save location is *~/nltk_data*.
+Also, need to download some assets on first use in Python. Default save location is *~/nltk_data*.
 
 ```python
 import nltk
@@ -461,6 +461,12 @@ Installed Luigi to build production data pipeline:
 pip install luigi
 ```
 
+Installed statsmodels for some basics:
+
+```text
+pip install statsmodels
+```
+
 ## Other utilities
 
 Installed schedule so we can run some periodic logging jobs from within python:
@@ -474,4 +480,11 @@ Installed pytesseract so we can do optical character recognition in python.
 '''text
 sudo apt install tesseract-ocr
 pip install pytesseract
+'''
+
+Installed h5py for data storage along with PyTables so it can interface with Pandas:
+
+'''text
+pip install h5py
+pip install tables
 '''
