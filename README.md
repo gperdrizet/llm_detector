@@ -2,7 +2,7 @@
 
 ## News
 
-**2024-08-27**: Malone has joined the [Google Cloud for Startups](https://cloud.google.com/startup) program! Lot's of excitement here - this success provides significant recognition and compute resources to the project. For now, the only visible change will be a rename of the project to 'Ask Agatha', with the model being colloquially referred to as 'agatha'. The LLM detector is still avalible on telegram via [@ask_agatha_bot](https://t.me/ask_agatha_bot). Please direct any inquiries to <gperdrizet@ask-agatha.com>.
+**2024-08-27**: Malone (now agatha) has joined the [Google Cloud for Startups](https://cloud.google.com/startup) program! Lot's of excitement here - this success provides significant recognition and compute resources to the project. For now, the only visible change will be a rename of the project to 'Ask Agatha', with the model being colloquially referred to as 'agatha'. The LLM detector is still avalible on telegram via [@ask_agatha_bot](https://t.me/ask_agatha_bot). Please direct any inquiries to <gperdrizet@ask-agatha.com>.
 
 **2024-08-17**: Malone is temporarily off-line so that compute resources can be dedicated to benchmarking and improvements to the classifier. Check out what is going on in the [benchmarking](https://github.com/gperdrizet/llm_detector/tree/classifier/benchmarking/notebooks) and [classifier](https://github.com/gperdrizet/llm_detector/tree/classifier/classifier/notebooks) notebooks on the classifier branch. If you would really like to try malone out, get in touch and I will fire it up for you.
 
