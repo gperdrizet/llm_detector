@@ -55,6 +55,59 @@ def data_exploration_plot(data):
 
     return plt
 
+
+def data_exploration_plot_v2(data: pd.DataFrame, feature_name = str) -> plt:
+    '''Takes dataframe and feature name, makes some correlation
+    and distribution diagnostic plots'''
+
+    # Separate human and synthetic data
+    human_data = data[data['Source'] == 'human']
+    synthetic_data = data[data['Source'] == 'synthetic']
+
+    # Set up a 2 x 2 figure for some diagnostic plots
+    fig, axs = plt.subplots(
+        2,
+        2,
+        figsize = (8, 8),
+        gridspec_kw = {'wspace':0.3, 'hspace':0.3}
+    )
+
+    # Plot distribution of perplexity ratio scores
+    axs[0,0].set_title(f'Perplexity ratio score distribution')
+    axs[0,0].hist(human_data['Perplexity ratio score'], density = True, facecolor = 'green', label = 'Human text', alpha = 0.5)
+    axs[0,0].hist(synthetic_data['Perplexity ratio score'], density = True, facecolor = 'blue', label = 'Synthetic text', alpha = 0.5)
+    axs[0,0].legend(loc = 'upper left')
+    axs[0,0].set_xlabel('Perplexity ratio score')
+    axs[0,0].set_ylabel('Fragments')
+
+    # Scatter plot of perplexity vs cross-perplexity
+    axs[0,1].set_title('Perplexity vs cross-perplexity')
+    axs[0,1].scatter(human_data['Perplexity'], human_data['Cross-perplexity'], c = 'green', label = 'Human text')
+    axs[0,1].scatter(synthetic_data['Perplexity'], synthetic_data['Cross-perplexity'], c = 'blue', label = 'Synthetic text')
+    axs[0,1].legend(loc = 'lower right')
+    axs[0,1].set_xlabel('Perplexity')
+    axs[0,1].set_ylabel('Cross-perplexity')
+
+    # Scatter plot of perplexity ratio score as a function of the
+    # the text fragment length
+    axs[1,0].set_title('Perplexity ratio score by fragment length')
+    axs[1,0].scatter(human_data['Fragment length (words)'], human_data['Perplexity ratio score'], c = 'green', alpha = 0.5, label = 'Human text')
+    axs[1,0].scatter(synthetic_data['Fragment length (words)'], synthetic_data['Perplexity ratio score'], c = 'blue', alpha = 0.5, label = 'Synthetic text')
+    axs[1,0].legend(loc = 'upper right')
+    axs[1,0].set_xlabel('Fragment length (words)')
+    axs[1,0].set_ylabel('Perplexity ratio score')
+
+    # Plot length distributions for human and synthetic text fragments
+    axs[1,1].set_title('Fragment length distribution')
+    axs[1,1].hist(human_data['Fragment length (words)'], density = True, facecolor = 'green', label = 'Human text', alpha = 0.5)
+    axs[1,1].hist(synthetic_data['Fragment length (words)'], density = True, facecolor = 'blue', label = 'Synthetic text', alpha = 0.5)
+    axs[1,1].legend(loc = 'upper right')
+    axs[1,1].set_xlabel('Fragment length (words)')
+    axs[1,1].set_ylabel('Fragments')
+
+    return plt
+
+
 def perplexity_ratio_by_dataset(data):
     '''Creates boxplot of perplexity ratio score for human and synthetic
     text fragments separated by original source dataset.'''

@@ -11,13 +11,18 @@ import multiprocessing
 # other paths relative to it
 PROJECT_ROOT_PATH = os.path.dirname(os.path.realpath(__file__))
 
+# Logging
+LOG_LEVEL = 'DEBUG'
+LOG_PATH = f'{PROJECT_ROOT_PATH}/logs'
+LOG_PREFIX = '%(levelname)s - %(name)s - %(message)s'
+
 # Other project paths
 DATA_PATH = f'{PROJECT_ROOT_PATH}/data'
 BENCHMARKING_DATA_PATH = f'{DATA_PATH}/benchmarking'
 HANS_DATA_PATH = f'{DATA_PATH}/hans_2024'
 
 # Data paths
-RAW_INPUT_DATA = f'{HANS_DATA_PATH}/falcon-7b_scores_v2.1.json'
+RAW_INPUT_DATA = f'{HANS_DATA_PATH}/falcon-7b_scores_v2_10-300_words.json'
 LENGTH_BINNED_DATASET = f'{DATA_PATH}/length_binned_dataset.h5'
 
 # Luigi feature engineering/data pipeline parameters
