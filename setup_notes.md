@@ -472,5 +472,6 @@ pip install schedule
 Installed pytesseract so we can do optical character recognition in python.
 
 '''text
+sudo apt install tesseract-ocr
 pip install pytesseract
 '''
