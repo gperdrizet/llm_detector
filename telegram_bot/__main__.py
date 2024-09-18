@@ -96,7 +96,7 @@ async def score_image_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_object = BytesIO(file)
     function_logger.info('Got image from user')
 
-    text = pytesseract.image_to_string(Image.open(file_object))
+    text = pytesseract.image_to_string(Image.open(file_object)).strip()
     function_logger.info('Extracted text from user image')
 
     # Check the user's chosen response mode, setting default if
@@ -113,7 +113,8 @@ async def score_image_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Get the result, when ready
     result = api_funcs.retrieve_result(result_id = result_id)
-    reply = await result
+    api_reply = await result
+    reply = f'{api_reply}\n\nRecovered text: "{text}"'
 
     function_logger.info('Result ID: %s', result_id)
 
