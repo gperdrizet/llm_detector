@@ -58,8 +58,8 @@ def tf_idf_score(
     data_lake.close()
 
     # Calculate worker number whichever is less, the number of avalible
-    # CPU or the humber of bins
-    n_workers = min(20, len(list(bins.keys())))
+    # CPU (minus 2 so we don't lock up) or the humber of bins
+    n_workers = min(mp.cpu_count() - 2, len(list(bins.keys())))
 
     # Instantiate worker pool
     pool = mp.Pool(
