@@ -122,8 +122,6 @@ def get_kl_kde(figure_title, scores, human_fit_func, synthetic_fit_func, padding
     synthetic_human_kld = kl_divergence(synthetic_fitted_values, human_fitted_values)
     human_synthetic_kld = kl_divergence(human_fitted_values, synthetic_fitted_values)
 
-    print(type(synthetic_human_kld))
-
     # Get rid of any np.nan, without changing the length
     mask = np.isnan(synthetic_human_kld)
     synthetic_human_kld[mask] = 0
