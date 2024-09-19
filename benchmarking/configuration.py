@@ -61,9 +61,10 @@ WORKERS = 1
 BATCH_SIZE = 10
 WRITER_DEVICE = 'cuda:2'
 READER_DEVICE = 'cuda:1'
+CPUS_PER_WORKER = 4
 
 SHORT_FRAGMENT_LIMIT = 10
-LONG_FRAGMENT_LIMIT = 1000
+LONG_FRAGMENT_LIMIT = 300
 
 # Variable names to collect data for
 DEPENDENT_VARS = [
@@ -72,6 +73,7 @@ DEPENDENT_VARS = [
     'Fragment length (tokens)',
     'Dataset',
     'Source',
+    'Generator',
     'String',
     'Perplexity',
     'Cross-perplexity',
@@ -82,11 +84,9 @@ DEPENDENT_VARS = [
     'Writer peak memory (GB)',
 ]
 
-
 # Models to use for perplexity scoring of Hans 2024 text samples
-READER_MODEL = 'tiiuae/falcon-7b'
-WRITER_MODEL = 'tiiuae/falcon-7b-instruct'
-PERPLEXITY_OUTPUT_FILE_NAME = 'falcon-7b_scores.json'
+READER_MODEL = 'meta-llama/Llama-2-7b-hf'
+WRITER_MODEL = 'meta-llama/Llama-2-7b-chat-hf'
 
 # Paths dictionary to JSON lines data files from the
 # original binoculars publication
