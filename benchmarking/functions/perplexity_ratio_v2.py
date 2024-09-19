@@ -19,16 +19,16 @@ import benchmarking.functions.helper as helper_funcs
 import benchmarking.classes.llm as llm_class
 from benchmarking.functions.metrics import perplexity, entropy
 
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
+os.environ['TRANSFORMERS_OFFLINE'] = '1'
 
 # Comment ##############################################################
 # Code ########################################################################
 
-def perplexity_ratio_score(output_file_name: str='perplexity_ratio_score_v2'):
+def perplexity_ratio_score(output_file_name: str) -> None:
     '''Main function to load and batch data and submit jobs.'''
 
     # Start logger
-    logger = helper_funcs.start_logger('hans_data_perplexity_ratio_score_v2')
+    logger = helper_funcs.start_logger(f'{output_file_name}.log')
     logger.info('Starting v2 perplexity ratio score')
 
     # Input file
@@ -44,59 +44,64 @@ def perplexity_ratio_score(output_file_name: str='perplexity_ratio_score_v2'):
 
         # Skip already completed records
         for i in range(record_number):
-            next_line = f.readline()
-            logger.info(f'Slipped record {i}, already sampled')
+            _ = f.readline()
+            logger.info(f'Skipped record {i}, already sampled')
 
-        # Set flag to detect EOF
-        next_line = 'next line'
-
-        # Loop until next line comes up empty at end of file
-        while next_line != '':
+        # Loop until we break
+        while True:
 
             # Make a set of batches of lines from the input data
             record_number, batches = make_batches(f, record_number)
-            logger.info(f'Have {len(batches)} batches of {len(batches[0])} lines for run.')
 
-            # Instantiate pool with one worker per batch
-            pool = mp.Pool(
-                processes = len(batches),
-                maxtasksperchild = 1
-            )
+            # If batches came back empty, we are done.
+            if len(batches) == 0:
+                break
 
-            # Holder for returns from workers
-            async_results = []
+            # If we have batches, run the scoring functions
+            if len(batches) != 0:
 
-            # Loop on jobs for this run
-            for i, batch in enumerate(batches):
+                logger.info(f'Have {len(batches)} batches of {len(batches[0])} lines for run.')
 
-                logger.info(f'Submitting batch {i}')
-
-                async_results.append(
-                    pool.apply_async(score_batch,
-                        args = (
-                            i, 
-                            batch
-                        )
-                    )
+                # Instantiate pool with one worker per batch
+                pool = mp.Pool(
+                    processes = len(batches),
+                    maxtasksperchild = 1
                 )
 
-            # Clean up
-            pool.close()
-            pool.join()
-            
-            ##### Collect and save the results #########################################
+                # Holder for returns from workers
+                async_results = []
 
-            # Get the results
-            new_results = [async_result.get() for async_result in async_results]
+                # Loop on jobs for this run
+                for i, batch in enumerate(batches):
 
-            # Add the new results
-            for new_result in new_results:
-                for key, value in new_result.items():
-                    results[key].extend(value)
+                    logger.info(f'Submitting batch {i}')
 
-            # Save
-            with open(results_datafile, 'w', encoding = 'utf-8') as out_f:
-                json.dump(results, out_f)
+                    async_results.append(
+                        pool.apply_async(score_batch,
+                            args = (
+                                i, 
+                                batch
+                            )
+                        )
+                    )
+
+                # Clean up
+                pool.close()
+                pool.join()
+                
+                ##### Collect and save the results #########################################
+
+                # Get the results
+                new_results = [async_result.get() for async_result in async_results]
+
+                # Add the new results
+                for new_result in new_results:
+                    for key, value in new_result.items():
+                        results[key].extend(value)
+
+                # Save
+                with open(results_datafile, 'w', encoding = 'utf-8') as out_f:
+                    json.dump(results, out_f)
 
 
 def score_batch(worker_num: int = None, batch: list = None) -> dict:
@@ -142,10 +147,9 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
 
     ##### Calculate perplexity scores for each fragment from batch
 
-    # Set available CPU cores based on worker count
-    cpus = int(mp.cpu_count()/config.WORKERS) - 2
-    torch.set_num_threads(cpus)
-    logger.info(f'Worker {worker_num} - {cpus} CPU threads avalible')
+    # Set available CPU cores
+    torch.set_num_threads(config.CPUS_PER_WORKER)
+    logger.info(f'Worker {worker_num} - {config.CPUS_PER_WORKER} CPU threads avalible')
 
     # Load the models
     reader_model, writer_model = load_models()
@@ -295,6 +299,9 @@ def initialize_results(results_datafile: str = None):
 def make_batches(f, record_number):
     '''Makes set of batches from input data records'''
 
+    # Get the logger
+    logger = logging.getLogger(__name__)
+
     # Make a set of batches of lines from the input data
     batches = []
 
@@ -317,6 +324,7 @@ def make_batches(f, record_number):
             record_number += 1
         
         if next_line == '':
+            logger.info('End of input data file')
             break
 
         # Once the batch is complete, add it to the batches
@@ -437,12 +445,14 @@ def make_text_fragment_samples(
                 results['Source record num'].append(str(record_number))
                 results['Dataset'].append(record['Data source'])
                 results['Source'].append('human')
+                results['Generator'].append('human')
                 results['Fragment length (words)'].append(str(human_text_length_words))
                 results['String'].append(human_text_string)
 
                 results['Source record num'].append(str(record_number))
                 results['Dataset'].append(record['Data source'])
                 results['Source'].append('synthetic')
+                results['Generator'].append(record['Generation model'])
                 results['Fragment length (words)'].append(str(synthetic_text_length_words))
                 results['String'].append(synthetic_text_string)
             
