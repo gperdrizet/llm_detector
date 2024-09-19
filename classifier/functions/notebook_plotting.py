@@ -155,7 +155,7 @@ def plot_score_distribution_fits(
     plt.title(plot_title)
     plt.xlabel('Score')
     plt.ylabel('Density')
-    plt.legend(loc = 'upper left', fontsize = 'small', markerscale = 2)
+    plt.legend(loc = 'best', fontsize = 'small', markerscale = 2)
 
     return plt
 
