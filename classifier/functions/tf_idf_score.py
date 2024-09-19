@@ -58,8 +58,8 @@ def tf_idf_score(
     data_lake.close()
 
     # Calculate worker number whichever is less, the number of avalible
-    # CPU or the humber of bins
-    n_workers = min(20, len(list(bins.keys())))
+    # CPU (minus 2 so we don't lock up) or the humber of bins
+    n_workers = min(mp.cpu_count() - 2, len(list(bins.keys())))
 
     # Instantiate worker pool
     pool = mp.Pool(
@@ -190,30 +190,21 @@ def tf_idf_score_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) 
         # Split the text into words
         words = text.split(' ')
 
-        # Score the words using the human and synthetic luts only scoring words for which we have
-        # a human and a synthetic TF-IDF value
-        scored_word_count = 0
+        # Score the words using the human and synthetic luts
         human_tfidf_sum = 0
         synthetic_tfidf_sum = 0
 
         for word in words:
 
-            if word in tfidf_luts['human'].keys() and word in tfidf_luts['synthetic'].keys():
+            if word in tfidf_luts['human'].keys():
                 human_tfidf_sum += tfidf_luts['human'][word]
+
+            if word in tfidf_luts['synthetic'].keys():
                 synthetic_tfidf_sum += tfidf_luts['synthetic'][word]
-
-                scored_word_count += 1
-
-        # Get the means, protecting from division by zero
-        if scored_word_count == 0:
-
-            human_tfidf_mean = 0
-            synthetic_tfidf_mean = 0
-
-        elif scored_word_count != 0:
             
-            human_tfidf_mean = human_tfidf_sum / scored_word_count
-            synthetic_tfidf_mean = synthetic_tfidf_sum / scored_word_count
+        # Get the means
+        human_tfidf_mean = human_tfidf_sum / len(words)
+        synthetic_tfidf_mean = synthetic_tfidf_sum / len(words)
 
         # Get the product normalized TF-IDF score
         dmean_tfidf = human_tfidf_mean - synthetic_tfidf_mean

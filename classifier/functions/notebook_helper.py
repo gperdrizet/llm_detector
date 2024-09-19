@@ -1,5 +1,8 @@
 '''Collection of functions refactored from notebooks for data handling'''
 
+from __future__ import annotations
+from typing import Callable
+
 import re
 import nltk
 import cupy as cp
@@ -68,20 +71,21 @@ def mean_difference_ci(data):
             print(f'  p-value (human > synthetic) = {ttest_result.pvalue}\n')
 
 
-def exp_gaussian_fit(scores):
-    '''Fit and return exponnorm on score'''
-
-    # Set parameter bounds
-    bounds = [[0.001, 1.0], [0.001, 1.0], [0.001, 1.0]]
+def exp_gaussian_fit(
+        scores: np.ndarray, 
+        bounds: list[list[float, float]] = [[0.001, 1.0], [0.001, 1.0], [0.001, 1.0]]
+) -> Callable:
+    
+    '''Fit and return exponnorm on scores'''
 
     # Do the fit
     exponnorm_fit = fit(exponnorm, scores.astype(np.float64), bounds = bounds)
 
-    # Build function from rit
+    # Build function from fit
     exponnorm_func = exponnorm(exponnorm_fit.params.K, exponnorm_fit.params.loc, exponnorm_fit.params.scale)
 
     # Print the fitted parameters
-    print(f'  Rate: {exponnorm_fit.params.K}')
+    print(f'  Shape: {exponnorm_fit.params.K}')
     print(f'  Mean: {exponnorm_fit.params.loc}')
     print(f'  Variance: {exponnorm_fit.params.scale}')
 
@@ -121,8 +125,6 @@ def get_kl_kde(figure_title, scores, human_fit_func, synthetic_fit_func, padding
     # Calculate the KL divergences of the fitted values
     synthetic_human_kld = kl_divergence(synthetic_fitted_values, human_fitted_values)
     human_synthetic_kld = kl_divergence(human_fitted_values, synthetic_fitted_values)
-
-    print(type(synthetic_human_kld))
 
     # Get rid of any np.nan, without changing the length
     mask = np.isnan(synthetic_human_kld)
