@@ -11,15 +11,18 @@ import api.configuration as config
 logger = helper_funcs.start_logger()
 logger.info('Running in %s mode', config.MODE)
 
-# Draw a bot traffic plot on app start
-helper_funcs.update_traffic_plot()
+# Start bot traffic plotter if asked
+if config.PLOT_BOT_TRAFFIC is True:
+    
+    # Draw a bot traffic plot on app start
+    helper_funcs.update_traffic_plot()
 
-# Schedule the bot traffic plot update in a worker thread
-bot_traffic_thread = Thread(
-    target = helper_funcs.schedule_traffic_plot_update
-)
+    # Schedule the bot traffic plot update in a worker thread
+    bot_traffic_thread = Thread(
+        target = helper_funcs.schedule_traffic_plot_update
+    )
 
-bot_traffic_thread.start()
+    bot_traffic_thread.start()
 
 if config.MODE == 'testing':
 
