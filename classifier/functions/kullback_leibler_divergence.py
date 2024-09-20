@@ -175,24 +175,6 @@ def get_kullback_leibler_KDE(
 
     return bin_id, True
 
-    # # Calculate Kullback-Leibler scores for the training and testing data
-    # # in this bin and add the to the features
-    # try:
-    #     logger.info(f'Worker {worker_num} - adding Kullback-Leibler score to training features')
-    #     start_time = time.time()
-    #     bin_training_features_df = add_kld_score(bin_training_features_df, feature_name, feature_scaler, kld_kde)
-    #     logger.info(f'Worker {worker_num} - add_kld_score(), training data took {(time.time() - start_time):.3f} seconds')
-
-    #     logger.info(f'Worker {worker_num} - adding Kullback-Leibler score to testing features')
-    #     start_time = time.time()
-    #     bin_testing_features_df = add_kld_score(bin_testing_features_df, feature_name, feature_scaler, kld_kde)
-    #     logger.info(f'Worker {worker_num} - add_kld_score(), testing data took {(time.time() - start_time):.3f} seconds')
-
-    # except Exception as err_string:
-    #     logger.error(f'Worker {worker_num} - add_kld_score() error: {err_string}')
-
-    # return bin_id, bin_training_features_df, bin_testing_features_df
-
 
 def get_feature_kdes(
         data_df: pd.DataFrame, 
