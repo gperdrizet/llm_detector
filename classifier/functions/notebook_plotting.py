@@ -4,8 +4,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pandas.plotting import scatter_matrix
+from sklearn.metrics import ConfusionMatrixDisplay
 
 import functions.notebook_helper as helper_funcs
+import functions.parallel_xgboost as xgb_funcs
 
 
 def data_exploration_plot(data):
@@ -346,6 +348,23 @@ def plot_cross_validation(plots, results):
     return plt
 
 
+def plot_two_factor_cross_validation(plots, results):
+    '''Takes a list of independent variables and the results dictionary,
+    makes and returns boxplots.'''
+
+    # Set-up the subplots
+    num_conditions = len(set(results['Condition']))
+    fig, axes = plt.subplots(4, 1, figsize=(7, num_conditions + 1))
+
+    # Draw each boxplot
+    for plot, ax in zip(plots, axes.flatten()):
+        sns.boxplot(y = 'Condition', x = plot, hue = 'Optimized', data = pd.DataFrame.from_dict(results), orient = 'h', ax = ax)
+        
+    plt.tight_layout()
+
+    return plt
+
+
 def make_optimization_plot(trials):
     '''Parse optimization trial results, make and return plot.'''
 
@@ -381,3 +400,88 @@ def make_optimization_plot(trials):
     optimization_plot = plot_data_df.plot(subplots = True, figsize = (12, 8))
 
     return optimization_plot
+
+
+def plot_hyperparameter_tuning(cv_results: pd.DataFrame) -> plt:
+    '''Takes parsed results from parse_hyperparameter_tuning_results()
+    in parallel_xgboost functions. plots the binary cross entropy 
+    of each step by the step's rank for each bin, returns the plot object'''
+
+    # Set up a figure for 12 bins
+    _, axs = plt.subplots(
+        4,
+        3,
+        figsize = (9, 12),
+        gridspec_kw = {'wspace':0.4, 'hspace':0.4}
+    )
+
+    # Plot the results for each bin on a separate axis
+    for bin_id, ax in zip(cv_results['bin'].unique(), axs.reshape(-1)):
+
+        bin_results = cv_results[cv_results['bin'] == bin_id]
+        sorted_bin_results = bin_results.sort_values('rank_test_negated_binary_cross_entropy')
+
+        ax.set_title(f'{bin_id}')
+        ax.set_xlabel('Parameter set rank')
+        ax.set_ylabel('Binary cross-entropy')
+        ax.invert_xaxis()
+
+
+        ax.fill_between(
+            sorted_bin_results['rank_test_negated_binary_cross_entropy'],
+            sorted_bin_results['mean_test_binary_cross_entropy'] + sorted_bin_results['std_test_binary_cross_entropy'],
+            sorted_bin_results['mean_test_binary_cross_entropy'] - sorted_bin_results['std_test_binary_cross_entropy'],
+            alpha = 0.5
+        )
+
+        ax.plot(
+            sorted_bin_results['rank_test_negated_binary_cross_entropy'],
+            sorted_bin_results['mean_test_binary_cross_entropy']
+        )
+
+    return plt
+
+
+def plot_testing_confusion_matrices(winners: dict, input_file: str) -> plt:
+    '''Takes winners dictionary from parse_hyperparameter_tuning_results()
+    in parallel_xgboost functions and path to hdf5 datafile. Plots confusion 
+    matrix using predictions on hold-out test data for each bin.'''
+
+    # Will need to get the test data for each bin, open a 
+    # connection to the hdf5 dataset via PyTables with Pandas
+    data_lake = pd.HDFStore(input_file)
+
+    # Set up a figure for 12 bins
+    _, axs = plt.subplots(
+        6,
+        2,
+        figsize = (8, 18),
+        gridspec_kw = {'hspace':0.5}
+    )
+
+    # Now, loop on the winners and the subplots
+    for bin_id, ax in zip(winners.keys(), axs.reshape(-1)):
+
+        # Get the model
+        model = winners[bin_id]['model']
+
+        # Get the testing features and labels
+        features_df = data_lake[f'testing/{bin_id}/features']
+        labels = data_lake[f'testing/{bin_id}/labels']
+
+        # Clean up the features
+        features = xgb_funcs.prep_data(features_df, False)
+
+        # Make the confusion matrix
+        _ = ConfusionMatrixDisplay.from_estimator(
+            model,
+            features, 
+            labels,
+            display_labels = ['human', 'synthetic'],
+            normalize = 'all',
+            ax = ax
+        )
+
+        ax.title.set_text(bin_id)
+
+    return plt

@@ -560,6 +560,30 @@ def add_cv_scores(results, scores, condition):
 
     return results
 
+def add_two_factor_cv_scores(results, scores, condition, optimization):
+    '''Adds results of sklearn cross-validation run to
+    results data structure, returns updated results.'''
+
+    # Figure out how many folds we are adding
+    num_folds = len(scores['test_accuracy'])
+    
+    # Add the fold numbers
+    results['Fold'].extend(list(range(num_folds)))
+
+    # Add the condition description
+    results['Condition'].extend([condition] * num_folds)
+
+    # Add the optimization
+    results['Optimized'].extend([optimization] * num_folds)
+
+    # Add the scores
+    results['Accuracy (%)'].extend(scores['test_accuracy'])
+    results['False positive rate'].extend(scores['test_false_positive_rate'])
+    results['False negative rate'].extend(scores['test_false_negative_rate'])
+    results['Binary cross-entropy'].extend(scores['test_binary_cross_entropy'])
+
+    return results
+
 
 def percent_accuracy(labels, predictions):
     '''Scoring function for use with scikit-learn make_scorer
