@@ -437,8 +437,7 @@ def plot_results(hdf5_file: str, feature_name: str) -> plt:
         len(bin_ids),
         3,
         figsize = (9, (3 * len(bin_ids))),
-        gridspec_kw = {'wspace':0.4, 'hspace':0.4},
-        #sharex='col'
+        gridspec_kw = {'wspace':0.4, 'hspace':0.4}
     )
 
     # Loop on the bins to draw each plot
