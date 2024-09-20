@@ -1,5 +1,6 @@
 '''Collection of functions for XGBoost classifier training/evaluation with
 length binned data. Parallelizes models over the bins.'''
+
 from __future__ import annotations
 
 import h5py
@@ -55,7 +56,6 @@ def cross_validate_bins(
                     bin_training_features_df, 
                     bin_training_labels,
                     scoring_funcs,
-                    worker_num,
                     bin_id,
                     shuffle_control
                 )
@@ -87,7 +87,6 @@ def cross_validate_bin(
         features_df: pd.DataFrame, 
         labels: pd.Series,
         scoring_funcs: dict,
-        worker_num: int, 
         bin_id: str,
         shuffle_control: bool
 ) -> tuple[str, dict]:
