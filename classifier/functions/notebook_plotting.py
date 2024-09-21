@@ -15,7 +15,7 @@ def data_exploration_plot(data):
     and distribution diagnostic plots'''
 
     # Set up a 2 x 2 figure for some diagnostic plots
-    fig, axs = plt.subplots(
+    _, axs = plt.subplots(
         2,
         2,
         figsize = (8, 8),
@@ -67,7 +67,7 @@ def data_exploration_plot_v2(data: pd.DataFrame, feature_name = str) -> plt:
     synthetic_data = data[data['Source'] == 'synthetic']
 
     # Set up a 2 x 2 figure for some diagnostic plots
-    fig, axs = plt.subplots(
+    _, axs = plt.subplots(
         2,
         2,
         figsize = (8, 8),
@@ -337,7 +337,7 @@ def plot_cross_validation(plots, results):
 
     # Set-up the subplots
     num_conditions = len(set(results['Condition']))
-    fig, axes = plt.subplots(5, 1, figsize=(7, num_conditions + 3))
+    _, axes = plt.subplots(5, 1, figsize=(7, num_conditions + 3))
 
     # Draw each boxplot
     for plot, ax in zip(plots, axes.flatten()):
@@ -354,7 +354,7 @@ def plot_two_factor_cross_validation(plots, results):
 
     # Set-up the subplots
     num_conditions = len(set(results['Condition']))
-    fig, axes = plt.subplots(4, 1, figsize=(7, num_conditions + 1))
+    _, axes = plt.subplots(4, 1, figsize=(7, num_conditions + 1))
 
     # Draw each boxplot
     for plot, ax in zip(plots, axes.flatten()):
@@ -426,7 +426,6 @@ def plot_hyperparameter_tuning(cv_results: pd.DataFrame) -> plt:
         ax.set_ylabel('Binary cross-entropy')
         ax.invert_xaxis()
 
-
         ax.fill_between(
             sorted_bin_results['rank_test_negated_binary_cross_entropy'],
             sorted_bin_results['mean_test_binary_cross_entropy'] + sorted_bin_results['std_test_binary_cross_entropy'],
@@ -436,8 +435,24 @@ def plot_hyperparameter_tuning(cv_results: pd.DataFrame) -> plt:
 
         ax.plot(
             sorted_bin_results['rank_test_negated_binary_cross_entropy'],
-            sorted_bin_results['mean_test_binary_cross_entropy']
+            sorted_bin_results['mean_test_binary_cross_entropy'],
+            label='Validation'
         )
+
+        ax.fill_between(
+            sorted_bin_results['rank_test_negated_binary_cross_entropy'],
+            sorted_bin_results['mean_train_binary_cross_entropy'] + sorted_bin_results['std_train_binary_cross_entropy'],
+            sorted_bin_results['mean_train_binary_cross_entropy'] - sorted_bin_results['std_train_binary_cross_entropy'],
+            alpha = 0.5
+        )
+
+        ax.plot(
+            sorted_bin_results['rank_test_negated_binary_cross_entropy'],
+            sorted_bin_results['mean_train_binary_cross_entropy'],
+            label='Training'
+        )
+
+        ax.legend(loc = 'best', fontsize = 'x-small')
 
     return plt
 
