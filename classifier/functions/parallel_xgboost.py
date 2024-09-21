@@ -135,7 +135,11 @@ def cross_validate_bin(
     return bin_id, results
 
 
-def prep_data(features_df: pd.DataFrame, shuffle_control: bool) -> pd.DataFrame:
+def prep_data(
+        features_df: pd.DataFrame, 
+        shuffle_control: bool = True,
+        feature_drops: list = ['Fragment length (words)','Source','String']
+) -> pd.DataFrame:
     '''Takes a dataframe of features, drops unnecessary or un-trainable features,
     cleans up missing data, shuffles and returns updated dataframe.'''
 
