@@ -4,16 +4,18 @@ length binned data. Parallelizes models over the bins.'''
 from __future__ import annotations
 
 import os
+import pickle
+import multiprocessing as mp
+
 import h5py
 import numpy as np
 import pandas as pd
-import multiprocessing as mp
-import matplotlib.pyplot as plt
+
 from xgboost import XGBClassifier
 from sklearn.model_selection import cross_validate, RandomizedSearchCV
 from joblib import parallel_backend
 
-import functions.notebook_helper as helper_funcs
+import functions.notebook_helper as helper_funcs # pylint: disable=import-error
 
 def cross_validate_bins(
         input_file: str,
@@ -37,12 +39,12 @@ def cross_validate_bins(
     bin_batches = [bin_ids[i:i + workers] for i in range(0, len(bin_ids), workers)]
 
     # Batch CPUs so we can pin workers to them with taskset linux command.
-    # Note: pretty sure it's something about scikit-learn that makes this 
-    # necessary, or the interaction of scikit-learn's use of multiprocessing, 
-    # combined with our use of multiprocessing and/or joblib threading on 
-    # top of all of that. If we don't do it this way, every worker tries to 
+    # Note: pretty sure it's something about scikit-learn that makes this
+    # necessary, or the interaction of scikit-learn's use of multiprocessing,
+    # combined with our use of multiprocessing and/or joblib threading on
+    # top of all of that. If we don't do it this way, every worker tries to
     # use all of the CPUs.
-    CPU_batches = batch_cpus(workers)
+    cpu_batches = batch_cpus(workers)
 
     # Open a connection to the hdf5 dataset via PyTables with Pandas
     data_lake = pd.HDFStore(input_file)
@@ -59,9 +61,10 @@ def cross_validate_bins(
         # Holder for worker returns
         async_results = []
 
-        for bin_id, bin_CPUs in zip(bin_batch, CPU_batches):
+        for bin_id, bin_cpus in zip(bin_batch, cpu_batches):
 
-            print(f'Running cross-validation on {bin_id} with {len(bin_CPUs)} threads, CPUs: {", ".join(bin_CPUs)}')
+            print(f'Running cross-validation on {bin_id}'+
+                f' with {len(bin_cpus)} threads, CPUs: {", ".join(bin_cpus)}')
 
             # Pull the training features for this bin
             bin_training_features_df = data_lake[f'training/{bin_id}/features']
@@ -72,12 +75,12 @@ def cross_validate_bins(
             async_results.append(
                 pool.apply_async(cross_validate_bin,
                     args = (
-                        bin_training_features_df, 
+                        bin_training_features_df,
                         bin_training_labels,
                         cv_folds,
                         scoring_funcs,
                         bin_id,
-                        bin_CPUs,
+                        bin_cpus,
                         shuffle_control
                     )
                 )
@@ -109,36 +112,40 @@ def cross_validate_bins(
 
 
 def cross_validate_bin(
-        features_df: pd.DataFrame, 
+        features_df: pd.DataFrame,
         labels: pd.Series,
         cv_folds: int,
         scoring_funcs: dict,
         bin_id: str,
-        bin_CPUs: list[str],
+        bin_cpus: list[str],
         shuffle_control: bool
 ) -> tuple[str, dict]:
-    
+
     '''Runs cross-validation on bin data with XGBClassifier'''
 
     # Clean up the features for training
-    features = prep_data(features_df, shuffle_control)
+    features = prep_data(
+        features_df = features_df,
+        feature_drops = ['Fragment length (words)', 'Source', 'String'],
+        shuffle_control = shuffle_control
+    )
 
     # Do the cross-validation training run
     results = run_cross_validation(
-        features = features, 
-        labels = labels, 
-        cv_folds = cv_folds, 
+        features = features,
+        labels = labels,
+        cv_folds = cv_folds,
         scoring_funcs = scoring_funcs,
-        bin_CPUs = bin_CPUs
+        bin_cpus = bin_cpus
     )
 
     return bin_id, results
 
 
 def prep_data(
-        features_df: pd.DataFrame, 
-        shuffle_control: bool = True,
-        feature_drops: list = ['Fragment length (words)','Source','String']
+        features_df: pd.DataFrame,
+        feature_drops: list,
+        shuffle_control: bool = True
 ) -> pd.DataFrame:
 
     '''Takes a dataframe of features, drops unnecessary or un-trainable features,
@@ -154,20 +161,20 @@ def prep_data(
 
     # Last, if this is a shuffle control run, randomize the order of the
     # data. This will break the correspondence between features and labels
-    if shuffle_control == True: 
+    if shuffle_control is True:
         features_df = features_df.sample(frac = 1).reset_index(drop = True)
 
     return features_df
 
 
 def run_cross_validation(
-        features: pd.DataFrame, 
-        labels: pd.Series, 
-        cv_folds: int, 
+        features: pd.DataFrame,
+        labels: pd.Series,
+        cv_folds: int,
         scoring_funcs: dict,
-        bin_CPUs: list[str]
+        bin_cpus: list[str]
 ) -> dict:
-    
+
     '''Does the cross-validation'''
 
     # Assign CPUs to this process. Note: pretty sure it's something
@@ -177,13 +184,13 @@ def run_cross_validation(
     # If we don't do it this way, every worker tries to use all of the
     # CPUs.
     pid = os.getpid()
-    cmd = 'taskset -cp %s %i' % (','.join(bin_CPUs), pid)
+    cmd = f'taskset -cp {",".join(bin_cpus)} {pid}'
     _ = os.popen(cmd).read()
 
     # Use threading backend for parallelism because we are running in a
-    # daemonic worker process started by multiprocessing and thus can't 
+    # daemonic worker process started by multiprocessing and thus can't
     # use multiprocessing again to spawn more processes
-    with parallel_backend('threading', n_jobs = len(bin_CPUs)):
+    with parallel_backend('threading', n_jobs = len(bin_cpus)):
 
         # Instantiate sklearn gradient boosting classifier
         model = XGBClassifier(random_state = 42)
@@ -194,7 +201,7 @@ def run_cross_validation(
             features.to_numpy(),
             labels.to_numpy(),
             cv = cv_folds,
-            n_jobs = len(bin_CPUs),
+            n_jobs = len(bin_cpus),
             scoring = scoring_funcs
         )
 
@@ -205,8 +212,8 @@ def hyperparameter_tune_bins(
         parameter_distributions: dict,
         scoring_funcs: dict,
         cv_folds: int = 5,
-        n_iterations: int = 3, 
-        workers: int = 3, 
+        n_iterations: int = 3,
+        workers: int = 3,
         shuffle_control: bool = False
 ) -> dict:
 
@@ -223,13 +230,13 @@ def hyperparameter_tune_bins(
     bin_batches = [bin_ids[i:i + workers] for i in range(0, len(bin_ids), workers)]
 
     # Batch CPUs so we can pin workers to them with taskset linux command.
-    # Note: pretty sure it's something about scikit-learn that makes this 
-    # necessary, or the interaction of scikit-learn's use of multiprocessing, 
-    # combined with our use of multiprocessing and/or joblib threading on 
-    # top of all of that. If we don't do it this way, every worker tries to 
+    # Note: pretty sure it's something about scikit-learn that makes this
+    # necessary, or the interaction of scikit-learn's use of multiprocessing,
+    # combined with our use of multiprocessing and/or joblib threading on
+    # top of all of that. If we don't do it this way, every worker tries to
     # use all of the CPUs.
-    CPU_batches = batch_cpus(workers)
-    
+    cpu_batches = batch_cpus(workers)
+
     # Holder for results
     parsed_results = {}
 
@@ -248,9 +255,10 @@ def hyperparameter_tune_bins(
         # Holder for worker returns
         async_results = []
 
-        for bin_id, bin_CPUs in zip(bin_batch, CPU_batches):
+        for bin_id, bin_cpus in zip(bin_batch, cpu_batches):
 
-            print(f'Running optimization on {bin_id} with {len(bin_CPUs)} threads, CPUs: {", ".join(bin_CPUs)}')
+            print(f'Running optimization on {bin_id} with'+
+                ' {len(bin_cpus)} threads, CPUs: {", ".join(bin_cpus)}')
 
             # Pull the training features for this bin
             bin_training_features_df = data_lake[f'training/{bin_id}/features']
@@ -261,13 +269,13 @@ def hyperparameter_tune_bins(
             async_results.append(
                 pool.apply_async(hyperparameter_tune_bin,
                     args = (
-                        bin_training_features_df, 
+                        bin_training_features_df,
                         bin_training_labels,
                         parameter_distributions,
                         scoring_funcs,
                         cv_folds,
                         n_iterations,
-                        bin_CPUs,
+                        bin_cpus,
                         bin_id,
                         shuffle_control
                     )
@@ -294,19 +302,19 @@ def hyperparameter_tune_bins(
 
 
 def hyperparameter_tune_bin(
-        features_df: pd.DataFrame, 
+        features_df: pd.DataFrame,
         labels: pd.Series,
         parameter_distributions: dict,
         scoring_funcs: dict,
         cv_folds: int,
-        n_iterations: int, 
-        bin_CPUs: list[str],
+        n_iterations: int,
+        bin_cpus: list[str],
         bin_id: str,
         shuffle_control: bool
 ) -> tuple[str, dict]:
-    
+
     '''Runs hyperparameter tuning on bin data with XGBClassifier'''
-    
+
     # Assign CPUs to this process. Note: pretty sure it's something
     # about scikit-learn that makes this necessary, or the interaction
     # of scikit-learn's use of multiprocessing, combined with our use
@@ -314,16 +322,16 @@ def hyperparameter_tune_bin(
     # If we don't do it this way, every worker tries to use all of the
     # CPUs.
     pid = os.getpid()
-    cmd = 'taskset -cp %s %i' % (','.join(bin_CPUs), pid)
+    cmd = f'taskset -cp {",".join(bin_cpus)} {pid}'
     _ = os.popen(cmd).read()
 
     # Clean up the features for training
     features = prep_data(features_df, shuffle_control)
 
     # Use threading backend for parallelism because we are running in a
-    # daemonic worker process started by multiprocessing and thus can't 
+    # daemonic worker process started by multiprocessing and thus can't
     # re-use multiprocessing (via scikit-learn) again to spawn more processes
-    with parallel_backend('threading', n_jobs = len(bin_CPUs)):
+    with parallel_backend('threading', n_jobs = len(bin_cpus)):
 
         # Instantiate the classifier
         model = XGBClassifier()
@@ -335,7 +343,7 @@ def hyperparameter_tune_bin(
             scoring = scoring_funcs,
             cv = cv_folds,
             refit = 'negated_binary_cross_entropy',
-            n_jobs = len(bin_CPUs),
+            n_jobs = len(bin_cpus),
             return_train_score = True,
             n_iter = n_iterations
         )
@@ -379,7 +387,12 @@ def parse_hyperparameter_tuning_results(results: dict) -> tuple[dict, pd.DataFra
     return winners, cv_results
 
 
-def add_winners_to_parsed_results(cv_results: dict, parsed_results: dict, cv_folds: int = 5) -> dict:
+def add_winners_to_parsed_results(
+        cv_results: dict,
+        parsed_results: dict,
+        cv_folds: int = 5
+) -> dict:
+
     '''Takes cross-validation results from parse_hyperparameter_tuning_results()
     in parallel_xgboost functions and parsed results from baseline cross-validation.
     Adds cross-validation results from winning hyperparameter tuning model for
@@ -410,7 +423,8 @@ def add_winners_to_parsed_results(cv_results: dict, parsed_results: dict, cv_fol
         bin_winner_long = bin_winner.transpose()
         bin_winner_long.reset_index(inplace = True)
 
-        # Dictionary to translate names in our parsed results data struct to variables in the hyperparameter optimization output
+        # Dictionary to translate names in our parsed results data struct to variables in
+        # the hyperparameter optimization output
         metrics = {
             'Accuracy (%)': 'test_accuracy', 
             'False positive rate': 'test_false_positive_rate', 
@@ -434,14 +448,125 @@ def batch_cpus(workers: int) -> list[list[str]]:
     # using two less than the system total
     threads_per_worker = (mp.cpu_count() - 2) // workers
     print(f'Will assign each worker {threads_per_worker} CPUs')
-    
-    # List of CPUs indices to be assigned 
-    CPUs = list(range(mp.cpu_count() - 2))
+
+    # List of CPUs indices to be assigned
+    cpus = list(range(mp.cpu_count() - 2))
 
     # Convert CPU indices to string
-    CPUs = [str(i) for i in CPUs]
+    cpus = [str(i) for i in cpus]
 
     # Batch CPUs
-    CPU_batches = [CPUs[i:i + threads_per_worker] for i in range(0, len(CPUs), threads_per_worker)]
+    cpu_batches = [cpus[i:i + threads_per_worker] for i in range(0, len(cpus), threads_per_worker)]
 
-    return CPU_batches
+    return cpu_batches
+
+
+def add_stage_one_probabilities_features(
+    input_file: str,
+    hyperparameter_optimization_results_filename: str
+) -> pd.DataFrame:
+    '''Takes paths to hdf5 dataset and hyperparameter optimization results.
+    Adds stage one classifier class probabilities to combined data as new feature'''
+
+    # Load the winning model from hyperparameter optimization for each bin
+    with open(hyperparameter_optimization_results_filename, 'rb') as result_input_file:
+        results = pickle.load(result_input_file)
+
+    # Get the numerical bin length ranges from the hdf5 dataset's metadata
+    data_lake = h5py.File(input_file, 'r')
+    bins = dict(data_lake.attrs.items())
+    data_lake.close()
+
+    # Now, we need to visit each text fragment in the training and testing
+    # data and score it with both classifiers that it falls into the
+    # length range for.
+    for dataset in ['training/combined/features', 'testing/combined/features']:
+
+        # Open a connection to the hdf5 dataset via PyTables with Pandas
+        data_lake = pd.HDFStore(input_file)
+
+        # Load the combined features
+        features_df = data_lake[dataset]
+
+        # Close the connection
+        data_lake.close()
+
+        # Clean up the features
+        features_df = prep_data(
+            features_df,
+            feature_drops = None
+        )
+
+        # Run apply on rows to score the fragments
+        features_df = features_df.apply(
+            class_probability_scores,
+            bins = bins,
+            results = results,
+            axis = 1
+        )
+
+        # Open a connection to the hdf5 dataset via PyTables with Pandas
+        data_lake = pd.HDFStore(input_file)
+
+        # Put data back into hdf5
+        data_lake.put(dataset, features_df)
+
+        data_lake.close()
+
+    return True
+
+
+def class_probability_scores(
+            fragment: np.ndarray,
+            bins: dict = None,
+            results: dict = None
+) -> tuple[float, float]:
+
+    '''Takes bin dictionary and hyperparameter tuning results.
+    Uses best model for each applicable length bin to score
+    text fragments.'''
+
+    # Get the fragment length in words
+    fragment_length = fragment[0]
+
+    # Next we have to loop on the bins and see which one(s)
+    # this fragment falls into. Then we use the model for those
+    # bins to score the fragment. Most fragments will get scored
+    # by two models 'short_score' and 'long_score' while some
+    # very short or very long fragments will only have one score.
+    # To deal with this, let's initialize the scores to np.nan
+    # and then replace them with model outputs.
+
+    score_count = 0
+    scores = [np.nan, np.nan]
+
+    # Loop on bins
+    for bin_id, bin_range in bins.items():
+
+        # Check if this fragment goes in this bin
+        if fragment_length >= bin_range[0] and fragment_length <= bin_range[1]:
+
+            # Predict the class probability with the model for this bin
+            # making sure to clip the fragment length in words
+            # off of the features because it was not present for
+            # model training (only length in tokens was)
+            bin_model = results[bin_id].best_estimator_
+            features = fragment[1:]
+            class_probabilities = bin_model.predict_proba([features])
+
+            # Get the class 0 probability
+            class_probability = class_probabilities[0][0]
+
+            # Add it to scores
+            scores[score_count] = class_probability
+            score_count += 1
+
+            # If this was the second bin we got a score from, we are done
+            if score_count == 2:
+                break
+
+    # Add the new features to the fragment
+    fragment['Short score'] = scores[0]
+    fragment['Long score'] = scores[1]
+
+    return fragment

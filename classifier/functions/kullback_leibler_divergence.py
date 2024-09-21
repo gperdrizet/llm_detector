@@ -7,23 +7,24 @@ the data as a new feature.'''
 from __future__ import annotations
 from typing import Callable
 
-import h5py
 import time
 import logging
 import pickle
+import multiprocessing as mp
+
+import h5py
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import multiprocessing as mp
 
 from scipy.stats import gaussian_kde
 
-import functions.helper as helper_funcs
-import functions.multiprocess_logging as log_funcs
-import configuration as config
+import functions.helper as helper_funcs # pylint: disable=import-error
+import functions.multiprocess_logging as log_funcs # pylint: disable=import-error
+import configuration as config # pylint: disable=import-error
 
 
-def get_kullback_leibler_KDEs(
+def get_kullback_leibler_kdes(
         feature_name: str,
         hdf5_file: str,
         logfile_name: str = 'kld.log'
@@ -50,7 +51,7 @@ def get_kullback_leibler_KDEs(
     bins = dict(data_lake.attrs.items())
     data_lake.close()
 
-    # Calculate worker number whichever is less, the number of avalible
+    # Calculate worker number whichever is less, the number of available
     # CPU (minus 2 so we don't lock up) or the humber of bins
     n_workers = min(mp.cpu_count() - 2, len(list(bins.keys())))
 
@@ -76,13 +77,13 @@ def get_kullback_leibler_KDEs(
 
 
         async_results.append(
-            pool.apply_async(get_kullback_leibler_KDE,
+            pool.apply_async(get_kullback_leibler_kde,
                 args = (
                     feature_name,
-                    bin_training_features_df, 
+                    bin_training_features_df,
                     worker_num,
                     bin_id,
-                    logging_queue, 
+                    logging_queue,
                     log_funcs.configure_worker
                 )
             )
@@ -109,9 +110,9 @@ def get_kullback_leibler_KDEs(
         print(f'{bin_id} finished: {finished}')
 
 
-def get_kullback_leibler_KDE(
+def get_kullback_leibler_kde(
         feature_name: str,
-        bin_training_features_df: pd.DataFrame, 
+        bin_training_features_df: pd.DataFrame,
         worker_num: int,
         bin_id: str,
         logging_queue: Callable,
@@ -126,39 +127,51 @@ def get_kullback_leibler_KDE(
     # Set-up logging
     configure_logging(logging_queue)
     logger = logging.getLogger(f'{__name__}.get_kullback_leibler_KDE')
-    logger.info(f'Worker {worker_num} - {len(bin_training_features_df)} fragments in {bin_id}')
+    logger.info(f'Worker {worker_num} - '+
+        f'{len(bin_training_features_df)} fragments in {bin_id}')
 
     # Get a kernel density estimate for the feature's distribution in the human and synthetic data
     try:
         start_time = time.time()
-        human_feature_kde, synthetic_feature_kde = get_feature_kdes(bin_training_features_df, feature_name)
-        logger.info(f'Worker {worker_num} - get_feature_kdes() took {(time.time() - start_time):.3f} seconds')
 
-    except Exception as err_string:
-        logger.error(f'Worker {worker_num} - get_feature_kdes() error: {err_string}')
+        human_feature_kde, synthetic_feature_kde = get_feature_kdes(
+            bin_training_features_df,
+            feature_name
+        )
 
-    # Calculate the Kullback-Leibler divergence between the human and synthetic kernel density estimates
+        logger.info(f'Worker {worker_num} - '+
+            f'get_feature_kdes() took {(time.time() - start_time):.3f} seconds')
+
+    except Exception as err_string: # pylint: disable=broad-exception-caught
+        logger.error(f'Worker {worker_num} - '+
+            f'get_feature_kdes() error: {err_string}')
+
+    # Calculate the Kullback-Leibler divergence between the human
+    # and synthetic kernel density estimates
     try:
         start_time = time.time()
 
         feature_kld, x = get_feature_kld(
             bin_training_features_df,
             feature_name,
-            human_feature_kde, 
+            human_feature_kde,
             synthetic_feature_kde
         )
 
-        logger.info(f'Worker {worker_num} - get_feature_kld() took {(time.time() - start_time):.3f} seconds')
+        logger.info(f'Worker {worker_num} - '+
+            f'get_feature_kld() took {(time.time() - start_time):.3f} seconds')
 
-    except Exception as err_string:
-        logger.error(f'Worker {worker_num} - get_feature_kld() error: {err_string}')
-    
+    except Exception as err_string: # pylint: disable=broad-exception-caught
+        logger.error(f'Worker {worker_num} - '+
+            f'get_feature_kld() error: {err_string}')
+
     # Get a kernel density estimate of the Kullback-Leibler divergence and save to disk
     try:
 
         start_time = time.time()
         kld_kde = get_kld_kde(feature_kld, x)
-        logger.info(f'Worker {worker_num} - get_kld_kde() took {(time.time() - start_time):.3f} seconds')
+        logger.info(f'Worker {worker_num} - '+
+            f'get_kld_kde() took {(time.time() - start_time):.3f} seconds')
 
         # Make a filename for the KDE
         formatted_feature_name = feature_name.replace(' ', '_').lower()
@@ -168,19 +181,21 @@ def get_kullback_leibler_KDE(
         with open(output_filename, 'wb') as output_file:
             pickle.dump(kld_kde, output_file)
 
-        logger.info(f'Worker {worker_num} - Kullback-Leibler divergence kernel density estimate saved to disk: {output_filename}')
-    
-    except Exception as err_string:
-        logger.error(f'Worker {worker_num} - get_kld_kde() error: {err_string}')
+        logger.info(f'Worker {worker_num} - '+
+            f'Kullback-Leibler divergence kernel density estimate saved to disk: {output_filename}')
+
+    except Exception as err_string: # pylint: disable=broad-exception-caught
+        logger.error(f'Worker {worker_num} - '+
+            f'get_kld_kde() error: {err_string}')
 
     return bin_id, True
 
 
 def get_feature_kdes(
-        data_df: pd.DataFrame, 
+        data_df: pd.DataFrame,
         feature_name: str
 ) -> tuple[gaussian_kde, gaussian_kde]:
-    
+
     '''Takes Pandas dataframe and a feature name. Splits data by text 'Source'
     feature. Gets kernel density estimates of distributions of feature data for 
     human and synthetic text. Returns KDEs.'''
@@ -199,7 +214,7 @@ def get_feature_kdes(
     start_time = time.time()
     human_feature_kde = gaussian_kde(human_data.flatten(), bw_method = 'silverman')
     synthetic_feature_kde = gaussian_kde(synthetic_data.flatten(), bw_method = 'silverman')
-    logger.debug(f'KDEs took {(time.time() - start_time):.3f} seconds')
+    logger.debug('KDEs took %f seconds', round((time.time() - start_time), 2))
 
     return human_feature_kde, synthetic_feature_kde
 
@@ -211,10 +226,9 @@ def kl_divergence(p: list, q: list) -> np.ndarray:
     p = np.asarray(p)
     q = np.asarray(q)
 
-    # Set handling for overflows/underflows - just ignore. We will handle infinite 
+    # Set handling for overflows/underflows - just ignore. We will handle infinite
     # or nan values later by just filtering them out.
-    with np.errstate(over = 'ignore', under = 'ignore', divide = 'ignore', invalid='ignore'):
-
+    with np.errstate(over = 'ignore', under = 'ignore', divide = 'ignore', invalid = 'ignore'):
         kld_values = p * np.log2(p/q)
 
     return kld_values
@@ -223,10 +237,10 @@ def kl_divergence(p: list, q: list) -> np.ndarray:
 def get_feature_kld(
         data_df: pd.DataFrame,
         feature_name: str,
-        human_feature_kde: gaussian_kde, 
+        human_feature_kde: gaussian_kde,
         synthetic_feature_kde: gaussian_kde
 ) -> tuple[np.ndarray, np.ndarray]:
-    
+
     '''Takes kernel density estimates of data distributions for human and 
     synthetic data and original dataset as dataframe. Calculates Kullback-Leibler 
     divergences of distributions at set of regularly spaced sample points covering 
@@ -244,7 +258,7 @@ def get_feature_kld(
     # the padding off later.
     x = helper_funcs.make_padded_range(scores)
 
-    logger.debug(f'Num samples: {x.shape}')
+    logger.debug('Num samples: %s', x.shape)
 
     # Get fitted values for the points
     human_fitted_values = human_feature_kde(x)
@@ -289,7 +303,7 @@ def get_kld_kde(kld: np.ndarray, x: np.ndarray) -> gaussian_kde:
     # equal to it's KLD 'count'
     kld_scores = []
 
-    for i in range(len(kld_counts)):
+    for i, _ in enumerate(kld_counts):
         kld_scores.extend([x[i]] * kld_counts[i])
 
     # Then, run a KDE on the reconstructed KLD scores
@@ -299,12 +313,12 @@ def get_kld_kde(kld: np.ndarray, x: np.ndarray) -> gaussian_kde:
 
 
 def add_kld_score(
-        data_df: pd.DataFrame, 
+        data_df: pd.DataFrame,
         feature_name: str,
         feature_scaler: gaussian_kde,
         kld_kde: gaussian_kde
 ) -> pd.DataFrame:
-    
+
     '''Takes a features dataframe, feature name and Kullback-Leibler kernel density estimate,
     calculates a Kullback-Leibler score from each text fragment's value for the named feature
     and adds it back to the dataframe as a new feature using the caller specified feature name
@@ -316,12 +330,12 @@ def add_kld_score(
     start_time = time.time()
     scores = feature_scaler.transform(np.asarray(data_df[feature_name]).reshape(-1, 1))
     kld_scores = kld_kde.score_samples(np.asarray(scores).reshape(-1, 1))
-    logger.debug(f'KLD PDF calculation took {round(time.time() - start_time, 1)} sec.')
+    logger.debug('KLD PDF calculation took %f sec.', round(time.time() - start_time, 1))
 
     # Add the scores back to the dataframe in a new column
     start_time = time.time()
     data_df[f'{feature_name} Kullback-Leibler divergence'] = kld_scores
-    logger.debug(f'KLD feature creation took {round(time.time() - start_time, 1)} sec.')
+    logger.debug('KLD feature creation took %f sec.', round(time.time() - start_time, 1))
 
     return data_df
 
@@ -338,7 +352,7 @@ def make_kullback_leibler_feature(
         hdf5_file: str,
         logfile_name: str = 'kld.log'
 ) -> None:
-    
+
     '''uses previously stored kernel density estimates of the Kullback-Leibler 
     divergence between a feature score for human and synthetic text fragments
     in each bin. Loads the data from each bin sequentially and evaluates
@@ -370,7 +384,8 @@ def make_kullback_leibler_feature(
         # Pull the testing features for this bin
         bin_testing_features_df = data_lake[f'testing/{bin_id}/features']
 
-        # Make the filename for the stored Kullback-Leibler divergence kernel density estimate for this bin
+        # Make the filename for the stored Kullback-Leibler divergence
+        # kernel density estimate for this bin
         formatted_feature_name = feature_name.replace(' ', '_').lower()
         input_filename = f'{config.MODELS_PATH}/{formatted_feature_name}_KLD_KDE_{bin_id}.pkl'
 
@@ -385,12 +400,15 @@ def make_kullback_leibler_feature(
             data = np.array(bin_training_features_df[feature_name]),
             workers = mp.cpu_count() - 2
         )
-        logger.debug(f'KLD {bin_id} training evaluation took {round(time.time() - start_time, 1)} sec.')
+        logger.debug(f'KLD {bin_id} training evaluation took '+
+            f'{round(time.time() - start_time, 1)} sec.')
 
         # Add the scores back to the dataframe in a new column
         start_time = time.time()
-        bin_training_features_df[f'{feature_name} Kullback-Leibler divergence'] = training_kde_values
-        logger.debug(f'KLD {bin_id} training feature creation took {round(time.time() - start_time, 1)} sec.')
+        kld_feature_name = f'{feature_name} Kullback-Leibler divergence'
+        bin_training_features_df[kld_feature_name] = training_kde_values
+        logger.debug(f'KLD {bin_id} training feature creation took '+
+            f'{round(time.time() - start_time, 1)} sec.')
 
         start_time = time.time()
         testing_kde_values = parallel_evaluate_scores(
@@ -398,12 +416,14 @@ def make_kullback_leibler_feature(
             data = np.array(bin_testing_features_df[feature_name]),
             workers = mp.cpu_count() - 2
         )
-        logger.debug(f'KLD {bin_id} testing evaluation took {round(time.time() - start_time, 1)} sec.')
+        logger.debug(f'KLD {bin_id} testing evaluation took '+
+            f'{round(time.time() - start_time, 1)} sec.')
 
         # Add the scores back to the dataframe in a new column
         start_time = time.time()
         bin_testing_features_df[f'{feature_name} Kullback-Leibler divergence'] = testing_kde_values
-        logger.debug(f'KLD {bin_id} testing feature creation took {round(time.time() - start_time, 1)} sec.')
+        logger.debug(f'KLD {bin_id} testing feature creation took '+
+            f'{round(time.time() - start_time, 1)} sec.')
 
         # Put data back into hdf5
         data_lake.put(f'training/{bin_id}/features', bin_training_features_df)
@@ -429,11 +449,11 @@ def plot_results(hdf5_file: str, feature_name: str) -> plt:
     data_lake = pd.HDFStore(hdf5_file)
 
     # Now we want to make 3 plots for each bin: the distributions of perplexity ratio score,
-    # the Kullback-Leibler divergence kernel density estimate, and the distribution of 
+    # the Kullback-Leibler divergence kernel density estimate, and the distribution of
     # Kullback-Leibler score values
 
     # Set up a figure for n bins x 3 plots
-    fig, axs = plt.subplots(
+    _, axs = plt.subplots(
         len(bin_ids),
         3,
         figsize = (9, (3 * len(bin_ids))),
@@ -447,8 +467,8 @@ def plot_results(hdf5_file: str, feature_name: str) -> plt:
         bin_training_features_df = data_lake[f'training/{bin_id}/features']
 
         # Get human and synthetic perplexity ratio score
-        human_feature = bin_training_features_df[feature_name][bin_training_features_df['Source'] == 'human']
-        synthetic_feature = bin_training_features_df[feature_name][bin_training_features_df['Source'] == 'synthetic']
+        human_feature = bin_training_features_df[feature_name][bin_training_features_df['Source'] == 'human'] # pylint: disable=line-too-long
+        synthetic_feature = bin_training_features_df[feature_name][bin_training_features_df['Source'] == 'synthetic'] # pylint: disable=line-too-long
 
         # Draw histograms for human and synthetic perplexity ratio scores in the first plot
         axs[i, 0].set_title(f'{bin_id} {feature_name.lower()}', fontsize = 'medium')
@@ -461,9 +481,11 @@ def plot_results(hdf5_file: str, feature_name: str) -> plt:
         # Turn axis tick labels back on for shared x axis
         axs[i, 0].tick_params(labelbottom = True)
 
-        # For the second plot load and evaluate the Kullback-Leibler divergence kernel density estimate
-            
-        # Make the filename for the stored Kullback-Leibler divergence kernel density estimate for this bin
+        # For the second plot, load and evaluate the Kullback-Leibler
+        # divergence kernel density estimate
+
+        # Make the filename for the stored Kullback-Leibler divergence
+        # kernel density estimate for this bin
         formatted_feature_name = feature_name.replace(' ', '_').lower()
         input_filename = f'{config.MODELS_PATH}/{formatted_feature_name}_KLD_KDE_{bin_id}.pkl'
 
@@ -481,8 +503,11 @@ def plot_results(hdf5_file: str, feature_name: str) -> plt:
         x_clipped = []
         y_clipped = []
 
+        feature_min = min(bin_training_features_df[feature_name])
+        feature_max = max(bin_training_features_df[feature_name])
+
         for xi, yi in zip(x, y):
-            if xi >= min(bin_training_features_df[feature_name]) and xi <= max(bin_training_features_df[feature_name]):
+            if xi >= feature_min and xi <= feature_max:
                 x_clipped.append(xi)
                 y_clipped.append(yi)
 
@@ -498,8 +523,8 @@ def plot_results(hdf5_file: str, feature_name: str) -> plt:
         # For the third plot make a histogram of the KLD KDE values in the bin
 
         # Get human and KLD scores
-        human_feature = bin_training_features_df[f'{feature_name} Kullback-Leibler divergence'][bin_training_features_df['Source'] == 'human']
-        synthetic_feature = bin_training_features_df[f'{feature_name} Kullback-Leibler divergence'][bin_training_features_df['Source'] == 'synthetic']
+        human_feature = bin_training_features_df[f'{feature_name} Kullback-Leibler divergence'][bin_training_features_df['Source'] == 'human'] # pylint: disable=line-too-long
+        synthetic_feature = bin_training_features_df[f'{feature_name} Kullback-Leibler divergence'][bin_training_features_df['Source'] == 'synthetic'] # pylint: disable=line-too-long
 
         # Draw histograms for human and synthetic Kullback-Leibler divergence scores
         axs[i, 2].set_title(f'{bin_id} Kullback-Leibler scores', fontsize = 'medium')
