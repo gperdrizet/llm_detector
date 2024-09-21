@@ -140,16 +140,11 @@ def prep_data(
         shuffle_control: bool = True,
         feature_drops: list = ['Fragment length (words)','Source','String']
 ) -> pd.DataFrame:
+
     '''Takes a dataframe of features, drops unnecessary or un-trainable features,
     cleans up missing data, shuffles and returns updated dataframe.'''
 
-    # Next, get rid of un-trainable/unnecessary features
-    feature_drops = [
-        'Fragment length (words)',
-        'Source',
-        'String'
-    ]
-
+    # Get rid of un-trainable/unnecessary features
     features_df.drop(feature_drops, axis = 1, inplace = True)
 
     # Replace and remove string 'OOM' and 'NAN' values
