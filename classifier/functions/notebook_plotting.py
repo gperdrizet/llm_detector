@@ -487,6 +487,8 @@ def plot_testing_confusion_matrices(winners: dict, input_file: str) -> plt:
         # Clean up the features
         features = xgb_funcs.prep_data(features_df, False)
 
+        print(features.info())
+
         # Make the confusion matrix
         _ = ConfusionMatrixDisplay.from_estimator(
             model,
@@ -498,5 +500,7 @@ def plot_testing_confusion_matrices(winners: dict, input_file: str) -> plt:
         )
 
         ax.title.set_text(bin_id)
+
+    data_lake.close()
 
     return plt
