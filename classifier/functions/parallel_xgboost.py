@@ -3,6 +3,7 @@ length binned data. Parallelizes models over the bins.'''
 
 from __future__ import annotations
 
+import os
 import h5py
 import numpy as np
 import pandas as pd
@@ -19,8 +20,7 @@ def cross_validate_bins(
         scoring_funcs: dict,
         parsed_results: dict,
         cv_folds: int = 5,
-        num_workers: int = 3,
-        threads_per_worker: int = 6,
+        workers: int = 3,
         shuffle_control: bool = False
 ) -> dict:
 
@@ -32,56 +32,76 @@ def cross_validate_bins(
     bins = dict(data_lake.attrs.items())
     data_lake.close()
 
-    # Instantiate worker pool
-    pool = mp.Pool(
-        processes = num_workers,
-        maxtasksperchild = 1
-    )
+    # Batch the bins into chunks of size worker number
+    bin_ids = list(bins.keys())
+    bin_batches = [bin_ids[i:i + workers] for i in range(0, len(bin_ids), workers)]
 
-    # Holder for returns from workers
-    async_results = []
+    # Batch CPUs so we can pin workers to them with taskset linux command.
+    # Note: pretty sure it's something about scikit-learn that makes this 
+    # necessary, or the interaction of scikit-learn's use of multiprocessing, 
+    # combined with our use of multiprocessing and/or joblib threading on 
+    # top of all of that. If we don't do it this way, every worker tries to 
+    # use all of the CPUs.
+    CPU_batches = batch_cpus(workers)
 
     # Open a connection to the hdf5 dataset via PyTables with Pandas
     data_lake = pd.HDFStore(input_file)
 
     # Loop on the bins
-    for bin_id in bins.keys():
+    for bin_batch in bin_batches:
 
-        # Pull the training features for this bin
-        bin_training_features_df = data_lake[f'training/{bin_id}/features']
-
-        # Pull the training labels for this bin
-        bin_training_labels = data_lake[f'training/{bin_id}/labels']
-
-        async_results.append(
-            pool.apply_async(cross_validate_bin,
-                args = (
-                    bin_training_features_df, 
-                    bin_training_labels,
-                    cv_folds,
-                    threads_per_worker,
-                    scoring_funcs,
-                    bin_id,
-                    shuffle_control
-                )
-            )
+        # Instantiate worker pool.
+        pool = mp.Pool(
+            processes = workers,
+            maxtasksperchild = 1
         )
 
-    # Clean up
-    pool.close()
-    pool.join()
+        # Holder for worker returns
+        async_results = []
 
-    # Get the results
-    results = [async_result.get() for async_result in async_results]
+        for bin_id, bin_CPUs in zip(bin_batch, CPU_batches):
 
-    print()
+            print(f'Running cross-validation on {bin_id} with {len(bin_CPUs)} threads, CPUs: {", ".join(bin_CPUs)}')
 
-    # Add the results
-    for result in results:
+            # Pull the training features for this bin
+            bin_training_features_df = data_lake[f'training/{bin_id}/features']
 
-        bin_id = result[0]
-        scores = result[1]
-        parsed_results = helper_funcs.add_two_factor_cv_scores(parsed_results, scores, bin_id, False)
+            # Pull the training labels for this bin
+            bin_training_labels = data_lake[f'training/{bin_id}/labels']
+
+            async_results.append(
+                pool.apply_async(cross_validate_bin,
+                    args = (
+                        bin_training_features_df, 
+                        bin_training_labels,
+                        cv_folds,
+                        scoring_funcs,
+                        bin_id,
+                        bin_CPUs,
+                        shuffle_control
+                    )
+                )
+            )
+
+        # Clean up
+        pool.close()
+        pool.join()
+
+        # Get the results
+        results = [async_result.get() for async_result in async_results]
+
+        # Add the results
+        for result in results:
+
+            bin_id = result[0]
+            scores = result[1]
+
+            parsed_results = helper_funcs.add_two_factor_cv_scores(
+                parsed_results,
+                scores,
+                bin_id,
+                False
+            )
 
     data_lake.close()
 
@@ -92,9 +112,9 @@ def cross_validate_bin(
         features_df: pd.DataFrame, 
         labels: pd.Series,
         cv_folds: int,
-        threads_per_worker: int,
         scoring_funcs: dict,
         bin_id: str,
+        bin_CPUs: list[str],
         shuffle_control: bool
 ) -> tuple[str, dict]:
     
@@ -104,7 +124,13 @@ def cross_validate_bin(
     features = prep_data(features_df, shuffle_control)
 
     # Do the cross-validation training run
-    results = run_cross_validation(features, labels, cv_folds, threads_per_worker, scoring_funcs)
+    results = run_cross_validation(
+        features = features, 
+        labels = labels, 
+        cv_folds = cv_folds, 
+        scoring_funcs = scoring_funcs,
+        bin_CPUs = bin_CPUs
+    )
 
     return bin_id, results
 
@@ -135,13 +161,30 @@ def prep_data(features_df: pd.DataFrame, shuffle_control: bool) -> pd.DataFrame:
     return features_df
 
 
-def run_cross_validation(features: pd.DataFrame, labels: pd.Series, cv_folds: int, threads_per_worker: int, scoring_funcs: dict) -> dict:
+def run_cross_validation(
+        features: pd.DataFrame, 
+        labels: pd.Series, 
+        cv_folds: int, 
+        scoring_funcs: dict,
+        bin_CPUs: list[str]
+) -> dict:
+    
     '''Does the cross-validation'''
+
+    # Assign CPUs to this process. Note: pretty sure it's something
+    # about scikit-learn that makes this necessary, or the interaction
+    # of scikit-learn's use of multiprocessing, combined with our use
+    # of multiprocessing and/or joblib threading on top of all of that.
+    # If we don't do it this way, every worker tries to use all of the
+    # CPUs.
+    pid = os.getpid()
+    cmd = 'taskset -cp %s %i' % (','.join(bin_CPUs), pid)
+    _ = os.popen(cmd).read()
 
     # Use threading backend for parallelism because we are running in a
     # daemonic worker process started by multiprocessing and thus can't 
     # use multiprocessing again to spawn more processes
-    with parallel_backend('threading', n_jobs = threads_per_worker):
+    with parallel_backend('threading', n_jobs = len(bin_CPUs)):
 
         # Instantiate sklearn gradient boosting classifier
         model = XGBClassifier(random_state = 42)
@@ -152,7 +195,7 @@ def run_cross_validation(features: pd.DataFrame, labels: pd.Series, cv_folds: in
             features.to_numpy(),
             labels.to_numpy(),
             cv = cv_folds,
-            n_jobs = threads_per_worker,
+            n_jobs = len(bin_CPUs),
             scoring = scoring_funcs
         )
 
@@ -165,7 +208,6 @@ def hyperparameter_tune_bins(
         cv_folds: int = 5,
         n_iterations: int = 3, 
         workers: int = 3, 
-        threads_per_worker: int = 3,
         shuffle_control: bool = False
 ) -> dict:
 
@@ -177,63 +219,75 @@ def hyperparameter_tune_bins(
     bins = dict(data_lake.attrs.items())
     data_lake.close()
 
-    # Instantiate worker pool. For now, use constant 4 workers at a
-    # time. We have 12 bins, so this means each worker will have to optimize
-    # three bins. But, since we have 20 CPUs we can use up to 6 CPUs per
-    # worker to parallelize the hyperparameter optimization
-    pool = mp.Pool(
-        processes = workers,
-        maxtasksperchild = 1
-    )
+    # Batch the bins into chunks of size worker number
+    bin_ids = list(bins.keys())
+    bin_batches = [bin_ids[i:i + workers] for i in range(0, len(bin_ids), workers)]
 
-    # Holder for returns from workers
-    async_results = []
+    # Batch CPUs so we can pin workers to them with taskset linux command.
+    # Note: pretty sure it's something about scikit-learn that makes this 
+    # necessary, or the interaction of scikit-learn's use of multiprocessing, 
+    # combined with our use of multiprocessing and/or joblib threading on 
+    # top of all of that. If we don't do it this way, every worker tries to 
+    # use all of the CPUs.
+    CPU_batches = batch_cpus(workers)
+    
+    # Holder for results
+    parsed_results = {}
 
     # Open a connection to the hdf5 dataset via PyTables with Pandas
     data_lake = pd.HDFStore(input_file)
 
     # Loop on the bins
-    for bin_id in bins.keys():
+    for bin_batch in bin_batches:
 
-        # Pull the training features for this bin
-        bin_training_features_df = data_lake[f'training/{bin_id}/features']
-
-        # Pull the training labels for this bin
-        bin_training_labels = data_lake[f'training/{bin_id}/labels']
-
-        async_results.append(
-            pool.apply_async(hyperparameter_tune_bin,
-                args = (
-                    bin_training_features_df, 
-                    bin_training_labels,
-                    parameter_distributions,
-                    scoring_funcs,
-                    cv_folds,
-                    n_iterations, 
-                    threads_per_worker,
-                    bin_id,
-                    shuffle_control
-                )
-            )
+        # Instantiate worker pool.
+        pool = mp.Pool(
+            processes = workers,
+            maxtasksperchild = 1
         )
 
-    # Clean up
-    pool.close()
-    pool.join()
+        # Holder for worker returns
+        async_results = []
 
-    # Get the results
-    results = [async_result.get() for async_result in async_results]
+        for bin_id, bin_CPUs in zip(bin_batch, CPU_batches):
 
-    print()
+            print(f'Running optimization on {bin_id} with {len(bin_CPUs)} threads, CPUs: {", ".join(bin_CPUs)}')
 
-    # Parse the results
-    parsed_results = {}
+            # Pull the training features for this bin
+            bin_training_features_df = data_lake[f'training/{bin_id}/features']
 
-    for result in results:
+            # Pull the training labels for this bin
+            bin_training_labels = data_lake[f'training/{bin_id}/labels']
 
-        bin_id = result[0]
-        best_parameters = result[1]
-        parsed_results[bin_id] = best_parameters
+            async_results.append(
+                pool.apply_async(hyperparameter_tune_bin,
+                    args = (
+                        bin_training_features_df, 
+                        bin_training_labels,
+                        parameter_distributions,
+                        scoring_funcs,
+                        cv_folds,
+                        n_iterations,
+                        bin_CPUs,
+                        bin_id,
+                        shuffle_control
+                    )
+                )
+            )
+
+        # Clean up
+        pool.close()
+        pool.join()
+
+        # Get the results
+        results = [async_result.get() for async_result in async_results]
+
+        # Parse the results
+        for result in results:
+
+            bin_id = result[0]
+            best_parameters = result[1]
+            parsed_results[bin_id] = best_parameters
 
     data_lake.close()
 
@@ -247,20 +301,30 @@ def hyperparameter_tune_bin(
         scoring_funcs: dict,
         cv_folds: int,
         n_iterations: int, 
-        threads_per_worker: int,
+        bin_CPUs: list[str],
         bin_id: str,
         shuffle_control: bool
 ) -> tuple[str, dict]:
     
     '''Runs hyperparameter tuning on bin data with XGBClassifier'''
+    
+    # Assign CPUs to this process. Note: pretty sure it's something
+    # about scikit-learn that makes this necessary, or the interaction
+    # of scikit-learn's use of multiprocessing, combined with our use
+    # of multiprocessing and/or joblib threading on top of all of that.
+    # If we don't do it this way, every worker tries to use all of the
+    # CPUs.
+    pid = os.getpid()
+    cmd = 'taskset -cp %s %i' % (','.join(bin_CPUs), pid)
+    _ = os.popen(cmd).read()
 
     # Clean up the features for training
     features = prep_data(features_df, shuffle_control)
 
     # Use threading backend for parallelism because we are running in a
     # daemonic worker process started by multiprocessing and thus can't 
-    # use multiprocessing again to spawn more processes
-    with parallel_backend('threading', n_jobs = threads_per_worker):
+    # re-use multiprocessing (via scikit-learn) again to spawn more processes
+    with parallel_backend('threading', n_jobs = len(bin_CPUs)):
 
         # Instantiate the classifier
         model = XGBClassifier()
@@ -272,7 +336,7 @@ def hyperparameter_tune_bin(
             scoring = scoring_funcs,
             cv = cv_folds,
             refit = 'negated_binary_cross_entropy',
-            n_jobs = threads_per_worker,
+            n_jobs = len(bin_CPUs),
             return_train_score = True,
             n_iter = n_iterations
         )
@@ -361,3 +425,24 @@ def add_winners_to_parsed_results(cv_results: dict, parsed_results: dict, cv_fol
                 parsed_results[name].extend(value)
 
     return parsed_results
+
+def batch_cpus(workers: int) -> list[list[str]]:
+    '''For use with scikit-learn multithreading within multiprocessing worker.
+    Takes worker count and determines how many CPUs to give each worker.
+    Returns list of lists containing cpu indices to assign each worker.'''
+
+    # Figure out how many CPUs we can afford to give each worker
+    # using two less than the system total
+    threads_per_worker = (mp.cpu_count() - 2) // workers
+    print(f'Will assign each worker {threads_per_worker} CPUs')
+    
+    # List of CPUs indices to be assigned 
+    CPUs = list(range(mp.cpu_count() - 2))
+
+    # Convert CPU indices to string
+    CPUs = [str(i) for i in CPUs]
+
+    # Batch CPUs
+    CPU_batches = [CPUs[i:i + threads_per_worker] for i in range(0, len(CPUs), threads_per_worker)]
+
+    return CPU_batches
