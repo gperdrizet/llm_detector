@@ -7,7 +7,7 @@ from pandas.plotting import scatter_matrix
 from sklearn.metrics import ConfusionMatrixDisplay
 
 import functions.notebook_helper as helper_funcs # pylint: disable=import-error
-import functions.parallel_xgboost as xgb_funcs # pylint: disable=import-error
+import functions.length_binned_xgboost as xgb_funcs # pylint: disable=import-error
 
 
 def data_exploration_plot(data):
@@ -723,7 +723,7 @@ def plot_testing_confusion_matrices(winners: dict, input_file: str) -> plt:
         # Clean up the features
         features = xgb_funcs.prep_data(
             features_df = features_df,
-            feature_drops = ['Fragment length (words)'],
+            feature_drops = ['Fragment length (words)', 'Source', 'String'],
             shuffle_control = False
         )
 

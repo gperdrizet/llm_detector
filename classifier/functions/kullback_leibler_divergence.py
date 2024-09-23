@@ -73,9 +73,6 @@ def get_kullback_leibler_kdes(
         # Pull the training features for this bin
         bin_training_features_df = data_lake[f'training/{bin_id}/features']
 
-        # Remove outliers with extreme perplexity or cross perplexity scores
-
-
         async_results.append(
             pool.apply_async(get_kullback_leibler_kde,
                 args = (

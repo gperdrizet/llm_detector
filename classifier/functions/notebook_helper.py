@@ -606,6 +606,7 @@ def binary_cross_entropy(labels, predictions):
 
     return log_loss_score
 
+
 def negated_binary_cross_entropy(labels, predictions):
     '''Scoring function for use with scikit-learn make_scorer
     takes a model, features and labels. Returns negated log loss 
@@ -626,25 +627,32 @@ def false_positive_rate(labels, predictions):
     # Extract counts from confusion matrix
     _, fp, _, tp = confusion_matrix(labels, predictions).ravel()
 
-    # Calculate the false positive rate
-    false_positive_rate = fp / (tp + fp)
+    # Calculate the false positive rate, protecting from division by zero
+    if tp + fp == 0:
+        false_positive_rate = 0
+
+    else:
+        false_positive_rate = fp / (tp + fp)
 
     return false_positive_rate
 
 
 def false_negative_rate(labels, predictions):
-    '''Scoring function for use with scikit-learn make_scorer
-    take
-    return false_positive_rates a model, features and labels. Returns false negative
-    rate from scikit-learn confusion matrix.'''
+    '''Scoring function for use with scikit-learn make_scorer take
+    return false_positive_rates a model, features and labels. Returns 
+    false negative rate from scikit-learn confusion matrix.'''
 
     # Extract counts from confusion matrix
     tn, _, fn, _ = confusion_matrix(labels, predictions).ravel()
 
-    # Calculate the false positive rate
-    false_positive_rate = fn / (tn + fn)
+    # Calculate the false negative rate, protecting from division by zero
+    if tn + fn == 0:
+        false_negative_rate = 0
 
-    return false_positive_rate
+    else:
+        false_negative_rate = fn / (tn + fn)
+
+    return false_negative_rate
 
 
 def hyperopt(
@@ -740,3 +748,20 @@ def hyperopt_cv(
 
    # Return negated mean score for minimization
    return score / kfolds
+
+
+def make_labels(training_df, testing_df):
+    '''Takes training and testing dataframes, gets and encode human/synthetic
+    labels and returns.'''
+
+    # Get the labels
+    training_labels = training_df['Source']
+    testing_labels = testing_df['Source']
+
+    # Encode string class values as integers
+    label_encoder = LabelEncoder()
+    label_encoder = label_encoder.fit(training_labels)
+    training_labels = pd.Series(label_encoder.transform(training_labels)).astype(np.int64)
+    testing_labels = pd.Series(label_encoder.transform(testing_labels)).astype(np.int64)
+
+    return training_labels, testing_labels
