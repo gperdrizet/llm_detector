@@ -3,8 +3,8 @@
 from __future__ import annotations
 from typing import Callable
 
-# import re
-# import nltk
+import re
+import nltk
 # import cupy as cp
 import numpy as np
 import pandas as pd
@@ -21,8 +21,8 @@ from sklearn.preprocessing import LabelEncoder#, StandardScaler, PolynomialFeatu
 from math import log2
 from statistics import mean
 from scipy.stats import ttest_ind, exponnorm, fit, gaussian_kde
-# from nltk.corpus import stopwords
-# from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
 
 # # Set cupy CUDA device to GPU 0 (this is the GTX1070 on pyrite)
 # cp.cuda.Device(0).use()
@@ -257,145 +257,145 @@ def get_kl_kde(
     return (synthetic_human_kld_kde, human_synthetic_kld_kde, plt)
 
 
-# nltk.download('stopwords', quiet = True)
-# nltk.download('wordnet', quiet = True)
-# stop_words = stopwords.words('english')
+nltk.download('stopwords', quiet = True)
+nltk.download('wordnet', quiet = True)
+stop_words = stopwords.words('english')
 
-# sw = stopwords.words('english')
-# lemmatizer = WordNetLemmatizer() 
+sw = stopwords.words('english')
+lemmatizer = WordNetLemmatizer() 
 
-# def clean_text(text: str = None) -> str:
+def clean_text(text: str = None) -> str:
     
-#     # Lowercase everything
-#     text = text.lower()
+    # Lowercase everything
+    text = text.lower()
 
-#     # Replace everything with space except (a-z, A-Z, ".", "?", "!", ",")
-#     text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
+    # Replace everything with space except (a-z, A-Z, ".", "?", "!", ",")
+    text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
 
-#     # Remove URLs 
-#     text = re.sub(r"http\S+", "",text)
+    # Remove URLs 
+    text = re.sub(r"http\S+", "",text)
     
-#     # Remove html tags
-#     html = re.compile(r'<.*?>') 
-#     text = html.sub(r'',text)
+    # Remove html tags
+    html = re.compile(r'<.*?>') 
+    text = html.sub(r'',text)
     
-#     punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
+    punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
 
-#     # Remove punctuations
-#     for p in punctuations:
-#         text = text.replace(p,'')
+    # Remove punctuations
+    for p in punctuations:
+        text = text.replace(p,'')
         
-#     # Remove stopwords
-#     text = [word.lower() for word in text.split() if word.lower() not in sw]
-#     text = [lemmatizer.lemmatize(word) for word in text]
-#     text = " ".join(text)
+    # Remove stopwords
+    text = [word.lower() for word in text.split() if word.lower() not in sw]
+    text = [lemmatizer.lemmatize(word) for word in text]
+    text = " ".join(text)
     
-#     # Remove emojis
-#     emoji_pattern = re.compile("["
-#         u"\U0001F600-\U0001F64F"  # emoticons
-#         u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-#         u"\U0001F680-\U0001F6FF"  # transport & map symbols
-#         u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
-#         u"\U00002702-\U000027B0"
-#         u"\U000024C2-\U0001F251"
-#     "]+", flags=re.UNICODE)
+    # Remove emojis
+    emoji_pattern = re.compile("["
+        u"\U0001F600-\U0001F64F"  # emoticons
+        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        u"\U00002702-\U000027B0"
+        u"\U000024C2-\U0001F251"
+    "]+", flags=re.UNICODE)
     
-#     text = emoji_pattern.sub(r'', text)
+    text = emoji_pattern.sub(r'', text)
     
-#     return text
+    return text
 
 
-# def score_known_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) -> dict:
-#     '''Scores text fragments with product normalized difference in
-#     log2 TF-IDF mean.'''
+def score_known_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) -> dict:
+    '''Scores text fragments with product normalized difference in
+    log2 TF-IDF mean.'''
 
-#     # Holders for TF-IDF values
-#     product_normalized_human_dmean_tfidf = []
-#     product_normalized_synthetic_dmean_tfidf = []
+    # Holders for TF-IDF values
+    product_normalized_human_dmean_tfidf = []
+    product_normalized_synthetic_dmean_tfidf = []
 
-#     # Loop on dataframe rows
-#     for _, row in data_df.iterrows():
+    # Loop on dataframe rows
+    for _, row in data_df.iterrows():
         
-#         human_tfidf_sum = 0
-#         synthetic_tfidf_sum = 0
+        human_tfidf_sum = 0
+        synthetic_tfidf_sum = 0
 
-#         # Get the text from this row
-#         text = row['String']
+        # Get the text from this row
+        text = row['String']
 
-#         # Clean the text
-#         text = clean_text(text)
+        # Clean the text
+        text = clean_text(text)
 
-#         # Split the text into words
-#         words = text.split(' ')
+        # Split the text into words
+        words = text.split(' ')
 
-#         # Score the words using the human and synthetic luts
-#         for word in words:
+        # Score the words using the human and synthetic luts
+        for word in words:
 
-#             if word in tfidf_luts['human'].keys():
-#                 human_tfidf_sum += tfidf_luts['human'][word]
+            if word in tfidf_luts['human'].keys():
+                human_tfidf_sum += tfidf_luts['human'][word]
 
-#             if word in tfidf_luts['synthetic'].keys():
-#                 synthetic_tfidf_sum += tfidf_luts['synthetic'][word]
+            if word in tfidf_luts['synthetic'].keys():
+                synthetic_tfidf_sum += tfidf_luts['synthetic'][word]
 
-#         # Get the means
-#         human_tfidf_mean = human_tfidf_sum / len(words)
-#         synthetic_tfidf_mean = synthetic_tfidf_sum / len(words)
-#         dmean_tfidf = human_tfidf_mean - synthetic_tfidf_mean
-#         product_normalized_dmean_tfidf = dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
+        # Get the means
+        human_tfidf_mean = human_tfidf_sum / len(words)
+        synthetic_tfidf_mean = synthetic_tfidf_sum / len(words)
+        dmean_tfidf = human_tfidf_mean - synthetic_tfidf_mean
+        product_normalized_dmean_tfidf = dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
 
-#         if row['Source'] == 'human':
-#             product_normalized_human_dmean_tfidf.append(product_normalized_dmean_tfidf)
+        if row['Source'] == 'human':
+            product_normalized_human_dmean_tfidf.append(product_normalized_dmean_tfidf)
 
-#         elif row['Source'] == 'synthetic':
-#             product_normalized_synthetic_dmean_tfidf.append(product_normalized_dmean_tfidf)
+        elif row['Source'] == 'synthetic':
+            product_normalized_synthetic_dmean_tfidf.append(product_normalized_dmean_tfidf)
 
-#     return {'human': product_normalized_human_dmean_tfidf, 'synthetic': product_normalized_synthetic_dmean_tfidf}
+    return {'human': product_normalized_human_dmean_tfidf, 'synthetic': product_normalized_synthetic_dmean_tfidf}
 
 
-# def score_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) -> dict:
-#     '''Scores text fragments, returns human and synthetic TF-IDF and product 
-#     normalized difference in log2 TF-IDF mean'''
+def score_text_fragments(data_df: pd.DataFrame, tfidf_luts: dict = None) -> dict:
+    '''Scores text fragments, returns human and synthetic TF-IDF and product 
+    normalized difference in log2 TF-IDF mean'''
 
-#     # Holders for new features
-#     tfidf_scores = []
-#     human_tfidf = []
-#     synthetic_tfidf = []
+    # Holders for new features
+    tfidf_scores = []
+    human_tfidf = []
+    synthetic_tfidf = []
 
-#     # Loop on dataframe rows
-#     for _, row in data_df.iterrows():
+    # Loop on dataframe rows
+    for _, row in data_df.iterrows():
         
-#         human_tfidf_sum = 0
-#         synthetic_tfidf_sum = 0
+        human_tfidf_sum = 0
+        synthetic_tfidf_sum = 0
 
-#         # Get the text from this row
-#         text = row['String']
+        # Get the text from this row
+        text = row['String']
 
-#         # Clean the text
-#         text = clean_text(text)
+        # Clean the text
+        text = clean_text(text)
 
-#         # Split the text into words
-#         words = text.split(' ')
+        # Split the text into words
+        words = text.split(' ')
 
-#         # Score the words using the human and synthetic luts
-#         for word in words:
+        # Score the words using the human and synthetic luts
+        for word in words:
 
-#             if word in tfidf_luts['human'].keys():
-#                 human_tfidf_sum += tfidf_luts['human'][word]
+            if word in tfidf_luts['human'].keys():
+                human_tfidf_sum += tfidf_luts['human'][word]
 
-#             if word in tfidf_luts['synthetic'].keys():
-#                 synthetic_tfidf_sum += tfidf_luts['synthetic'][word]
+            if word in tfidf_luts['synthetic'].keys():
+                synthetic_tfidf_sum += tfidf_luts['synthetic'][word]
 
-#         # Get the means
-#         human_tfidf_mean = human_tfidf_sum / len(words)
-#         synthetic_tfidf_mean = synthetic_tfidf_sum / len(words)
-#         dmean_tfidf = human_tfidf_mean - synthetic_tfidf_mean
-#         product_normalized_dmean_tfidf = dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
+        # Get the means
+        human_tfidf_mean = human_tfidf_sum / len(words)
+        synthetic_tfidf_mean = synthetic_tfidf_sum / len(words)
+        dmean_tfidf = human_tfidf_mean - synthetic_tfidf_mean
+        product_normalized_dmean_tfidf = dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
 
-#         human_tfidf.append(human_tfidf_mean)
-#         synthetic_tfidf.append(synthetic_tfidf_mean)
-#         tfidf_scores.append(product_normalized_dmean_tfidf)
+        human_tfidf.append(human_tfidf_mean)
+        synthetic_tfidf.append(synthetic_tfidf_mean)
+        tfidf_scores.append(product_normalized_dmean_tfidf)
 
-#     return {'human_tfidf': human_tfidf, 'synthetic_tfidf': synthetic_tfidf, 'tfidf_score': tfidf_scores}
+    return {'human_tfidf': human_tfidf, 'synthetic_tfidf': synthetic_tfidf, 'tfidf_score': tfidf_scores}
 
 
 # # def prep_training_data(data):
