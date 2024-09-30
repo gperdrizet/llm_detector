@@ -110,12 +110,6 @@
 #     return_list.append(data_chunk)
 
 
-# def kl_divergence(p: list = None, q: list = None) -> list:
-#     '''Takes two lists, calculates KL divergence'''
-
-#     return [p[i] * log2(p[i]/q[i]) for i in range(len(p))]
-
-
 # def clean_ooms(dataframe: pd.DataFrame = None) -> pd.DataFrame:
 #     '''Removes string NAN and OOM error placeholders.'''
 

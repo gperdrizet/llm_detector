@@ -22,7 +22,7 @@
 
 ## 05.4-stage_one_length_binned_classifier.ipynb
 
-## 05.5-build_stage_two_dataset.ipynb
+## 05.5-stage_two_dataset.ipynb
 
 ## 05.6-stage_two_length_binned_classifier.ipynb
 
