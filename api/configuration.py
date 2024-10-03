@@ -45,7 +45,7 @@ READER_DEVICE='cuda:1'
 WRITER_MODEL='meta-llama/Meta-Llama-3-8B-instruct'
 WRITER_DEVICE='cuda:2'
 
-CALCULATION_DEVICE='cuda:0'
+CALCULATION_DEVICE='cuda:2'
 
 PERPLEXITY_RATIO_KLD_KDE = f'{DATA_PATH}/perplexity_ratio_KLD_KDE.pkl'
 TFIDF_LUT = f'{DATA_PATH}/TFIDF_lut.pkl'
