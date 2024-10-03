@@ -5,7 +5,7 @@ from typing import Callable
 
 import pathlib
 import logging
-import logging.handlers
+# import logging.handlers
 
 import configuration as config
 
@@ -21,6 +21,7 @@ def configure_listener(logfile: str) -> None:
     formatter = logging.Formatter(config.LOG_PREFIX)
     handler.setFormatter(formatter)
     root.addHandler(handler)
+
 
 def listener_process(queue: Callable, configurer: Callable, logfile: str) -> None:
     '''Loop for listener, gets log records from queue and logs them.'''
