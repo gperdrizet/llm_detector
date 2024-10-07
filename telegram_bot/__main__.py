@@ -77,7 +77,6 @@ async def score_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif config.MODE == 'offline':
 
         reply = 'Agatha is temporarily off-line so that compute resources can be dedicated to benchmarking and improvements to the classifier. Check out what is going on in the benchmarking and classifier notebooks on the classifier branch of the GitHub repo (https://github.com/gperdrizet/llm_detector/tree/classifier). If you would really like to try agatha out, get in touch and I will fire it up for you.'
-
         await context.bot.send_message(
             chat_id = update.effective_chat.id, text = reply)
 
