@@ -514,7 +514,7 @@ def plot_feature_distributions(features_df: pd.DataFrame) -> plt:
     plot_titles = ['Fragment length\n(words)' if x=='Fragment length (words)' else x for x in plot_titles] # pylint: disable=line-too-long
     plot_titles = ['Fragment length\n(tokens)' if x=='Fragment length (tokens)' else x for x in plot_titles] # pylint: disable=line-too-long
 
-    n_cols = len(features_df.columns) // 4
+    n_cols = 4
     n_rows = (len(features_df.columns) // 4) + (len(features_df.columns) % 4)
 
     features_df.plot(
@@ -524,7 +524,7 @@ def plot_feature_distributions(features_df: pd.DataFrame) -> plt:
         sharex = False,
         legend = False,
         layout = (n_rows,n_cols),
-        figsize = (10,10)
+        figsize = (9,n_rows*2)
     )
 
     plt.tight_layout()
