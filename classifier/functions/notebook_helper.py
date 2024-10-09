@@ -306,6 +306,7 @@ stop_words = stopwords.words('english')
 sw = stopwords.words('english')
 lemmatizer = WordNetLemmatizer() 
 
+
 def clean_text(text: str = None) -> str:
     '''Cleans up text string for TF-IDF analysis.'''
     
@@ -507,6 +508,7 @@ def add_poly_features(
 
     return poly_features_train, poly_features_test
 
+
 def add_spline_features(
         features_train_df: pd.DataFrame,
         features_test_df: pd.DataFrame
@@ -552,6 +554,7 @@ def add_cv_scores(results: dict, scores: dict, condition: str) -> dict:
     results['Binary cross-entropy'].extend(scores['test_binary_cross_entropy'])
 
     return results
+
 
 def add_two_factor_cv_scores(
         results: dict, 
@@ -613,9 +616,9 @@ def negated_binary_cross_entropy(labels: np.ndarray, predictions: np.ndarray) ->
     'larger-is-better is desirable'''
 
     # Get the scikit-learn normalized accuracy score
-    log_loss_score = log_loss(labels, predictions, normalize = True)
+    log_loss_score = -1 * log_loss(labels, predictions, normalize = True)
 
-    return -log_loss_score
+    return log_loss_score
 
 
 def false_positive_rate(labels: np.ndarray, predictions: np.ndarray) -> np.ndarray:
