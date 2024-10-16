@@ -25,7 +25,7 @@ DATA_PATH=f'{PROJECT_ROOT_PATH}/data'
 FRAGMENT_TURNAROUND_DATA = f'{TELEGRAM_BOT_PATH}/logs/fragment_turnaround.dat'
 
 # Logging stuff
-PLOT_BOT_TRAFFIC = False
+PLOT_BOT_TRAFFIC = True
 LOG_LEVEL='INFO'
 LOG_PREFIX='%(levelname)s - %(message)s'
 CLEAR_LOGS=True
