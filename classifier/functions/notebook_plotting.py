@@ -814,11 +814,12 @@ def plot_testing_confusion_matrices(winners: dict, input_file: str) -> plt:
     # connection to the hdf5 dataset via PyTables with Pandas
     data_lake = pd.HDFStore(input_file)
 
-    # Set up a figure for 12 bins
+    # Set up a two column figure with a plot for each bin
+    rows = len(winners.keys()) // 2
     _, axs = plt.subplots(
-        6,
+        rows,
         2,
-        figsize = (8, 18),
+        figsize = (8, 3 * rows),
         gridspec_kw = {'hspace':0.5}
     )
 
