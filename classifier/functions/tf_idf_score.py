@@ -9,6 +9,7 @@ import gc
 import h5py
 import nltk
 import logging
+import pickle
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
@@ -140,7 +141,6 @@ def add_tf_idf_score(
     each text fragment in the training and testing data. Adds TF-IDF score
     to dataframes as new features and return the updated dataframes.'''
 
-
     # Set-up logging
     configure_logging(logging_queue)
     logger = logging.getLogger(f'{__name__}.add_feature_kld_score')
@@ -154,6 +154,13 @@ def add_tf_idf_score(
 
     try:
         tfidf_luts = get_term_tf_idf(human_texts, synthetic_texts)
+
+        # Save the LUTs for this bin to disk
+        output_filename = f'{config.MODELS_PATH}/tf-idf_luts_{bin_id}.pkl'
+
+        # Pickle the KDE to disk for later use
+        with open(output_filename, 'wb') as output_file:
+            pickle.dump(tfidf_luts, output_file)
 
     except Exception as err_string:
         logger.error(f'Worker {worker_num} - get_term_tf_idf() error: {err_string}')
