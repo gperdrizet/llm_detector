@@ -157,8 +157,6 @@ def add_tf_idf_score(
 
         # Save the LUTs for this bin to disk
         output_filename = f'{config.MODELS_PATH}/tf-idf_luts_{bin_id}.pkl'
-
-        # Pickle the KDE to disk for later use
         with open(output_filename, 'wb') as output_file:
             pickle.dump(tfidf_luts, output_file)
 

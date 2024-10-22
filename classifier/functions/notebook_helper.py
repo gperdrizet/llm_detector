@@ -3,18 +3,22 @@
 from __future__ import annotations
 from typing import Callable
 
+import pickle
 import re
 import nltk
 import pathlib
 import logging
 import time
-import multiprocessing
+import multiprocessing as mp
 import cupy as cp
 import numpy as np
 import pandas as pd
 import statsmodels.stats.api as sms
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+import torch
+import transformers
 
 from xgboost import XGBClassifier
 from sklearn.feature_selection import RFECV, SequentialFeatureSelector
@@ -30,9 +34,11 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
 import configuration as config
+import classes.llm as llm_class
+
 
 # Set cupy CUDA device to GPU 0 (this is the GTX1070 on pyrite)
-cp.cuda.Device(0).use()
+#cp.cuda.Device(0).use()
 
 
 def start_logger(
@@ -1077,7 +1083,7 @@ def fitted_value_speed(
         scipy_times = []
         scikit_times = []
 
-        # Loop on replicatesimport multiprocessing
+        # Loop on replicates
         for i in range(replicates):
 
             # Do the evals, timing how long it takes
@@ -1117,7 +1123,7 @@ def parallel_score_samples(
     
     '''Splits evaluation over n_workers.'''
 
-    with multiprocessing.Pool(workers) as p:
+    with mp.Pool(workers) as p:
         return np.concatenate(p.map(kde, np.array_split(data, workers)))
 
 def eval_speed_worker_count(
@@ -1171,3 +1177,333 @@ def eval_speed_worker_count(
         results['Standard deviation'].append(np.std(times))
 
     return results
+
+################################################
+# Experimental v2 inference pipeline functions #
+################################################
+
+def get_perplexity_ratio(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
+    '''Takes text from input queue, calculates perplexity ratio and adds
+    as new feature, puts updated input text into output queue.'''
+
+    # Configure and load two instances of the model, one base for the
+    # reader and one instruct for the writer. Use different GPUs.
+    reader_model = llm_class.Llm(
+        hf_model_string = config.READER_MODEL,
+        device_map = config.READER_DEVICE
+    )
+
+    reader_model.load()
+    print('Loaded reader model')
+
+    writer_model = llm_class.Llm(
+        hf_model_string = config.WRITER_MODEL,
+        device_map = config.WRITER_DEVICE
+    )
+
+    writer_model.load()
+    print('Loaded writer model')
+
+    # Main loop
+    while True:
+
+        # Get text to score from input queue
+        input_text=input_queue.get()
+
+        # If we get the 'done' signal from the input queue
+        # send it along and finish
+        if input_text == 'done':
+            output_queue.put('done')
+            return
+
+        # Start feature dictionary with new text
+        features={'Text string': input_text}
+
+        # Add the text length in words as the first feature
+        features['Text length (words)']=len(input_text.split(' '))
+
+        # Encode the string using the reader's tokenizer
+        encodings = reader_model.tokenizer(
+            input_text,
+            return_tensors = 'pt',
+            return_token_type_ids = False
+        ).to(reader_model.device_map)
+
+        # Get the string length in tokens and add to features
+        fragment_length = encodings['input_ids'].shape[1]
+        features['Text length (tokens)']=fragment_length
+
+        # Calculate logits
+        reader_logits = reader_model.model(**encodings).logits
+        writer_logits = writer_model.model(**encodings).logits
+
+        # Calculate perplexity and add to features
+        ppl = perplexity(encodings, writer_logits)
+        features['Perplexity']=ppl[0]
+
+        # Calculate cross perplexity and add to features
+        x_ppl = entropy(
+            reader_logits.to(config.CALCULATION_DEVICE),
+            writer_logits.to(config.CALCULATION_DEVICE),
+            encodings.to(config.CALCULATION_DEVICE),
+            reader_model.tokenizer.pad_token_id
+        )
+
+        features['Cross-perplexity']=x_ppl[0]
+
+        # Calculate perplexity ratio and add to features
+        scores = ppl / x_ppl
+        scores = scores.tolist()
+        perplexity_ratio_score = scores[0]
+        features['Perplexity ratio']=perplexity_ratio_score
+
+        # Put the text and the new features into the output queue
+        output_queue.put(features)
+
+
+def stage_one_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
+    '''Does feature engineering and classification for stage I classifier.'''
+
+    # Load the stage I feature engineering assets
+
+    # Length bin definitions
+    bins={
+        'bin_001_050': [1, 50],
+        'bin_026_075': [26, 75],
+        'bin_051_100': [51, 100],
+        'bin_076_125': [76, 125],
+        'bin_101_150': [101, 150],
+        'bin_126_175': [126, 175],
+        'bin_151_200': [151, 200],
+        'bin_176_225': [176, 225],
+        'bin_201_250': [201, 250],
+        'bin_226_275': [226, 275],
+        'bin_251_300': [251, 300]
+    }
+
+    # Holders for perplexity ratio and TF-IDF score KLD kernel density estimates
+    # for each text length bin
+    perplexity_ratio_kld_kdes={}
+    tfidf_kld_kdes={}
+    tfidf_luts={}
+
+    # Pre-load each kernel density estimate, using it's length bin as key
+    for bin_id in bins.keys():
+
+        # Load perplexity ratio KLD kernel density estimate for this bin
+        perplexity_ratio_kld_kde_file=f'{config.MODELS_PATH}/perplexity_ratio_score_KLD_KDE_{bin_id}.pkl'
+        with open(perplexity_ratio_kld_kde_file, 'rb') as input_file:
+            perplexity_ratio_kld_kdes[bin_id]=pickle.load(input_file)
+
+        # Load TF-IDF KLD kernel density estimate for this bin
+        tfidf_kld_kde_file=f'{config.MODELS_PATH}/tf-idf_score_KLD_KDE_{bin_id}.pkl'
+        with open(tfidf_kld_kde_file, 'rb') as input_file:
+            tfidf_kld_kdes[bin_id]=pickle.load(input_file)
+
+        # Load the TF-IDF look-up tables for this bin
+        tfidf_luts_file=f'{config.MODELS_PATH}/tf-idf_luts_{bin_id}.pkl'
+        with open(tfidf_luts_file, 'rb') as input_file:
+            tfidf_luts[bin_id]=pickle.load(input_file)
+
+    while True:
+
+        features=input_queue.get()
+
+        # If we get the 'done' signal from the input queue
+        # send it along and finish
+        if features == 'done':
+            output_queue.put('done')
+            return
+        
+        # Get the text, length and perplexity ratio from the input features
+        text=features['Text string']
+        text_length=features['Text length (words)']
+        perplexity_ratio=features['Perplexity ratio']
+
+        # Bin the fragment by length
+        for bin_id, bin_range in bins.items():
+            if text_length >= bin_range[0] and text_length <= bin_range[1]:
+                text_bin_id=bin_id
+
+        # Pull the assets for the fragment's length bin
+        perplexity_ratio_kld_kde=perplexity_ratio_kld_kdes[text_bin_id]
+        tfidf_kld_kde=tfidf_kld_kdes[text_bin_id]
+        tfidf_lut=tfidf_luts[text_bin_id]
+
+        # Calculate perplexity ratio KLD score and add to features
+        perplexity_ratio_kld_score=perplexity_ratio_kld_kde.pdf(perplexity_ratio)
+        features['Perplexity ratio Kullback-Leibler score']=perplexity_ratio_kld_score[0]
+
+        # Clean the test for TF-IDF scoring
+        sw=stopwords.words('english')
+        lemmatizer=WordNetLemmatizer()
+
+        cleaned_string=clean_text(
+            text=text,
+            sw=sw,
+            lemmatizer=lemmatizer
+        )
+
+        # Split cleaned string into words
+        words=cleaned_string.split(' ')
+
+        # Initialize TF-IDF sums
+        human_tfidf_sum=0
+        synthetic_tfidf_sum=0
+
+        # Score the words using the human and synthetic luts
+        for word in words:
+
+            if word in tfidf_lut['human'].keys():
+                human_tfidf_sum += tfidf_lut['human'][word]
+
+            if word in tfidf_lut['synthetic'].keys():
+                synthetic_tfidf_sum += tfidf_lut['synthetic'][word]
+
+        # Get the means and add to features
+        human_tfidf_mean=human_tfidf_sum / len(words)
+        synthetic_tfidf_mean=synthetic_tfidf_sum / len(words)
+        dmean_tfidf=human_tfidf_mean - synthetic_tfidf_mean
+        product_normalized_dmean_tfidf=dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
+
+        features['Human TF-IDF mean']=human_tfidf_mean
+        features['Synthetic TF-IDF mean']=synthetic_tfidf_mean
+        features['TF-IDF score']=product_normalized_dmean_tfidf
+
+        ###############################################################
+        # Get TF-IDF Kullback-Leibler score ###########################
+        ###############################################################
+
+        # Calculate TF-IDF LKD score and add to features
+        tfidf_kld_score=tfidf_kld_kde.pdf(product_normalized_dmean_tfidf)
+        features['TF-IDF Kullback-Leibler score']=tfidf_kld_score[0]
+        
+        output_queue.put(features)
+
+
+def stage_two_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
+    '''Does feature engineering and classification for stage II classifier.'''
+
+    while True:
+        features=input_queue.get()
+
+        # If we get the 'done' signal from the input queue
+        # send it along and finish
+        if features == 'done':
+            output_queue.put('done')
+            return
+        
+        output_queue.put(features)
+    
+# Take some care with '.sum(1)).detach().cpu().float().numpy()'. Had
+# errors as cribbed from the above repo. Order matters? I don't know,
+# current solution is very 'kitchen sink'
+
+ce_loss_fn = torch.nn.CrossEntropyLoss(reduction = 'none')
+softmax_fn = torch.nn.Softmax(dim = -1)
+
+
+def perplexity(
+    encoding: transformers.BatchEncoding,
+    logits: torch.Tensor,
+    median: bool = False,
+    temperature: float = 1.0
+):
+
+    '''Perplexity score function'''
+
+    shifted_logits = logits[..., :-1, :].contiguous() / temperature
+    shifted_labels = encoding.input_ids[..., 1:].contiguous()
+    shifted_attention_mask = encoding.attention_mask[..., 1:].contiguous()
+
+    if median:
+        ce_nan = (ce_loss_fn(shifted_logits.transpose(1, 2), shifted_labels).
+                  masked_fill(~shifted_attention_mask.bool(), float("nan")))
+        ppl = np.nanmedian(ce_nan.cpu().float().numpy(), 1)
+
+    else:
+        ppl = (ce_loss_fn(shifted_logits.transpose(1, 2), shifted_labels) *
+               shifted_attention_mask).sum(1) / shifted_attention_mask.sum(1)
+        ppl = ppl.detach().cpu().numpy()
+
+    return ppl
+
+
+def entropy(
+    p_logits: torch.Tensor,
+    q_logits: torch.Tensor,
+    encoding: transformers.BatchEncoding,
+    pad_token_id: int,
+    median: bool = False,
+    sample_p: bool = False,
+    temperature: float = 1.0
+):
+
+    '''Cross entropy score function'''
+
+    vocab_size = p_logits.shape[-1]
+    total_tokens_available = q_logits.shape[-2]
+    p_scores, q_scores = p_logits / temperature, q_logits / temperature
+
+    p_proba = softmax_fn(p_scores).view(-1, vocab_size)
+
+    if sample_p:
+        p_proba = torch.multinomial(
+            p_proba.view(-1, vocab_size), replacement=True, num_samples=1
+        ).view(-1)
+
+    q_scores = q_scores.view(-1, vocab_size)
+
+    ce = ce_loss_fn(
+        input=q_scores, target=p_proba).view(-1, total_tokens_available)
+    padding_mask = (encoding.input_ids != pad_token_id).type(torch.uint8)
+
+    if median:
+        ce_nan = ce.masked_fill(~padding_mask.bool(), float("nan"))
+        agg_ce = np.nanmedian(ce_nan.cpu().float().numpy(), 1)
+    else:
+        agg_ce = (((ce * padding_mask).sum(1) / padding_mask.sum(1)
+                   ).detach().cpu().float().numpy())
+
+    return agg_ce
+
+def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
+    '''Cleans up text string for TF-IDF'''
+
+    # Lowercase everything
+    text = text.lower()
+
+    # Replace everything with space except (a-z, A-Z, ".", "?", "!", ",")
+    text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
+
+    # Remove URLs
+    text = re.sub(r"http\S+", "",text)
+
+    # Remove html tags
+    html = re.compile(r'<.*?>')
+    text = html.sub(r'',text)
+
+    punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
+
+    # Remove punctuations
+    for p in punctuations:
+        text = text.replace(p,'')
+
+    # Remove stopwords
+    text = [word.lower() for word in text.split() if word.lower() not in sw]
+    text = [lemmatizer.lemmatize(word) for word in text]
+    text = " ".join(text)
+
+    # Remove emojis
+    emoji_pattern = re.compile("["
+        u"\U0001F600-\U0001F64F"  # emoticons
+        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        u"\U00002702-\U000027B0"
+        u"\U000024C2-\U0001F251"
+    "]+", flags=re.UNICODE)
+
+    text = emoji_pattern.sub(r'', text)
+
+    return text
