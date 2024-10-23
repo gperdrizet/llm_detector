@@ -1264,7 +1264,9 @@ def get_perplexity_ratio(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
 def stage_one_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
     '''Does feature engineering and classification for stage I classifier.'''
 
-    # Load the stage I feature engineering assets
+    ###############################################################
+    # Load the stage I feature engineering assets #################
+    ###############################################################
 
     # Length bin definitions
     bins={
@@ -1282,7 +1284,7 @@ def stage_one_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
     }
 
     # Holders for perplexity ratio and TF-IDF score KLD kernel density estimates
-    # for each text length bin
+    # and TF-IDF term frequency look-up tables for each text length bin
     perplexity_ratio_kld_kdes={}
     tfidf_kld_kdes={}
     tfidf_luts={}
@@ -1305,34 +1307,72 @@ def stage_one_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
         with open(tfidf_luts_file, 'rb') as input_file:
             tfidf_luts[bin_id]=pickle.load(input_file)
 
+    # Load the winning models for each length bin from the hyperparameter tuning results
+    hyperparameter_iterations=100
+    hyperparameter_optimization_results_filename=f'{config.DATA_PATH}/stage_one_hyperparameter_optimization_results_{hyperparameter_iterations}_iterations.pkl'
+    with open(hyperparameter_optimization_results_filename, 'rb') as result_input_file:
+        xgboost_models=pickle.load(result_input_file)
+
+    ###############################################################
+    # Main loop ###################################################
+    ###############################################################
+
     while True:
 
-        features=input_queue.get()
+        # Grab an input from the queue
+        input_features=input_queue.get()
 
         # If we get the 'done' signal from the input queue
         # send it along and finish
-        if features == 'done':
+        if input_features == 'done':
             output_queue.put('done')
             return
         
+        ###############################################################
+        # Load features and length bin the text #######################
+        ###############################################################
+        
         # Get the text, length and perplexity ratio from the input features
-        text=features['Text string']
-        text_length=features['Text length (words)']
-        perplexity_ratio=features['Perplexity ratio']
+        text=input_features['Text string']
+        text_length=input_features['Text length (words)']
+        perplexity_ratio=input_features['Perplexity ratio']
 
-        # Bin the fragment by length
+        # Bin the fragment by length, we should get two matches here because of
+        # the overlapping bins. Probably need to add some logic here to decide
+        # what to do if we don't match on exactly two bins. Use the bin ids as
+        # keys to start a dictionary of lists, we will accumulate feature vectors
+        # for the classifier under each bin id
+        text_features={}
         for bin_id, bin_range in bins.items():
             if text_length >= bin_range[0] and text_length <= bin_range[1]:
-                text_bin_id=bin_id
+                text_features[bin_id]=[]
 
-        # Pull the assets for the fragment's length bin
-        perplexity_ratio_kld_kde=perplexity_ratio_kld_kdes[text_bin_id]
-        tfidf_kld_kde=tfidf_kld_kdes[text_bin_id]
-        tfidf_lut=tfidf_luts[text_bin_id]
+        # Add the features we already have: text length in tokens, perplexity,
+        # cross-perplexity and perplexity-ratio score
+        for bin_id in text_features.keys():
+            text_features[bin_id].append(input_features['Text length (tokens)'])
+            text_features[bin_id].append(input_features['Perplexity'])
+            text_features[bin_id].append(input_features['Cross-perplexity'])
+            text_features[bin_id].append(input_features['Perplexity ratio'])
 
-        # Calculate perplexity ratio KLD score and add to features
-        perplexity_ratio_kld_score=perplexity_ratio_kld_kde.pdf(perplexity_ratio)
-        features['Perplexity ratio Kullback-Leibler score']=perplexity_ratio_kld_score[0]
+        # # Pull the assets for the fragment's length bin
+        # perplexity_ratio_kld_kde=perplexity_ratio_kld_kdes[text_bin_id]
+        # tfidf_kld_kde=tfidf_kld_kdes[text_bin_id]
+        # tfidf_lut=tfidf_luts[text_bin_id]
+        # xgboost_model=xgboost_models[text_bin_id].best_estimator_
+
+        ###############################################################
+        # Perplexity ratio Kullback-Leibler score #####################
+        ###############################################################
+
+        # Calculate perplexity ratio KLD score for both bins and add to features
+        for bin_id in text_features.keys():
+            perplexity_ratio_kld_score=perplexity_ratio_kld_kdes[bin_id].pdf(perplexity_ratio)
+            text_features[bin_id].append(perplexity_ratio_kld_score[0])
+
+        ###############################################################
+        # TF-IDF score ################################################
+        ###############################################################
 
         # Clean the test for TF-IDF scoring
         sw=stopwords.words('english')
@@ -1347,38 +1387,59 @@ def stage_one_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
         # Split cleaned string into words
         words=cleaned_string.split(' ')
 
-        # Initialize TF-IDF sums
-        human_tfidf_sum=0
-        synthetic_tfidf_sum=0
+        # Calculate TF-IDF features for both bins
+        for bin_id in text_features.keys():
 
-        # Score the words using the human and synthetic luts
-        for word in words:
+            # Initialize TF-IDF sums
+            human_tfidf_sum=0
+            synthetic_tfidf_sum=0
 
-            if word in tfidf_lut['human'].keys():
-                human_tfidf_sum += tfidf_lut['human'][word]
+            # Score the words using the human and synthetic luts
+            for word in words:
 
-            if word in tfidf_lut['synthetic'].keys():
-                synthetic_tfidf_sum += tfidf_lut['synthetic'][word]
+                if word in tfidf_luts[bin_id]['human'].keys():
+                    human_tfidf_sum += tfidf_luts[bin_id]['human'][word]
 
-        # Get the means and add to features
-        human_tfidf_mean=human_tfidf_sum / len(words)
-        synthetic_tfidf_mean=synthetic_tfidf_sum / len(words)
-        dmean_tfidf=human_tfidf_mean - synthetic_tfidf_mean
-        product_normalized_dmean_tfidf=dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
+                if word in tfidf_luts[bin_id]['synthetic'].keys():
+                    synthetic_tfidf_sum += tfidf_luts[bin_id]['synthetic'][word]
 
-        features['Human TF-IDF mean']=human_tfidf_mean
-        features['Synthetic TF-IDF mean']=synthetic_tfidf_mean
-        features['TF-IDF score']=product_normalized_dmean_tfidf
+            # Get the means and add to features
+            human_tfidf_mean=human_tfidf_sum / len(words)
+            synthetic_tfidf_mean=synthetic_tfidf_sum / len(words)
+            dmean_tfidf=human_tfidf_mean - synthetic_tfidf_mean
+            product_normalized_dmean_tfidf=dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
+
+            text_features[bin_id].append(human_tfidf_mean)
+            text_features[bin_id].append(synthetic_tfidf_mean)
+            text_features[bin_id].append(product_normalized_dmean_tfidf)
 
         ###############################################################
-        # Get TF-IDF Kullback-Leibler score ###########################
+        # TF-IDF Kullback-Leibler score ###############################
         ###############################################################
 
-        # Calculate TF-IDF LKD score and add to features
-        tfidf_kld_score=tfidf_kld_kde.pdf(product_normalized_dmean_tfidf)
-        features['TF-IDF Kullback-Leibler score']=tfidf_kld_score[0]
+        # Calculate TF-IDF LKD score for each bin and add to features
+        for bin_id in text_features.keys():
+            tfidf_kld_score=tfidf_kld_kdes[bin_id].pdf(text_features[bin_id][-1])
+            text_features[bin_id].append(tfidf_kld_score[0])
+
+        ###############################################################
+        # XGBoost classifier ##########################################
+        ###############################################################
         
-        output_queue.put(features)
+        # Run the classifier for each bin on the fragments
+        for bin_id in text_features.keys():
+            print(f'Running inference in {bin_id} with features: {text_features[bin_id]}')
+            xgboost_model=xgboost_models[bin_id].best_estimator_
+            class_probabilities=xgboost_model.predict_proba([text_features[bin_id]])
+
+            # Get the class 0 probability
+            class_probability=class_probabilities[0][0]
+
+            # Add it to the original features
+            input_features[f'Class probability {bin_id}']=class_probability
+
+        # Done
+        output_queue.put(input_features)
 
 
 def stage_two_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
