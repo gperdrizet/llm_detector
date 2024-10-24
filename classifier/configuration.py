@@ -58,13 +58,13 @@ TFIDF_SCORE_KLD_KDE = f'{MODELS_PATH}/TFIDF_score_KLD_KDE.pkl'
 XGBOOST_CLASSIFIER = f'{MODELS_PATH}/XGBoost_classifier.pkl'
 
 # Perplexity ratio stuff
-READER_MODEL='meta-llama/Meta-Llama-3-8B'
+READER_MODEL='tiiuae/falcon-7b'
 READER_DEVICE='cuda:1'
 
-WRITER_MODEL='meta-llama/Meta-Llama-3-8B-instruct'
+WRITER_MODEL='tiiuae/falcon-7b-instruct'
 WRITER_DEVICE='cuda:2'
 
-CALCULATION_DEVICE='cuda:2'
+CALCULATION_DEVICE='cuda:0'
 
 # Loading details
 DEFAULT_CACHE_DIR='/mnt/fast_scratch/huggingface_transformers_cache'

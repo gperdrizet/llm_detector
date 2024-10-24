@@ -1184,11 +1184,9 @@ def eval_speed_worker_count(
 # Experimental v2 inference pipeline functions #
 ################################################
 
-def get_perplexity_ratio(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
+def get_perplexity_ratio(input_queue: mp.Queue, output_queue: mp.Queue, gpu: str) -> None:
     '''Takes text from input queue, calculates perplexity ratio and adds
     as new feature, puts updated input text into output queue.'''
-
-    print(f'Initializing perplexity ratio scoring process.')
 
     ###############################################################
     # Load the perplexity ratio scoring assets ####################
@@ -1198,14 +1196,14 @@ def get_perplexity_ratio(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
     # reader and one instruct for the writer. Use different GPUs.
     reader_model = llm_class.Llm(
         hf_model_string = config.READER_MODEL,
-        device_map = config.READER_DEVICE
+        device_map = gpu #config.READER_DEVICE
     )
 
     reader_model.load()
 
     writer_model = llm_class.Llm(
         hf_model_string = config.WRITER_MODEL,
-        device_map = config.WRITER_DEVICE
+        device_map = gpu #config.WRITER_DEVICE
     )
 
     writer_model.load()
@@ -1226,8 +1224,16 @@ def get_perplexity_ratio(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
         # If we get the 'done' signal from the input queue
         # send it along and finish
         if input_text == 'done':
-            output_queue.put('done')
+
+            result={'Time-of-flight':{}}
+            result['Features']=[]
+            result['Status']='done'
+            output_queue.put(result)
+
             return
+        
+        # Start time-of-flight for this process
+        start_time=time.time()
 
         # Start feature dictionary with new text
         features={'Text string': input_text}
@@ -1235,49 +1241,70 @@ def get_perplexity_ratio(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
         # Add the text length in words as the first feature
         features['Text length (words)']=len(input_text.split(' '))
 
-        # Encode the string using the reader's tokenizer
-        encodings = reader_model.tokenizer(
-            input_text,
-            return_tensors = 'pt',
-            return_token_type_ids = False
-        ).to(reader_model.device_map)
+        # Fence to catch CUDA OOM
+        try:
 
-        # Get the string length in tokens and add to features
-        fragment_length = encodings['input_ids'].shape[1]
-        features['Text length (tokens)']=fragment_length
+            # Encode the string using the reader's tokenizer
+            with torch.no_grad():
+                encodings = reader_model.tokenizer(
+                    input_text,
+                    return_tensors = 'pt',
+                    return_token_type_ids = False
+                ).to(reader_model.device_map)
 
-        # Calculate logits
-        reader_logits = reader_model.model(**encodings).logits
-        writer_logits = writer_model.model(**encodings).logits
+                # Get the string length in tokens and add to features
+                fragment_length = encodings['input_ids'].shape[1]
+                features['Text length (tokens)']=fragment_length
 
-        # Calculate perplexity and add to features
-        ppl = perplexity(encodings, writer_logits)
-        features['Perplexity']=ppl[0]
+                # Calculate logits
+                reader_logits = reader_model.model(**encodings).logits
+                writer_logits = writer_model.model(**encodings).logits
 
-        # Calculate cross perplexity and add to features
-        x_ppl = entropy(
-            reader_logits.to(config.CALCULATION_DEVICE),
-            writer_logits.to(config.CALCULATION_DEVICE),
-            encodings.to(config.CALCULATION_DEVICE),
-            reader_model.tokenizer.pad_token_id
-        )
+                # Calculate perplexity and add to features
+                ppl = perplexity(encodings, writer_logits)
+                features['Perplexity']=ppl[0]
 
-        features['Cross-perplexity']=x_ppl[0]
+                # Calculate cross perplexity and add to features
+                x_ppl = entropy(
+                    reader_logits.to(gpu), #config.CALCULATION_DEVICE),
+                    writer_logits.to(gpu), #config.CALCULATION_DEVICE),
+                    encodings.to(gpu), #config.CALCULATION_DEVICE),
+                    reader_model.tokenizer.pad_token_id
+                )
 
-        # Calculate perplexity ratio and add to features
-        scores = ppl / x_ppl
-        scores = scores.tolist()
-        perplexity_ratio_score = scores[0]
-        features['Perplexity ratio']=perplexity_ratio_score
+                features['Cross-perplexity']=x_ppl[0]
 
-        # Put the text and the new features into the output queue
-        output_queue.put(features)
+                # Calculate perplexity ratio and add to features
+                scores = ppl / x_ppl
+                scores = scores.tolist()
+                perplexity_ratio_score = scores[0]
+                features['Perplexity ratio']=perplexity_ratio_score
+
+            # Stop timer and collect time-of-flight for this process
+            dT=time.time() - start_time
+
+            # Assemble the result
+            result={'Time-of-flight':{'Perplexity ratio calculation (seconds)': dT}}
+            result['Features']=features
+            result['Status']='OK'
+
+        except RuntimeError as runtime_error:
+
+            # Show me the error
+            print(f'Caught: {str(runtime_error)}')
+            print(f"Offending fragment length: {features['Text length (tokens)']}\n")
+
+            # Skip this text and send error to subsequent workers
+            result={'Time-of-flight':{}}
+            result['Features']=[]
+            result['Status']='perplexity calculation error - probably CUDA OOM'
+
+        # Put the timing results in the output queue
+        output_queue.put(result)
 
 
-def stage_one_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
+def stage_one_classifier(input_queue: mp.Queue, output_queue: mp.Queue, gpu_workers: int) -> None:
     '''Does feature engineering and classification for stage I classifier.'''
-
-    print(f'Initializing stage I classifier process.')
 
     ###############################################################
     # Load the stage I feature engineering assets #################
@@ -1335,138 +1362,176 @@ def stage_one_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
     # Tell the main process we are ready for work
     output_queue.put('ready')
 
+    # Set a counter for done signals, that way we know to pass done on
+    # and finish only when all GPU workers are reporting done
+    done_count=0
+
     while True:
 
         # Grab an input from the queue
-        input_features=input_queue.get()
+        input_data=input_queue.get()
 
         # If we get the 'done' signal from the input queue
-        # send it along and finish
-        if input_features == 'done':
-            output_queue.put('done')
-            return
+        # count it, once we have all GPU workers reporting done,
+        # pass the done signal along and finish
+        if input_data['Status'] == 'done':
+            done_count+=1
+
+            if done_count == gpu_workers:
+                output_queue.put(input_data)
+                return
         
-        ###############################################################
-        # Load features and length bin the text #######################
-        ###############################################################
-        
-        # Get the text, length and perplexity ratio from the input features
-        text=input_features['Text string']
-        text_length=input_features['Text length (words)']
-        perplexity_ratio=input_features['Perplexity ratio']
+        # If the status from the prior worker is good, do our job
+        elif input_data['Status'] == 'OK':
+                
+            ###############################################################
+            # Load features and length bin the text #######################
+            ###############################################################
 
-        # Bin the fragment by length, we should get two matches here because of
-        # the overlapping bins. Probably need to add some logic here to decide
-        # what to do if we don't match on exactly two bins. Use the bin ids as
-        # keys to start a dictionary of lists, we will accumulate feature vectors
-        # for the classifier under each bin id
-        text_features={}
-        for bin_id, bin_range in bins.items():
-            if text_length >= bin_range[0] and text_length <= bin_range[1]:
-                text_features[bin_id]=[]
+            # Start time-of-flight for this process
+            start_time=time.time()
 
-        # Add the bin ids to the input feature vector for posterity
-        for i, bin_id in enumerate(text_features.keys()):
-            input_features[f'Stage I bin {i}']=bin_id
+            # Get the input feature dictionary from the input data
+            input_features=input_data['Features']
+            
+            # Get the text, length and perplexity ratio from the input features
+            text=input_features['Text string']
+            text_length=input_features['Text length (words)']
+            perplexity_ratio=input_features['Perplexity ratio']
 
-        # Add the features we already have: text length in tokens, perplexity,
-        # cross-perplexity and perplexity-ratio score
-        for bin_id in text_features.keys():
-            text_features[bin_id].append(input_features['Text length (tokens)'])
-            text_features[bin_id].append(input_features['Perplexity'])
-            text_features[bin_id].append(input_features['Cross-perplexity'])
-            text_features[bin_id].append(input_features['Perplexity ratio'])
+            # Bin the fragment by length, we should get two matches here because of
+            # the overlapping bins. Probably need to add some logic here to decide
+            # what to do if we don't match on exactly two bins. Use the bin ids as
+            # keys to start a dictionary of lists, we will accumulate feature vectors
+            # for the classifier under each bin id
+            text_features={}
+            for bin_id, bin_range in bins.items():
+                if text_length >= bin_range[0] and text_length <= bin_range[1]:
+                    text_features[bin_id]=[]
 
-        ###############################################################
-        # Perplexity ratio Kullback-Leibler score #####################
-        ###############################################################
+            # Check to make sure that we matched on two bins, if we did not
+            # something is wrong, send error along and skip this fragment
+            if len(list(text_features.keys())) != 2:
+                result={'Time-of-flight':{}}
+                result['Features']=[]
+                result['Status']='Stage I length binning error'
+                output_queue.put(result)
 
-        # Calculate perplexity ratio KLD score for both bins and add to features
-        for i, bin_id in enumerate(text_features.keys()):
-            perplexity_ratio_kld_score=perplexity_ratio_kld_kdes[bin_id].pdf(perplexity_ratio)
-            text_features[bin_id].append(perplexity_ratio_kld_score[0])
-            input_features[f'Stage I bin {i} perplexity ratio KLD score']=perplexity_ratio_kld_score[0]
+            else:
 
-        ###############################################################
-        # TF-IDF score ################################################
-        ###############################################################
+                # Add the bin ids to the input feature vector for posterity
+                for i, bin_id in enumerate(text_features.keys()):
+                    input_features[f'Stage I bin {i}']=bin_id
 
-        # Clean the test for TF-IDF scoring
-        sw=stopwords.words('english')
-        lemmatizer=WordNetLemmatizer()
+                # Add the features we already have: text length in tokens, perplexity,
+                # cross-perplexity and perplexity-ratio score
+                for bin_id in text_features.keys():
+                    text_features[bin_id].append(input_features['Text length (tokens)'])
+                    text_features[bin_id].append(input_features['Perplexity'])
+                    text_features[bin_id].append(input_features['Cross-perplexity'])
+                    text_features[bin_id].append(input_features['Perplexity ratio'])
 
-        cleaned_string=clean_text(
-            text=text,
-            sw=sw,
-            lemmatizer=lemmatizer
-        )
+                ###############################################################
+                # Perplexity ratio Kullback-Leibler score #####################
+                ###############################################################
 
-        # Split cleaned string into words
-        words=cleaned_string.split(' ')
+                # Calculate perplexity ratio KLD score for both bins and add to features
+                for i, bin_id in enumerate(text_features.keys()):
+                    perplexity_ratio_kld_score=perplexity_ratio_kld_kdes[bin_id].pdf(perplexity_ratio)
+                    text_features[bin_id].append(perplexity_ratio_kld_score[0])
+                    input_features[f'Stage I bin {i} perplexity ratio KLD score']=perplexity_ratio_kld_score[0]
 
-        # Calculate TF-IDF features for both bins
-        for i, bin_id in enumerate(text_features.keys()):
+                ###############################################################
+                # TF-IDF score ################################################
+                ###############################################################
 
-            # Initialize TF-IDF sums
-            human_tfidf_sum=0
-            synthetic_tfidf_sum=0
+                # Clean the test for TF-IDF scoring
+                sw=stopwords.words('english')
+                lemmatizer=WordNetLemmatizer()
 
-            # Score the words using the human and synthetic luts
-            for word in words:
+                cleaned_string=clean_text(
+                    text=text,
+                    sw=sw,
+                    lemmatizer=lemmatizer
+                )
 
-                if word in tfidf_luts[bin_id]['human'].keys():
-                    human_tfidf_sum += tfidf_luts[bin_id]['human'][word]
+                # Split cleaned string into words
+                words=cleaned_string.split(' ')
 
-                if word in tfidf_luts[bin_id]['synthetic'].keys():
-                    synthetic_tfidf_sum += tfidf_luts[bin_id]['synthetic'][word]
+                # Calculate TF-IDF features for both bins
+                for i, bin_id in enumerate(text_features.keys()):
 
-            # Get the means and add to features
-            human_tfidf_mean=human_tfidf_sum / len(words)
-            synthetic_tfidf_mean=synthetic_tfidf_sum / len(words)
-            dmean_tfidf=human_tfidf_mean - synthetic_tfidf_mean
-            product_normalized_dmean_tfidf=dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
+                    # Initialize TF-IDF sums
+                    human_tfidf_sum=0
+                    synthetic_tfidf_sum=0
 
-            text_features[bin_id].append(human_tfidf_mean)
-            text_features[bin_id].append(synthetic_tfidf_mean)
-            text_features[bin_id].append(product_normalized_dmean_tfidf)
+                    # Score the words using the human and synthetic luts
+                    for word in words:
 
-            input_features[f'Stage I bin {i} human TF-IDF mean']=human_tfidf_mean
-            input_features[f'Stage I bin {i} synthetic TF-IDF mean']=synthetic_tfidf_mean
-            input_features[f'Stage I bin {i} TF-IDF score']=product_normalized_dmean_tfidf
+                        if word in tfidf_luts[bin_id]['human'].keys():
+                            human_tfidf_sum += tfidf_luts[bin_id]['human'][word]
 
-        ###############################################################
-        # TF-IDF Kullback-Leibler score ###############################
-        ###############################################################
+                        if word in tfidf_luts[bin_id]['synthetic'].keys():
+                            synthetic_tfidf_sum += tfidf_luts[bin_id]['synthetic'][word]
 
-        # Calculate TF-IDF LKD score for each bin and add to features
-        for i, bin_id in enumerate(text_features.keys()):
-            tfidf_kld_score=tfidf_kld_kdes[bin_id].pdf(text_features[bin_id][-1])
-            text_features[bin_id].append(tfidf_kld_score[0])
-            input_features[f'Stage I bin {i} TF-IDF KLD score']=tfidf_kld_score[0]
+                    # Get the means and add to features
+                    human_tfidf_mean=human_tfidf_sum / len(words)
+                    synthetic_tfidf_mean=synthetic_tfidf_sum / len(words)
+                    dmean_tfidf=human_tfidf_mean - synthetic_tfidf_mean
+                    product_normalized_dmean_tfidf=dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
 
-        ###############################################################
-        # XGBoost classifier ##########################################
-        ###############################################################
-        
-        # Run the classifier for each bin on the fragments
-        for i, bin_id in enumerate(text_features.keys()):
-            xgboost_model=xgboost_models[bin_id].best_estimator_
-            class_probabilities=xgboost_model.predict_proba([text_features[bin_id]])
+                    text_features[bin_id].append(human_tfidf_mean)
+                    text_features[bin_id].append(synthetic_tfidf_mean)
+                    text_features[bin_id].append(product_normalized_dmean_tfidf)
 
-            # Get the class 0 probability
-            class_probability=class_probabilities[0][0]
+                    input_features[f'Stage I bin {i} human TF-IDF mean']=human_tfidf_mean
+                    input_features[f'Stage I bin {i} synthetic TF-IDF mean']=synthetic_tfidf_mean
+                    input_features[f'Stage I bin {i} TF-IDF score']=product_normalized_dmean_tfidf
 
-            # Add it to the original features
-            input_features[f'Stage I class probability bin {i}']=class_probability
+                ###############################################################
+                # TF-IDF Kullback-Leibler score ###############################
+                ###############################################################
 
-        # Done
-        output_queue.put(input_features)
+                # Calculate TF-IDF LKD score for each bin and add to features
+                for i, bin_id in enumerate(text_features.keys()):
+                    tfidf_kld_score=tfidf_kld_kdes[bin_id].pdf(text_features[bin_id][-1])
+                    text_features[bin_id].append(tfidf_kld_score[0])
+                    input_features[f'Stage I bin {i} TF-IDF KLD score']=tfidf_kld_score[0]
+
+                ###############################################################
+                # XGBoost classifier ##########################################
+                ###############################################################
+                
+                # Run the classifier for each bin on the fragments
+                for i, bin_id in enumerate(text_features.keys()):
+                    xgboost_model=xgboost_models[bin_id].best_estimator_
+                    class_probabilities=xgboost_model.predict_proba([text_features[bin_id]])
+
+                    # Get the class 0 probability
+                    class_probability=class_probabilities[0][0]
+
+                    # Add it to the original features
+                    input_features[f'Stage I class probability bin {i}']=class_probability
+
+                # Stop timer and collect time-of-flight for this process
+                dT=time.time() - start_time
+
+                # Assemble the result
+                input_data['Time-of-flight']['Stage I classifier (seconds)']=dT
+                input_data['Features']=input_features
+                input_data['Status']='OK'
+
+                # Put the timing results and the features in the output queue
+                output_queue.put(input_data)
+
+        # If the text fragment status is something else, it must be some kind of
+        # error send it along and skip this fragment, but keep working
+        else:
+            output_queue.put(input_data)
 
 
 def stage_two_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
     '''Does feature engineering and classification for stage II classifier.'''
-
-    print(f'Initializing stage II classifier process.')
 
     ###############################################################
     # Load the stage II feature engineering assets #################
@@ -1525,117 +1590,141 @@ def stage_two_classifier(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
 
     while True:
 
-        input_features=input_queue.get()
+        input_data=input_queue.get()
 
         # If we get the 'done' signal from the input queue
         # send it along and finish
-        if input_features == 'done':
-            output_queue.put('done')
+        if input_data['Status'] == 'done':
+            output_queue.put(input_data)
             return
 
-        ###############################################################
-        # Load features and length bin the text #######################
-        ###############################################################
-        
-        # Get the text, length and perplexity ratio from the input features
-        text=input_features['Text string']
-        text_length=input_features['Text length (words)']
-        perplexity_ratio=input_features['Perplexity ratio']
+        # If the status from the prior worker is good, do our job
+        elif input_data['Status'] == 'OK':
 
-        # Bin the fragment by length.
-        for bin_id, bin_range in bins.items():
-            if text_length >= bin_range[0] and text_length <= bin_range[1]:
-                text_bin_id=bin_id
+            ###############################################################
+            # Load features and length bin the text #######################
+            ###############################################################
+            
+            # Start time-of-flight for this process
+            start_time=time.time()
 
-        # Add the features we already have: text length in tokens, perplexity,
-        # cross-perplexity and perplexity-ratio score to a list
-        text_features=[input_features['Text length (tokens)']]
-        text_features.append(input_features['Perplexity'])
-        text_features.append(input_features['Cross-perplexity'])
-        text_features.append(input_features['Perplexity ratio'])
-        text_features.append(input_features['Stage I class probability bin 0'])
-        text_features.append(input_features['Stage I class probability bin 1'])
+            # Get the input feature dictionary from the input data
+            input_features=input_data['Features']
 
-        ###############################################################
-        # Perplexity ratio Kullback-Leibler score #####################
-        ###############################################################
+            # Get the text, length and perplexity ratio from the input features
+            text=input_features['Text string']
+            text_length=input_features['Text length (words)']
+            perplexity_ratio=input_features['Perplexity ratio']
 
-        # Calculate perplexity ratio KLD score and add to features
-        perplexity_ratio_kld_score=perplexity_ratio_kld_kdes[text_bin_id].pdf(perplexity_ratio)
-        text_features.append(perplexity_ratio_kld_score[0])
-        input_features['Stage II perplexity ratio KLD score']=perplexity_ratio_kld_score[0]
+            # Bin the fragment by length.
+            for bin_id, bin_range in bins.items():
+                if text_length >= bin_range[0] and text_length <= bin_range[1]:
+                    text_bin_id=bin_id
 
-        ###############################################################
-        # TF-IDF score ################################################
-        ###############################################################
+            # Add the features we already have: text length in tokens, perplexity,
+            # cross-perplexity and perplexity-ratio score to a list
+            text_features=[input_features['Text length (tokens)']]
+            text_features.append(input_features['Perplexity'])
+            text_features.append(input_features['Cross-perplexity'])
+            text_features.append(input_features['Perplexity ratio'])
+            text_features.append(input_features['Stage I class probability bin 0'])
+            text_features.append(input_features['Stage I class probability bin 1'])
 
-        # Clean the test for TF-IDF scoring
-        sw=stopwords.words('english')
-        lemmatizer=WordNetLemmatizer()
+            ###############################################################
+            # Perplexity ratio Kullback-Leibler score #####################
+            ###############################################################
 
-        cleaned_string=clean_text(
-            text=text,
-            sw=sw,
-            lemmatizer=lemmatizer
-        )
+            # Calculate perplexity ratio KLD score and add to features
+            perplexity_ratio_kld_score=perplexity_ratio_kld_kdes[text_bin_id].pdf(perplexity_ratio)
+            text_features.append(perplexity_ratio_kld_score[0])
+            input_features['Stage II perplexity ratio KLD score']=perplexity_ratio_kld_score[0]
 
-        # Split cleaned string into words
-        words=cleaned_string.split(' ')
+            ###############################################################
+            # TF-IDF score ################################################
+            ###############################################################
 
-        # Calculate TF-IDF features and add to features
+            # Clean the test for TF-IDF scoring
+            sw=stopwords.words('english')
+            lemmatizer=WordNetLemmatizer()
 
-        # Initialize TF-IDF sums
-        human_tfidf_sum=0
-        synthetic_tfidf_sum=0
+            cleaned_string=clean_text(
+                text=text,
+                sw=sw,
+                lemmatizer=lemmatizer
+            )
 
-        # Score the words using the human and synthetic luts
-        for word in words:
+            # Split cleaned string into words
+            words=cleaned_string.split(' ')
 
-            if word in tfidf_luts[text_bin_id]['human'].keys():
-                human_tfidf_sum += tfidf_luts[text_bin_id]['human'][word]
+            # Calculate TF-IDF features and add to features
 
-            if word in tfidf_luts[text_bin_id]['synthetic'].keys():
-                synthetic_tfidf_sum += tfidf_luts[text_bin_id]['synthetic'][word]
+            # Initialize TF-IDF sums
+            human_tfidf_sum=0
+            synthetic_tfidf_sum=0
 
-        # Get the means and add to features
-        human_tfidf_mean=human_tfidf_sum / len(words)
-        synthetic_tfidf_mean=synthetic_tfidf_sum / len(words)
-        dmean_tfidf=human_tfidf_mean - synthetic_tfidf_mean
-        product_normalized_dmean_tfidf=dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
+            # Score the words using the human and synthetic luts
+            for word in words:
 
-        text_features.append(human_tfidf_mean)
-        text_features.append(synthetic_tfidf_mean)
-        text_features.append(product_normalized_dmean_tfidf)
+                if word in tfidf_luts[text_bin_id]['human'].keys():
+                    human_tfidf_sum += tfidf_luts[text_bin_id]['human'][word]
 
-        input_features['Stage II human TF-IDF mean']=human_tfidf_mean
-        input_features['Stage II synthetic TF-IDF mean']=synthetic_tfidf_mean
-        input_features['Stage II TF-IDF score']=product_normalized_dmean_tfidf
+                if word in tfidf_luts[text_bin_id]['synthetic'].keys():
+                    synthetic_tfidf_sum += tfidf_luts[text_bin_id]['synthetic'][word]
 
-        ###############################################################
-        # TF-IDF Kullback-Leibler score ###############################
-        ###############################################################
+            # Get the means and add to features
+            human_tfidf_mean=human_tfidf_sum / len(words)
+            synthetic_tfidf_mean=synthetic_tfidf_sum / len(words)
+            dmean_tfidf=human_tfidf_mean - synthetic_tfidf_mean
+            product_normalized_dmean_tfidf=dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
 
-        # Calculate TF-IDF LKD score and add to features
-        tfidf_kld_score=tfidf_kld_kdes[text_bin_id].pdf(text_features[-1])
-        text_features.append(tfidf_kld_score[0])
-        input_features['Stage II TF-IDF KLD score']=tfidf_kld_score[0]
+            text_features.append(human_tfidf_mean)
+            text_features.append(synthetic_tfidf_mean)
+            text_features.append(product_normalized_dmean_tfidf)
 
-        ###############################################################
-        # XGBoost classifier ##########################################
-        ###############################################################
-        
-        # Run the classifier
-        xgboost_model=xgboost_models[text_bin_id].best_estimator_
-        class_probabilities=xgboost_model.predict_proba([text_features])
+            input_features['Stage II human TF-IDF mean']=human_tfidf_mean
+            input_features['Stage II synthetic TF-IDF mean']=synthetic_tfidf_mean
+            input_features['Stage II TF-IDF score']=product_normalized_dmean_tfidf
 
-        # Get the class 0 probability
-        class_probability=class_probabilities[0][0]
+            ###############################################################
+            # TF-IDF Kullback-Leibler score ###############################
+            ###############################################################
 
-        # Add it to the original features
-        input_features[f'Stage II class probability']=class_probability
+            # Calculate TF-IDF LKD score and add to features
+            tfidf_kld_score=tfidf_kld_kdes[text_bin_id].pdf(text_features[-1])
+            text_features.append(tfidf_kld_score[0])
+            input_features['Stage II TF-IDF KLD score']=tfidf_kld_score[0]
 
-        output_queue.put(input_features)
+            ###############################################################
+            # XGBoost classifier ##########################################
+            ###############################################################
+            
+            # Run the classifier
+            xgboost_model=xgboost_models[text_bin_id].best_estimator_
+            class_probabilities=xgboost_model.predict_proba([text_features])
+
+            # Get the class 0 probability
+            class_probability=class_probabilities[0][0]
+
+            # Add it to the original features
+            input_features[f'Stage II class probability']=class_probability
+
+            # Stop timer and collect time-of-flight for this process
+            dT=time.time() - start_time
+
+            # Assemble the result
+            input_data['Time-of-flight']['Stage II classifier (seconds)']=dT
+            input_data['Features']=input_features
+            input_data['Status']='OK'
+
+            # Put the timing results and the features in the output queue
+            output_queue.put(input_data)
     
+        # If the text fragment status is something else, it must be some kind of
+        # error send it along and skip this fragment, but keep working
+        else:
+            output_queue.put(input_data)
+
+
 # Take some care with '.sum(1)).detach().cpu().float().numpy()'. Had
 # errors as cribbed from the above repo. Order matters? I don't know,
 # current solution is very 'kitchen sink'
