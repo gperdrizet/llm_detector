@@ -1241,63 +1241,79 @@ def get_perplexity_ratio(input_queue: mp.Queue, output_queue: mp.Queue, gpu: str
         # Add the text length in words as the first feature
         features['Text length (words)']=len(input_text.split(' '))
 
-        # Fence to catch CUDA OOM
-        try:
-
-            # Encode the string using the reader's tokenizer
-            with torch.no_grad():
-                encodings = reader_model.tokenizer(
-                    input_text,
-                    return_tensors = 'pt',
-                    return_token_type_ids = False
-                ).to(reader_model.device_map)
-
-                # Get the string length in tokens and add to features
-                fragment_length = encodings['input_ids'].shape[1]
-                features['Text length (tokens)']=fragment_length
-
-                # Calculate logits
-                reader_logits = reader_model.model(**encodings).logits
-                writer_logits = writer_model.model(**encodings).logits
-
-                # Calculate perplexity and add to features
-                ppl = perplexity(encodings, writer_logits)
-                features['Perplexity']=ppl[0]
-
-                # Calculate cross perplexity and add to features
-                x_ppl = entropy(
-                    reader_logits.to(gpu), #config.CALCULATION_DEVICE),
-                    writer_logits.to(gpu), #config.CALCULATION_DEVICE),
-                    encodings.to(gpu), #config.CALCULATION_DEVICE),
-                    reader_model.tokenizer.pad_token_id
-                )
-
-                features['Cross-perplexity']=x_ppl[0]
-
-                # Calculate perplexity ratio and add to features
-                scores = ppl / x_ppl
-                scores = scores.tolist()
-                perplexity_ratio_score = scores[0]
-                features['Perplexity ratio']=perplexity_ratio_score
-
-            # Stop timer and collect time-of-flight for this process
-            dT=time.time() - start_time
-
-            # Assemble the result
-            result={'Time-of-flight':{'Perplexity ratio calculation (seconds)': dT}}
-            result['Features']=features
-            result['Status']='OK'
-
-        except RuntimeError as runtime_error:
-
-            # Show me the error
-            print(f'Caught: {str(runtime_error)}')
-            print(f"Offending fragment length: {features['Text length (tokens)']}\n")
-
-            # Skip this text and send error to subsequent workers
+        # Now we need a fence to keep text fragments that are too short
+        # or too long from entering the prediction pipeline
+        if features['Text length (words)'] > 275:
+            print('Text too long for stage II classifier.')
             result={'Time-of-flight':{}}
-            result['Features']=[]
-            result['Status']='perplexity calculation error - probably CUDA OOM'
+            result['Features']=features
+            result['Status']='Error: fragment too long'
+
+        elif features['Text length (words)'] < 26:
+            print('Text too short for stage II classifier.')
+            result={'Time-of-flight':{}}
+            result['Features']=features
+            result['Status']='Error: fragment too short'
+
+        else:
+
+            # Fence to catch CUDA OOM
+            try:
+
+                # Encode the string using the reader's tokenizer
+                with torch.no_grad():
+                    encodings = reader_model.tokenizer(
+                        input_text,
+                        return_tensors = 'pt',
+                        return_token_type_ids = False
+                    ).to(reader_model.device_map)
+
+                    # Get the string length in tokens and add to features
+                    fragment_length = encodings['input_ids'].shape[1]
+                    features['Text length (tokens)']=fragment_length
+
+                    # Calculate logits
+                    reader_logits = reader_model.model(**encodings).logits
+                    writer_logits = writer_model.model(**encodings).logits
+
+                    # Calculate perplexity and add to features
+                    ppl = perplexity(encodings, writer_logits)
+                    features['Perplexity']=ppl[0]
+
+                    # Calculate cross perplexity and add to features
+                    x_ppl = entropy(
+                        reader_logits.to(gpu), #config.CALCULATION_DEVICE),
+                        writer_logits.to(gpu), #config.CALCULATION_DEVICE),
+                        encodings.to(gpu), #config.CALCULATION_DEVICE),
+                        reader_model.tokenizer.pad_token_id
+                    )
+
+                    features['Cross-perplexity']=x_ppl[0]
+
+                    # Calculate perplexity ratio and add to features
+                    scores = ppl / x_ppl
+                    scores = scores.tolist()
+                    perplexity_ratio_score = scores[0]
+                    features['Perplexity ratio']=perplexity_ratio_score
+
+                # Stop timer and collect time-of-flight for this process
+                dT=time.time() - start_time
+
+                # Assemble the result
+                result={'Time-of-flight':{'Perplexity ratio calculation (seconds)': dT}}
+                result['Features']=features
+                result['Status']='OK'
+
+            except RuntimeError as runtime_error:
+
+                # Show me the error
+                print(f'Caught: {str(runtime_error)}')
+                print(f"Offending fragment length: {features['Text length (tokens)']}\n")
+
+                # Skip this text and send error to subsequent workers
+                result={'Time-of-flight':{}}
+                result['Features']=[]
+                result['Status']='perplexity calculation error - probably CUDA OOM'
 
         # Put the timing results in the output queue
         output_queue.put(result)
