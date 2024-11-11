@@ -9,7 +9,7 @@ import os
 # Mode to run bot in. 'offline' means that a stock response will be
 # returned to anyone who messages the bot with no traffic to the API.
 # 'online' sets the bot up and running.
-MODE = 'online'
+MODE = 'offline'
 
 # Get path to this config file so that we can define
 # other paths relative to it
