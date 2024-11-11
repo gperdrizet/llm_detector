@@ -2,7 +2,22 @@
 
 ## Backend set-up
 
-### Flask: development server
+1. Flask development server
+2. HuggingFace Transformers
+3. Redis
+4. Redis revisit: Docker
+5. Celery
+6. Gunicorn
+7. Gunicorn revisit: runner script
+8. Jupyter notebooks
+9. Ramdisk model cache
+10. Other benchmarking and analysis tools
+11. Bot app selection
+12. Telegram bot app setup
+13. Feature engineering/NLP
+14. Other utilities
+
+### 1. Flask: development server
 
 Following the instructions from the Flask documentation's [install guide](https://flask.palletsprojects.com/en/3.0.x/installation/):
 
@@ -51,7 +66,7 @@ flask run --host=192.168.1.148
 
 A simple 'hello, World!' landing page should now be visible via a web-browser at <http://192.168.1.148:5000> from any machine on the LAN.
 
-### HuggingFace Transformers
+### 2. HuggingFace Transformers
 
 Set the *HF_HOME* environment variable via *.venv/bin/activate* to some fast storage:
 
@@ -145,7 +160,7 @@ I'm sure there is a hundred ways to do this kind of thing, but I'm hoping that w
 
 Ok, enough rambling for now - all of that means we need to set a few more things up.
 
-### Redis
+### 3. Redis
 
 ```text
 curl -O http://download.redis.io/redis-stable.tar.gz
@@ -205,7 +220,7 @@ $ src/redis-server --protected-mode no
 
 I'm sure theres a lot more setup we could do and we probably want to put it in a docker container, but let's go with that for now. Leave it in a screen and move on.
 
-### Redis revisit: Docker
+### 4. Redis revisit: Docker
 
 Time to get Redis out of screen and off of the host OS. Plan here is to protect it a bit with a password and run it in a docker container.
 
@@ -235,7 +250,7 @@ export REDIS_PASSWORD="TheRedisPassword"
 
 **Note**: The above environment variables are re-used by the Celery-Flask app for authentication to the Redis container, so don't mess with the names.
 
-### Celery
+### 5. Celery
 
 This on should be pretty easy using the default config:
 
@@ -274,7 +289,7 @@ If we do want to expose the API directly to the public rather than via a messagi
 
 At this point, the README needs a good working over too and we should probably dockerize the whole thing.
 
-### Gunicorn
+### 6. Gunicorn
 
 Gunicorn will be our deployment WSGI server for Flask. Set it up following the Gunicorn instructions in the [Deploying to Production](https://flask.palletsprojects.com/en/3.0.x/deploying/gunicorn/) section of the Flask documentation.
 
@@ -285,7 +300,7 @@ gunicorn -w 1 --bind 192.168.1.148:5000 'api.__main__:flask_app'
 
 Done!
 
-### Gunicorn revisit: runner script
+### 7. Gunicorn revisit: runner script
 
 Added the following temporary convenience bash script to start the Flask app via Gunicorn:
 
@@ -304,7 +319,7 @@ sudo chmod u+x ./start_api.sh
 
 In parallel to the development of the backend and UI, let's do some benchmarking too. Most of this will involve some long running calculations, so we should be able to work on both at the same time. Here are a few more things we need for benchmarking and optimization with LLMs.
 
-### Jupyter notebooks
+### 8. Jupyter notebooks
 
 I like to do plotting and analysis in Jupyter notebooks, so let's set that up for VSCode now. First, install jupyter & matplotlib in the venv:
 
@@ -328,7 +343,7 @@ Also nice to have when working in notebooks: bind ctrl+shift+r to restart the no
 ]
 ```
 
-### Ramdisk model cache
+### 9. Ramdisk model cache
 
 Let's set-up a basic RAM disk to cache the model(s) we are working with. My hunch is that we can save ourselves some time in startup, especially since as we are developing, testing and troubleshooting we will probably be starting and restarting over and over. Quick look on the fast scratch disk says the vanilla LLaMA3 is 15 GB on disk. Let's go with 32 GB:
 
@@ -356,7 +371,7 @@ none                                        32G     0   32G   0% /mnt/ramdisk
 
 OK, cool. Now we just need that test harness so we can load the models a few times from the fast_scratch cache and the ramdisk to see if it actually saves us any time.
 
-### Other benchmarking and analysis tools
+### 10. Other benchmarking and analysis tools
 
 ```text
 pip install scikit-learn
@@ -364,7 +379,7 @@ pip install scikit-learn
 
 ## Messenger app service set-up
 
-### App selection
+### 11. Bot app selection
 
 Let's pick an app to target first. If we have time we could easily include Discord and Matrix too, since I have developed with both of those before. But, for now, let's try and target something a bit more mainstream with a larger user base.
 
@@ -407,7 +422,7 @@ Telegram seems like an easy win. As for which library to use, the Telegram site 
 
 Enough said, let’s go get it!
 
-### Telegram bot app setup
+### 12. Telegram bot app setup
 
 Install into the virtual environment as described in the [documentation](https://docs.python-telegram-bot.org/en/v21.4/):
 
@@ -421,7 +436,7 @@ Next, we need an access token. To do this, log into Telegram and message @BotFat
 export TELEGRAM_TOKEN="TelegramToken"
 ```
 
-## Feature engineering/NLP
+### 13. Feature engineering/NLP
 
 Installed nltk:
 
@@ -467,24 +482,24 @@ Installed statsmodels for some basics:
 pip install statsmodels
 ```
 
-## Other utilities
+### 14. Other utilities
 
 Installed schedule so we can run some periodic logging jobs from within python:
 
-'''text
+```text
 pip install schedule
-'''
+```
 
 Installed pytesseract so we can do optical character recognition in python.
 
-'''text
+```text
 sudo apt install tesseract-ocr
 pip install pytesseract
-'''
+```
 
 Installed h5py for data storage along with PyTables so it can interface with Pandas:
 
-'''text
+```text
 pip install h5py
 pip install tables
-'''
+```
