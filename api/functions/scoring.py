@@ -8,8 +8,8 @@ import transformers
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
-import api.functions.helper as helper_funcs
-import api.configuration as config
+import functions.helper as helper_funcs
+import configuration as config
 
 def score_string(
         reader_model: Callable,

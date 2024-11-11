@@ -17,8 +17,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-import api.configuration as config
-import api.classes.llm as llm_class
+import configuration as config
+import classes.llm as llm_class
 
 # Comment ##############################################################
 # Code ########################################################################

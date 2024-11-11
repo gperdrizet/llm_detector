@@ -7,8 +7,8 @@ from celery import Celery, Task, shared_task
 from celery.app import trace
 from celery.result import AsyncResult
 from celery.utils.log import get_task_logger
-import api.configuration as config
-import api.functions.scoring as scoring_funcs
+import configuration as config
+import functions.scoring as scoring_funcs
 # pylint: disable=W0223
 
 # Comment ##############################################################
