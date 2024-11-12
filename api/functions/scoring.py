@@ -11,7 +11,9 @@ from nltk.stem import WordNetLemmatizer
 import functions.helper as helper_funcs
 import configuration as config
 
+# Download nltk assets
 download('stopwords')
+download('wordnet')
 
 def score_string(
         reader_model: Callable,
