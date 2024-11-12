@@ -199,9 +199,17 @@ def start_celery(flask_app: Callable, logger: Callable) -> None:
     logger.info('Celery app initialized')
 
     # Put the Celery into a thread
-    celery_app_thread = Thread(
-        target = celery_app.worker_main,
-        args = [['worker', '--pool=solo', f'--loglevel={config.LOG_LEVEL}']]
+    celery_app_thread=Thread(
+        target=celery_app.worker_main,
+        args=[
+            [
+                'worker',
+                '--pool=solo',
+                f'--loglevel={config.LOG_LEVEL}',
+                '--uid=nobody',
+                '--gid=nogroup'
+            ]
+        ]
     )
 
     logger.info('Celery app MainProcess thread initialized')
