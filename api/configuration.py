@@ -58,7 +58,7 @@ XGBOOST_CLASSIFIER = f'{DATA_PATH}/XGBoost_classifier.pkl'
 ######################################################################
 
 # Loading details
-DEFAULT_CACHE_DIR='/agatha_api'
+DEFAULT_CACHE_DIR=PROJECT_ROOT_PATH
 DEFAULT_HF_MODEL_STRING='meta-llama/Meta-Llama-3-8B'
 DEFAULT_MODEL_NAME='LLaMA3'
 DEFAULT_DEVICE_MAP='cuda:0'
