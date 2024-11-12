@@ -10,7 +10,7 @@ ARG host_ip
 ARG flask_port
 ARG redis_ip
 ARG redis_port
-ARG redis_password
+# ARG redis_password
 # ARG hf_token
 
 # Then sent them as environment variables inside the
@@ -19,7 +19,7 @@ ENV HOST_IP=$host_ip
 ENV FLASK_PORT=$flask_port
 ENV REDIS_IP=$redis_ip
 ENV REDIS_PORT=$redis_port
-ENV REDIS_PASSWORD=$redis_password
+# ENV REDIS_PASSWORD=$redis_password
 # ENV HF_TOKEN=$hf_token
 
 # Set working directory
