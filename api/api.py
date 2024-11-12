@@ -13,7 +13,7 @@ logger.info('Running in %s mode', config.MODE)
 
 # Start bot traffic plotter if asked
 if config.PLOT_BOT_TRAFFIC is True:
-    
+
     # Draw a bot traffic plot on app start
     helper_funcs.update_traffic_plot()
 
@@ -33,6 +33,7 @@ if config.MODE == 'testing':
 elif config.MODE == 'production':
 
     # Start the models
+    logger.info('Starting models')
     reader_model, writer_model=helper_funcs.start_models(logger)
     logger.info('Models started')
 
