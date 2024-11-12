@@ -2,6 +2,7 @@
 
 1. Docker setup
 2. Nvidia container toolkit
+3. API image build
 
 ## 1. Docker setup
 
@@ -164,3 +165,103 @@ Tue Mar 12 21:50:44 2024
 ```
 
 OK, looks good.
+
+## 3. API image build
+
+The first container will be for the API. It needs to launch the Flask-Celery app via Guincorn and communicate with the Redis server container. Internal ports and IP addresses are specified via environment variables during the image build. Secrets are passed into the container at run time via environment variables.
+
+Wrote the following Dockerfile to build the API container image:
+
+```text
+FROM nvidia/cuda:11.4.3-runtime-ubuntu20.04
+
+# Turns off buffering for easier container logging
+ENV PYTHONUNBUFFERED=1
+
+# Take command line build time arguments for host ip
+# and flask port. These are used later when starting
+# the API
+ARG host_ip
+ARG flask_port
+ARG redis_ip
+ARG redis_port
+# ARG redis_password
+# ARG hf_token
+
+# Then sent them as environment variables inside the
+# container
+ENV HOST_IP=$host_ip
+ENV FLASK_PORT=$flask_port
+ENV REDIS_IP=$redis_ip
+ENV REDIS_PORT=$redis_port
+# ENV REDIS_PASSWORD=$redis_password
+# ENV HF_TOKEN=$hf_token
+
+# Set working directory
+WORKDIR /
+
+# Install python 3.8 & pip
+RUN apt-get update
+RUN apt-get install -y python3 python3-pip
+RUN python3 -m pip install --upgrade pip
+
+# Move the source code in
+WORKDIR /agatha_api
+COPY . /agatha_api
+
+# Install dependencies
+RUN pip install -r requirements.txt
+
+# Install bitsandbytes
+WORKDIR /agatha_api/bitsandbytes-0.42.0
+RUN python3 setup.py install
+
+# Start the API
+WORKDIR /agatha_api
+CMD ["./start_api.sh"]
+```
+
+Then, used two helper scripts to build the image and start a container
+
+*build_api_image.sh*
+
+```text
+#!/bin/bash
+
+docker build \
+--build-arg host_ip=$HOST_IP \
+--build-arg flask_port=$FLASK_PORT \
+--build-arg redis_ip=$REDIS_IP \
+--build-arg redis_port=$REDIS_PORT \
+-t gperdrizet/agatha:api .
+```
+
+*start_api_container.sh*
+
+```text
+#!/bin/bash
+
+# Start the API docker container
+docker run \
+-p 5000:5000 \
+-e HF_TOKEN=$HF_TOKEN \
+-e REDIS_PASSWORD=$REDIS_PASSWORD \
+--gpus all \
+--name agatha_api \
+-d gperdrizet/agatha:api
+```
+
+Once we are sure the container is working, push the image to Docker Hub.
+
+```text
+docker push gperdrizet/agatha:api
+```
+
+Give it a final test, by removing the container and image and the pulling and running from Docker Hub.
+
+```text
+docker rmi gperdrizet/agatha:api
+docker system prune
+docker pull gperdrizet/agatha:api
+./start_api_container
+```
