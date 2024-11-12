@@ -223,7 +223,7 @@ CMD ["./start_api.sh"]
 
 Then, used two helper scripts to build the image and start a container
 
-*build_api_image.sh*
+### *build_api_image.sh*
 
 ```text
 #!/bin/bash
@@ -236,7 +236,7 @@ docker build \
 -t gperdrizet/agatha:api .
 ```
 
-*start_api_container.sh*
+### *start_api_container.sh*
 
 ```text
 #!/bin/bash
