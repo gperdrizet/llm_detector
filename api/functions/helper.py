@@ -208,7 +208,6 @@ def start_celery(flask_app: Callable, logger: Callable) -> None:
 
     # Start the Celery app thread
     celery_app_thread.start()
-    logger.info('Celery app MainProcess thread started')
 
 
 def start_flask(flask_app: Callable, logger: Callable):
