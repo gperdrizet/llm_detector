@@ -2,7 +2,7 @@
 
 1. Docker setup
 2. Nvidia container toolkit
-3. API image build
+3. Container builds
 
 ## 1. Docker setup
 
@@ -166,42 +166,77 @@ Tue Mar 12 21:50:44 2024
 
 OK, looks good.
 
-## 3. API image build
+## 3. Container builds
 
-The first container will be for the API. It needs to launch the Flask-Celery app via Guincorn and communicate with the Redis server container. Internal ports and IP addresses are specified via environment variables during the image build. Secrets are passed into the container at run time via environment variables.
+Next, build the three containers we need for this project
 
-Wrote the following Dockerfile to build the API container image:
+1. Redis
+2. The API
+3. The Telegram bot
 
-```text
+The containers will make use of some secrets set in the host OS via environment variables. They are set via the Python's virtualenv *.venv/bin/activate*:
+
+```bash
+export REDIS_PASSWORD="<password>"
+export HF_TOKEN="<hf_token>"
+```
+
+### 3. Redis image build
+
+Going to build a custom image based on the official *redis:alpine-7.1* image. Doing so will give us more configuration control over the server and also. We can also keep our own tailored copy of the image in the project DockerHub repo. To start, we will be using a few non-default settings:
+
+1. vm.overcommit_memory=1
+2. Password set via compose.yaml by passing in a host environment variable.
+3. Redis IP set to 0.0.0.0, port to 6379 inside the container, also via compose.yaml.
+
+Redis will be launched inside the container via a runner script accepting a custom configuration file:
+
+```bash
+#!/bin/sh
+
+# Set memory overcommit
+sysctl vm.overcommit_memory=1
+
+# Start redis server
+redis-server /usr/local/etc/redis/redis.conf \
+--loglevel warning \
+--bind $REDIS_IP \
+--requirepass $REDIS_PASSWORD
+```
+
+The image is pretty basic, just includes the runner script and *redis.conf*. Here is the Dockerfile:
+
+```bash
+FROM redis:7.2-alpine
+
+# Move our redis.conf in
+COPY ./redis.conf /usr/local/etc/redis/redis.conf
+
+# Move the server start helper scrip in
+WORKDIR /redis
+COPY ./start_server.sh .
+```
+
+## 4. API image build
+
+The second container will be for the API. It needs to launch the Flask-Celery app via Guincorn and communicate with the Redis server container. Internal ports and IP addresses are specified via compose.yaml. Secrets are set via compose.yaml by passing in host environment variables.
+
+Here is the Dockerfile to build the API container image:
+
+```bash
 FROM nvidia/cuda:11.4.3-runtime-ubuntu20.04
 
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
-# Take command line build time arguments for host ips 
-# and ports These are used later when starting the API.
-ARG host_ip
-ARG flask_port
-ARG redis_ip
-ARG redis_port
-
-# Set environment variables inside the
-ENV HOST_IP=$host_ip
-ENV FLASK_PORT=$flask_port
-ENV REDIS_IP=$redis_ip
-ENV REDIS_PORT=$redis_port
-
-# Set working directory
-WORKDIR /
+# Set the working directory and move the source code in
+WORKDIR /agatha_api
+COPY . /agatha_api
 
 # Install python 3.8 & pip
 RUN apt-get update
 RUN apt-get install -y python3 python3-pip
 RUN python3 -m pip install --upgrade pip
-
-# Move the source code in
-WORKDIR /agatha_api
-COPY . /agatha_api
 
 # Install dependencies
 RUN pip install -r requirements.txt
@@ -210,52 +245,109 @@ RUN pip install -r requirements.txt
 WORKDIR /agatha_api/bitsandbytes-0.42.0
 RUN python3 setup.py install
 
-# Start the API
+# Set the working directory back
 WORKDIR /agatha_api
-CMD ["./start_api.sh"]
 ```
 
-Then, used two helper scripts to build the image and start a container
+The API is started via a helper script inside of the container:
 
-### *build_api_image.sh*
-
-```text
+```bash
 #!/bin/bash
 
-docker build \
---build-arg host_ip=$HOST_IP \
---build-arg flask_port=$FLASK_PORT \
---build-arg redis_ip=$REDIS_IP \
---build-arg redis_port=$REDIS_PORT \
--t gperdrizet/agatha:api .
+# Start the API with Gunicorn
+gunicorn -w 1 --bind $HOST_IP:$FLASK_PORT 'api:flask_app'
 ```
 
-### *start_api_container.sh*
+## 5. Telegram bot image build
 
-```text
-#!/bin/bash
+### TODO
 
-# Start the API docker container
-docker run \
--p 5000:5000 \
--e HF_TOKEN=$HF_TOKEN \
--e REDIS_PASSWORD=$REDIS_PASSWORD \
---gpus all \
---name agatha_api \
--d gperdrizet/agatha:api
+## 6. Image uploads
+
+Once we are sure the images are working. Clean up the system and do a final fresh build of all of the images
+
+```bash
+docker rmi gperdrizet/agatha:redis
+docker rmi gperdrizet/agatha:api
+docker system prune
 ```
 
-Once we are sure the container is working, push the image to Docker Hub.
+### Redis
 
-```text
+```bash
+cd redis
+./build_redis_image.sh
+```
+
+### Agatha API
+
+```bash
+cd api
+./build_agatha_api_image.sh
+```
+
+Then push the images to DockerHub:
+
+```bash
+docker push gperdrizet/agatha:redis
 docker push gperdrizet/agatha:api
 ```
 
-Give it a final test, by removing the container and image and the pulling and running from Docker Hub.
+Then remove the local copies of the images so we can test everything out:
 
-```text
+```bash
+docker rmi gperdrizet/agatha:redis
 docker rmi gperdrizet/agatha:api
 docker system prune
-docker pull gperdrizet/agatha:api
-./start_api_container
+```
+
+## 7. Docker compose
+
+Finally, put it all together and run the project via docker compose
+
+```text
+name: agatha
+
+services:
+
+  redis:
+    container_name: redis
+    image: gperdrizet/agatha:redis
+    restart: unless-stopped
+    environment:
+      REDIS_IP: '0.0.0.0'
+      REDIS_PORT: '6379'
+      REDIS_PASSWORD: $REDIS_PASSWORD
+    ports:
+      - '6379:6379'
+    command: ./start_server.sh
+    privileged: true
+
+  agatha_api:
+    container_name: agatha_api
+    image: gperdrizet/agatha:api
+    restart: unless-stopped
+    environment:
+      HOST_IP: '0.0.0.0'
+      FLASK_PORT: '5000'
+      REDIS_IP: redis
+      REDIS_PORT: '6379'
+      HF_TOKEN: $HF_TOKEN
+      REDIS_PASSWORD: $REDIS_PASSWORD
+    ports:
+      - 5000:5000
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: ['0', '1', '2']
+            capabilities: [gpu]
+    command: ./start_api.sh
+```
+
+Run it:
+
+```bash
+docker compose up -d
 ```
