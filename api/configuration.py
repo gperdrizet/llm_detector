@@ -11,21 +11,21 @@ import torch
 # Set mode to testing to mock scoring function with random output
 # between 0.0 and 1.0 and not load any LLMs. Set to production
 # to run real scoring function.
-MODE = 'production'
+MODE='production'
 
 # Get path to this config file so that we can define
 # other paths relative to it
 PROJECT_ROOT_PATH=os.path.dirname(os.path.realpath(__file__))
-MODULE_PARENT_PATH = os.path.abspath(os.path.join(PROJECT_ROOT_PATH, os.pardir))
-TELEGRAM_BOT_PATH = f'{MODULE_PARENT_PATH}/telegram_bot'
+MODULE_PARENT_PATH=os.path.abspath(os.path.join(PROJECT_ROOT_PATH, os.pardir))
+TELEGRAM_BOT_PATH=f'{MODULE_PARENT_PATH}/telegram_bot'
 
 # Other project paths
 LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
 DATA_PATH=f'{PROJECT_ROOT_PATH}/data'
-FRAGMENT_TURNAROUND_DATA = f'{TELEGRAM_BOT_PATH}/logs/fragment_turnaround.dat'
+FRAGMENT_TURNAROUND_DATA=f'{TELEGRAM_BOT_PATH}/logs/fragment_turnaround.dat'
 
 # Logging stuff
-PLOT_BOT_TRAFFIC = True
+PLOT_BOT_TRAFFIC=False
 LOG_LEVEL='INFO'
 LOG_PREFIX='%(levelname)s - %(message)s'
 CLEAR_LOGS=True
@@ -37,6 +37,7 @@ REDIS_IP=os.environ['REDIS_IP']
 REDIS_PORT=os.environ['REDIS_PORT']
 REDIS_PASSWORD=os.environ['REDIS_PASSWORD']
 REDIS_URL=f'redis://:{REDIS_PASSWORD}@{REDIS_IP}:{REDIS_PORT}'
+#HF_TOKEN=os.environ['HF_TOKEN']
 
 # Models to use for scoring
 READER_MODEL='meta-llama/Meta-Llama-3-8B'
@@ -57,7 +58,7 @@ XGBOOST_CLASSIFIER = f'{DATA_PATH}/XGBoost_classifier.pkl'
 ######################################################################
 
 # Loading details
-DEFAULT_CACHE_DIR='/mnt/fast_scratch/huggingface_transformers_cache'
+DEFAULT_CACHE_DIR=PROJECT_ROOT_PATH
 DEFAULT_HF_MODEL_STRING='meta-llama/Meta-Llama-3-8B'
 DEFAULT_MODEL_NAME='LLaMA3'
 DEFAULT_DEVICE_MAP='cuda:0'
