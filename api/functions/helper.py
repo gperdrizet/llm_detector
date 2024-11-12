@@ -37,12 +37,12 @@ def start_logger() -> Callable:
 
     handler = RotatingFileHandler(
         f'{config.LOG_PATH}/llm_detector.log',
-        encoding = 'utf-8',
-        maxBytes = 32 * 1024 * 1024,  # 32 MiB,
-        backupCount = 5
+        encoding='utf-8',
+        maxBytes=32 * 1024 * 1024,  # 32 MiB,
+        backupCount=5
     )
 
-    formatter = logging.Formatter(
+    formatter=logging.Formatter(
         config.LOG_PREFIX, datefmt = '%Y-%m-%d %I:%M %p')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -74,7 +74,7 @@ def update_traffic_plot() -> None:
     'Draws and saves updated traffic plot'
 
     # Load the traffic data
-    data_df = pd.read_csv(config.FRAGMENT_TURNAROUND_DATA, header = None)
+    data_df=pd.read_csv(config.FRAGMENT_TURNAROUND_DATA, header=None)
 
     # Create and format some new columns
     data_df.rename(
@@ -84,50 +84,50 @@ def update_traffic_plot() -> None:
 
     data_df['Fragment datetime'] = pd.to_datetime(
         data_df['Time fragment received'],
-        unit = 's'
+        unit='s'
     )
 
-    data_df['dT'] = (data_df['Time reply returned']
+    data_df['dT']=(data_df['Time reply returned']
                      - data_df['Time fragment received'])
 
     # Get time now to set x-axis limits
-    x_max = time.time()
+    x_max=time.time()
 
     # Draw the plots
-    fig, axs = plt.subplots(
+    fig, axs=plt.subplots(
         2,
         2,
         figsize=(7, 7),
-        gridspec_kw = {'wspace':0.3, 'hspace':0.4}
+        gridspec_kw={'wspace':0.3, 'hspace':0.4}
     )
 
-    fig.suptitle('Telegram bot traffic and API latency', size = 'x-large')
+    fig.suptitle('Telegram bot traffic and API latency', size='x-large')
 
-    date_fmt = mdates.DateFormatter('%-I %p')
+    date_fmt=mdates.DateFormatter('%-I %p')
 
     axs[0,0].set_title('Last 6 hours')
     axs[0,0].scatter(data_df['Fragment datetime'], data_df['dT'])
 
-    x_min = x_max - (6 * 60 * 60)
+    x_min=x_max - (6 * 60 * 60)
 
     axs[0,0].set_xlim(
-        pd.to_datetime(x_min, unit = 's'),
-        pd.to_datetime(x_max, unit = 's')
+        pd.to_datetime(x_min, unit='s'),
+        pd.to_datetime(x_max, unit='s')
     )
 
     axs[0,0].set_xticks(axs[0,0].get_xticks().tolist())
-    axs[0,0].set_xticklabels(axs[0,0].get_xticks(), rotation = 45)
+    axs[0,0].set_xticklabels(axs[0,0].get_xticks(), rotation=45)
     axs[0,0].xaxis.set_major_formatter(date_fmt)
     axs[0,0].set_ylabel('Turnaround time (s) ')
 
     axs[0,1].set_title('Last 12 hours')
     axs[0,1].scatter(data_df['Fragment datetime'], data_df['dT'])
 
-    x_min = x_max - (12 * 60 * 60)
+    x_min=x_max - (12 * 60 * 60)
 
     axs[0,1].set_xlim(
-        pd.to_datetime(x_min, unit = 's'),
-        pd.to_datetime(x_max, unit = 's')
+        pd.to_datetime(x_min, unit='s'),
+        pd.to_datetime(x_max, unit='s')
     )
 
     axs[0,1].set_xticks(axs[0,1].get_xticks().tolist())
@@ -138,11 +138,11 @@ def update_traffic_plot() -> None:
     axs[1,0].set_title('Last 24 hours')
     axs[1,0].scatter(data_df['Fragment datetime'], data_df['dT'])
 
-    x_min = x_max - (24 * 60 * 60)
+    x_min=x_max - (24 * 60 * 60)
 
     axs[1,0].set_xlim(
-        pd.to_datetime(x_min, unit = 's'),
-        pd.to_datetime(x_max, unit = 's')
+        pd.to_datetime(x_min, unit='s'),
+        pd.to_datetime(x_max, unit='s')
     )
 
     axs[1,0].set_xticks(axs[1,0].get_xticks().tolist())
@@ -170,19 +170,19 @@ def start_models(logger: Callable) -> list[Callable, Callable]:
 
     # Configure and load two instances of the model, one base for the
     # reader and one instruct for the writer. Use different GPUs.
-    reader_model = llm_class.Llm(
-        hf_model_string = config.READER_MODEL,
-        device_map = config.READER_DEVICE,
-        logger = logger
+    reader_model=llm_class.Llm(
+        hf_model_string=config.READER_MODEL,
+        device_map=config.READER_DEVICE,
+        logger=logger
     )
 
     reader_model.load()
     logger.info('Loaded reader model')
 
-    writer_model = llm_class.Llm(
-        hf_model_string = config.WRITER_MODEL,
-        device_map = config.WRITER_DEVICE,
-        logger = logger
+    writer_model=llm_class.Llm(
+        hf_model_string=config.WRITER_MODEL,
+        device_map=config.WRITER_DEVICE,
+        logger=logger
     )
 
     writer_model.load()
@@ -195,21 +195,13 @@ def start_celery(flask_app: Callable, logger: Callable) -> None:
     '''Initializes Celery and starts it in a thread'''
 
     # Get the Celery app
-    celery_app = flask_app.extensions['celery']
+    celery_app=flask_app.extensions['celery']
     logger.info('Celery app initialized')
 
     # Put the Celery into a thread
     celery_app_thread=Thread(
         target=celery_app.worker_main,
-        args=[
-            [
-                'worker',
-                '--pool=solo',
-                f'--loglevel={config.LOG_LEVEL}',
-                '--uid=nobody',
-                '--gid=nogroup'
-            ]
-        ]
+        args=[['worker','--pool=solo',f'--loglevel={config.LOG_LEVEL}']]
     )
 
     logger.info('Celery app MainProcess thread initialized')
@@ -222,9 +214,9 @@ def start_flask(flask_app: Callable, logger: Callable):
     '''Starts flask in a thread via the development server'''
 
     # Put the flask app into a thread
-    flask_app_thread = Thread(
-        target = flask_app.run,
-        kwargs = {'host':config.HOST_IP,'port':config.FLASK_PORT}
+    flask_app_thread=Thread(
+        target=flask_app.run,
+        kwargs={'host':config.HOST_IP,'port':config.FLASK_PORT}
     )
 
     logger.info('Flask app thread initialized')
@@ -232,35 +224,35 @@ def start_flask(flask_app: Callable, logger: Callable):
     # Start the flask app thread
     flask_app_thread.start()
 
-def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
+def clean_text(text: str=None, sw=None, lemmatizer=None) -> str:
     '''Cleans up text string for TF-IDF'''
 
     # Lowercase everything
-    text = text.lower()
+    text=text.lower()
 
     # Replace everything with space except (a-z, A-Z, ".", "?", "!", ",")
-    text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
+    text=re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
 
     # Remove URLs
-    text = re.sub(r"http\S+", "",text)
+    text=re.sub(r"http\S+", "",text)
 
     # Remove html tags
-    html = re.compile(r'<.*?>')
-    text = html.sub(r'',text)
+    html=re.compile(r'<.*?>')
+    text=html.sub(r'',text)
 
-    punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
+    punctuations='@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
 
     # Remove punctuations
     for p in punctuations:
-        text = text.replace(p,'')
+        text=text.replace(p,'')
 
     # Remove stopwords
-    text = [word.lower() for word in text.split() if word.lower() not in sw]
-    text = [lemmatizer.lemmatize(word) for word in text]
-    text = " ".join(text)
+    text=[word.lower() for word in text.split() if word.lower() not in sw]
+    text=[lemmatizer.lemmatize(word) for word in text]
+    text=" ".join(text)
 
     # Remove emojis
-    emoji_pattern = re.compile("["
+    emoji_pattern=re.compile("["
         u"\U0001F600-\U0001F64F"  # emoticons
         u"\U0001F300-\U0001F5FF"  # symbols & pictographs
         u"\U0001F680-\U0001F6FF"  # transport & map symbols
@@ -269,6 +261,6 @@ def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
         u"\U000024C2-\U0001F251"
     "]+", flags=re.UNICODE)
 
-    text = emoji_pattern.sub(r'', text)
+    text=emoji_pattern.sub(r'', text)
 
     return text
