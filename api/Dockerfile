@@ -20,5 +20,8 @@ RUN pip install -r requirements.txt
 WORKDIR /agatha_api/bitsandbytes-0.42.0
 RUN python3 setup.py install
 
+# Clean up
+RUN rm -r /agatha_api/bitsandbytes-0.42.0
+
 # Set the working directory back
 WORKDIR /agatha_api
