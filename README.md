@@ -35,7 +35,7 @@ Agatha is a synthetic text detection service available on [Telegram Messenger](h
 - **Easily accessible** - use it anywhere you can access Telegram: iOS or Android apps and any web browser.
 - **Simple interface** - no frills, just send the bot text and it will send back the probability that the text was machine generated.
 - **Useful and accurate** - provides a probability that text is synthetic, allowing users to make their own decisions when evaluating content. Maximum likelihood classification accuracy ~90% on held-out test data.
-- **Model agnostic** - malone is not trained to detect the output of a specific LLM, instead, it uses a gradient boosting classifier and a set of numerical features derived from/calibrated on a large corpus of human and synthetic text samples from multiple LLMs.
+- **Model agnostic** - agatha is not trained to detect the output of a specific LLM, instead, it uses a gradient boosting classifier and a set of numerical features derived from/calibrated on a large corpus of human and synthetic text samples from multiple LLMs.
 - **No logs** - no user data or message contents are ever persisted to disk.
 - **Open source codebase** - agatha is an open source project. Clone it, fork it, extend it, modify it, host it yourself and use it the way you want to use it.
 - **Free**
@@ -60,20 +60,23 @@ For best results, submitted text must be between 50 and 500 words.
 
 ## 4. Performance
 
-Agatha is ~90% accurate with a binary log loss of ~0.25 on hold-out test data depending on the model and feature engineering hyperparameters and the specific train/test split (see example confusion matrix below). The miss-classified examples are more or less evenly split between false negatives and false positives.
+Agatha is >99% accurate on hold-out test data depending on the submitted text length. (see example confusion matrix below). Classification accuracy is lowest on short text and best on text >= 150 words. The miss-classified examples are more or less evenly split between false negatives and false positives.
 
-![XGBoost confusion matrix](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/figures/XGBoost_confusion_matrix.png?raw=true)
+![XGBoost confusion matrix](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/figures/05.8.4.5-performance_benchmark_confusion_matrix.jpg)
 
-For more details on the classifier training and performance see: [Gradient boosting classifier selection](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/05.1-gradient_boosting_classifier_selection.ipynb) and [Classifier finalized](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/05.5-classifier_finalized.ipynb).
+For more details on the classifier training and performance see the following notebooks:
+
+1. [Stage I length binned classifier](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/05.4-stage_one_length_binned_classifier.ipynb)
+2. [Stage II length binned classifier](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/05.6-stage_two_length_binned_classifier.ipynb)
+3. [v2.0 classifier finalized](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/05.8-classifier_finalized_v2.0.ipynb)
 
 ## 5. Demonstration/experimentation notebooks
 
-Most of the testing and benchmarking during the design phase of the project was trialed in Jupyter notebooks before refactoring into modules. These notebooks are the best way to understand the approach and the engineered features used to train the classifier.
+These notebooks are the best way to understand the approach and the engineered features used to train the classifier.
 
-1. [Perplexity ratio data](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/01.1-perplexity_ratio_data.ipynb)
+1. [Perplexity ratio data](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/01.1-perplexity_ratio_data_exploration.ipynb)
 2. [Perplexity ratio score](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/03.1-perplexity_ratio_score.ipynb)
-3. [TF-IDF score](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/04.1-TF-IDF_finalized.ipynb)
-4. [XGBoost classifier](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/05.5-classifier_finalized.ipynb)
+3. [TF-IDF score](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/04.1-TF-IDF_score.ipynb)
 
 ## 6. About the author
 
