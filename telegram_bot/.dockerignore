@@ -1,0 +1,5 @@
+__pycache
+.venv
+assets
+Dockerfile
+bot_traffic.ipynb

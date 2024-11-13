@@ -9,9 +9,9 @@ from io import BytesIO
 from telegram import Update
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, CommandHandler, ContextTypes
 
-import telegram_bot.functions.helper as helper_funcs
-import telegram_bot.functions.scoring_api as api_funcs
-import telegram_bot.configuration as config
+import functions.helper as helper_funcs
+import functions.scoring_api as api_funcs
+import configuration as config
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     '''Listens for conversation start messages & sends an explanatory greeting.'''
