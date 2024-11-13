@@ -4,7 +4,7 @@ services:
 
   redis:
     container_name: redis
-    image: gperdrizet/redis:latest
+    image: gperdrizet/agatha:redis
     restart: unless-stopped
     environment:
       REDIS_IP: '0.0.0.0'
@@ -17,7 +17,7 @@ services:
 
   agatha_api:
     container_name: agatha_api
-    image: gperdrizet/agatha_api:latest
+    image: gperdrizet/agatha:api
     restart: unless-stopped
     environment:
       HOST_IP: '0.0.0.0'
@@ -36,3 +36,13 @@ services:
             device_ids: ['0', '1', '2']
             capabilities: [gpu]
     command: ./start_api.sh
+
+  agath_bot:
+    container_name:  agath_bot
+    image: gperdrizet/agatha:bot
+    restart: unless-stopped
+    environment:
+      HOST_IP: agatha_api
+      FLASK_PORT: '5000'
+      TELEGRAM_TOKEN: $TELEGRAM_TOKEN
+    command: python3 ./bot.py
