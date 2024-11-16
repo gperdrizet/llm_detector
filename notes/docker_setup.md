@@ -260,7 +260,35 @@ gunicorn -w 1 --bind $HOST_IP:$FLASK_PORT 'api:flask_app'
 
 ## 5. Telegram bot image build
 
-### TODO
+Telegram bot container is pretty straight forward - just a simple Python application. Needs to recive the Telegram bot's authentication token via an environment variable. Will set it at container runtime via docker compose like the other others. Here's the image Dockerfile
+
+```bash
+FROM python:3.10-slim-bookworm
+
+# Turns off buffering for easier container logging
+ENV PYTHONUNBUFFERED=1
+
+# Update & install python 3.8 & pip
+RUN apt-get update
+RUN apt-get upgrade -y
+RUN apt-get install -y python3 python3-pip
+RUN python3 -m pip install --upgrade pip
+
+# Set the woring directory and move the source code in
+WORKDIR /agatha_bot
+COPY . /agatha_bot
+
+# Install dependencies
+RUN pip install -r requirements.txt
+```
+
+Then, once inside the container, start the bot with:
+
+```bash
+python3 ./bot.py
+```
+
+That's it!
 
 ## 6. Image uploads
 
@@ -269,6 +297,7 @@ Once we are sure the images are working. Clean up the system and do a final fres
 ```bash
 docker rmi gperdrizet/agatha:redis
 docker rmi gperdrizet/agatha:api
+docker rmi gperdrizet/agatha:bot
 docker system prune
 ```
 
@@ -286,11 +315,19 @@ cd api
 ./build_agatha_api_image.sh
 ```
 
+### Telegram bot
+
+```bash
+cd telegram_bot
+./build_agatha_bot_image.sh
+```
+
 Then push the images to DockerHub:
 
 ```bash
 docker push gperdrizet/agatha:redis
 docker push gperdrizet/agatha:api
+docker push gperdrizet/agatha:bot
 ```
 
 Then remove the local copies of the images so we can test everything out:
@@ -298,12 +335,13 @@ Then remove the local copies of the images so we can test everything out:
 ```bash
 docker rmi gperdrizet/agatha:redis
 docker rmi gperdrizet/agatha:api
+docker rmi gperdrizet/agatha:bot
 docker system prune
 ```
 
 ## 7. Docker compose
 
-Finally, put it all together and run the project via docker compose
+Finally, put it all together and run the project via docker compose:
 
 ```text
 name: agatha
@@ -344,6 +382,16 @@ services:
             device_ids: ['0', '1', '2']
             capabilities: [gpu]
     command: ./start_api.sh
+
+  agatha_bot:
+    container_name: agatha_bot
+    image: gperdrizet/agatha:bot
+    restart: unless-stopped
+    environment:
+      HOST_IP: agatha_api
+      FLASK_PORT: '5000'
+      TELEGRAM_TOKEN: $TELEGRAM_TOKEN
+    command: python3 ./bot.py
 ```
 
 Run it:

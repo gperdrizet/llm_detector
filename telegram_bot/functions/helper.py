@@ -7,7 +7,7 @@ import os
 import glob
 import logging
 from logging.handlers import RotatingFileHandler
-import telegram_bot.configuration as config
+import configuration as config
 
 # Comment ##############################################################
 # Code ########################################################################

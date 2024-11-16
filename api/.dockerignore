@@ -1,5 +1,8 @@
+__pycache__
+.locks
 .venv
 __init__.py
 test_app.py
 Dockerfile
 compose.yaml
+build_agatha_api_image.sh
