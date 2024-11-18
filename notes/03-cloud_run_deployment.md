@@ -4,19 +4,19 @@
 
 1. Set up artifact registry for container images
 
-After the consultation call with the Google Cloud Customer Engineer and my Startup Success Manager, it seems that the ea the easiest/fastest way to get Agatha into the cloud and running is a 'lift-and-shift' of our Docker containers to Google Cloud Run. We will revisit later to decide if we want to switch to GKE for the re-engineer of the classifier.
+After the consultation call with the Google Cloud Customer Engineer and my Startup Success Manager, it seems that the easiest/fastest way to get Agatha into the cloud and running is a 'lift-and-shift' of our Docker containers to Google Cloud Run. We will revisit later to decide if we want to switch to GKE for the re-engineer of the classifier.
 
 So, the containers we need to move are:
 
 1. The Redis task queue
-2. The telegram bot
+2. The Telegram bot
 3. The text classification API
 
 Let's dig into the [documentation](https://cloud.google.com/run/docs/overview/what-is-cloud-run) on Google Cloud run and see what we are dealing with.
 
 ## Cloud run overview
 
-Can use containers, or have GCR build them for you.
+Can use pre-build Docker containers, or have GCR build them for you.
 
 Tasks are run as one of two types:
 
@@ -29,11 +29,11 @@ Cloud run 'scales to zero' i.e. if there are no incoming requests, the instances
 
 Payment can be request-based or instance-based. Request-based doesn't charge when a CPU is not allocated, but there is an additional per-request fee. Instance-based just keeps the CPU allocated and charges for the lifetime of the instance. Sounds like we want instance-based due to the above consideration about container initialization time. Unless, the container stays alive when it does not have a CPU allocated.
 
-## [Quickstart: Deploy to Cloud Run](Quickstart: Deploy to Cloud Run)
+## [Quickstart: Deploy to Cloud Run](https://cloud.google.com/run/docs/quickstarts/deploy-container)
 
 ### 1. Setup
 
-- Sign into Google Cloud
+- Sign in to Google Cloud
 - Create a project: ask-agatha
 - Make sure billing is enabled
 - Make sure you have the following IAM: `roles/run.developer`, `roles/iam.serviceAccountUser`
@@ -198,7 +198,7 @@ For more troubleshooting guidance, see https://cloud.google.com/run/docs/trouble
 
 OK, looking like maybe Cloud Run is not going to be it for us. See the [Container runtime contract](https://cloud.google.com/run/docs/container-contract). A few points to note:
 
-1. Services must listen for requests on a specific port (default 8080) - so, basically you have to run a webserver inside the container which will only be active when there are incoming requests. See note at the beginning of this document about initializing containers.
+1. Services must listen for requests on a specific port (default 8080) - so, basically you have to run a web server inside the container which will only be active when there are incoming requests. See note at the beginning of this document about initializing containers.
 2. Job execution must exit on completion with exit code 0. This is not great for us either, we could run the API container as a job, but that's kinda hacky and unintended - it's really a service.
 
 Starting to sound more and more like Cloud Run is not for us.
@@ -231,7 +231,7 @@ OK, so could be any number of problems:
 
 1. The API container image is base on nvidia/cuda:11.4.3-runtime-ubuntu20.04, so it could be the fact that we don't have a GPU.
 2. On first spin-up we download the models, which could be exceeding the startup timeout.
-3. There could be other problems inside of the container, for example, the redis server is not running....
+3. There could be other problems inside the container, for example, the redis server is not running....
 
 Let's see if we can get anything useful from the logs - nope not, really. Would love to see the logs from inside the container. Not sure how to do that. Let's start doing things we know we need...
 
@@ -396,9 +396,8 @@ $ gcloud run services logs read redis --limit=100 --project ask-agatha
 ```
 
 Nope. What's the deal with `WARNING: The TCP backlog setting of 511 cannot be enforced because /proc/sys/net/core/somaxconn is set to the lower value of 128.`?
-```
 
-OK, looking at stuff - I realize that we set a static redis ip via docker compose - so that is not avalibe to Cloud Run. Maybe the permisssions problem is redis trying to use a disalowed ip in the Cloud Run container. Let's try setting it:
+OK, looking at stuff - I realize that we set a static redis ip via docker compose - so that is not available to Cloud Run. Maybe the permisssions problem is redis trying to use a disallowed ip in the Cloud Run container. Let's try setting it:
 
 ```bash
 $ export REDIS_IP='0.0.0.0'
@@ -411,11 +410,130 @@ Now try passing it:
 ```bash
 $ gcloud beta run deploy redis \
   --image gperdrizet/agatha:redis \
-  --update-secrets=REDIS_PASSWORD=redis_password:latest \
   --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
-  --command "./start_server.sh" \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-env-vars REDIS_PORT=$REDIS_PORT \
   --port $REDIS_PORT \
-  --update-env-vars REDIS_PORT=$REDIS_PORT
+  --command "./start_server.sh" \
+  --no-cpu-throttling
 ```
 
-Still no - same problems. Starting to think this is just messy/bad configuration and we should fix it at the image build level. The fact that the vm.overcommit warning is back means that things we think we are doing are not working.
+Still no - same problems. Starting to think this is just messy/bad configuration and we should fix it at the image build level. The fact that the vm.overcommit warning is back means that things we think we are doing are not working. See the container logs:
+
+```text
+2024-11-18 14:31:58 vm.overcommit_memory = 1
+2024-11-18 14:32:03 14:M 18 Nov 2024 14:32:03.967 # Warning: Could not create server TCP listening socket -requirepass:6379: Try again
+2024-11-18 14:32:03 14:M 18 Nov 2024 14:32:03.967 # Failed listening on port 6379 (tcp), aborting.
+```
+
+Ok, looks like that handled the vm.overcommit_memory issue. But, I don't understand why we can't listen on 6379 - I'm pretty sure that there is no ufw or anything inside the container. OK, have an idea, look at this:
+
+```bash
+$ echo $REDIS_IP
+192.168.1.148
+```
+
+We are setting the wrong listen IP via the host environment variable on **pyrite**. Updated `.venv/bin/activate` with `0.0.0.0`. We may also need to update the image - we are using container names via Docker Compose for networking between containers. I think the right way to do this for Cloud Run is make the API the service and run Redis and the bot as 'sidecars'. Let's try with the updated IP and see how the logs change. Hopefully we can get Redis started. Then we can think about the other containers - I don't think the API will start correctly if it can't reach redis.
+
+```bash
+$ ./cloud_run_deploy.sh
+
+Deploying container to Cloud Run service [redis] in project [ask-agatha] region [us-central1]
+X Deploying...                                                                                               
+  - Creating Revision...                                                                                     
+  . Routing traffic...                                                                                       
+Deployment failed                                                                                            
+ERROR: (gcloud.beta.run.deploy) Revision 'redis-00006-g9c' is not ready and cannot serve traffic. The user-provided container failed to start and listen on the port defined provided by the PORT=6379 environment variable within the allocated timeout. This can happen when the container port is misconfigured or if the timeout is too short. The health check timeout can be extended. Logs for this revision might contain more information.
+
+Logs URL: https://console.cloud.google.com/logs/viewer?project=ask-agatha&resource=cloud_run_revision/service_name/redis/revision_name/redis-00006-g9c&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22redis%22%0Aresource.labels.revision_name%3D%22redis-00006-g9c%22 
+For more troubleshooting guidance, see https://cloud.google.com/run/docs/troubleshooting#container-failed-to-start
+```
+
+Still no, let's check the container logs:
+
+```bash
+2024-11-18 14:46:27 vm.overcommit_memory = 1
+2024-11-18 14:46:32 14:M 18 Nov 2024 14:46:32.548 # Warning: Could not create server TCP listening socket -requirepass:6379: Try again
+2024-11-18 14:46:32 14:M 18 Nov 2024 14:46:32.548 # Failed listening on port 6379 (tcp), aborting.
+```
+
+Still the exact same thing. I wonder if it is actually getting updated - we didn't change the container at all, maybe it's not picking up the change in IP? Try deleting the container via the Cloud Console. More problems. Now the memory overcommit warning is back? Ugh:
+
+```text
+2024-11-18 14:53:01 sysctl: write error: I/O error
+2024-11-18 14:53:01 3:C 18 Nov 2024 14:53:01.863 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+2024-11-18 14:53:01 3:M 18 Nov 2024 14:53:01.866 # WARNING: The TCP backlog setting of 511 cannot be enforced because /proc/sys/net/core/somaxconn is set to the lower value of 128.
+2024-11-18 14:53:06 3:M 18 Nov 2024 14:53:06.868 # Warning: Could not create server TCP listening socket -requirepass:6379: Try again
+2024-11-18 14:53:06 3:M 18 Nov 2024 14:53:06.868 # Failed listening on port 6379 (tcp), aborting.
+```
+
+The inconsistency with vm.overcommit is bothering me, but the real problem is port 6379 - maybe let's try re-building the image? Here are the relevant files:
+
+##### start_server.sh
+
+This is the entrypoint - it is run via `gcloud run deploy` using the `--command` flag.
+
+```bash
+#!/bin/sh
+
+# Set memory overcommit
+sysctl vm.overcommit_memory=1
+
+# Start redis server
+redis-server /usr/local/etc/redis/redis.conf \
+--loglevel warning \
+--bind $REDIS_IP \
+--requirepass $REDIS_PASSWORD
+```
+
+And here is the Dockerfile used to build the image:
+
+```Dockerfile
+FROM redis:7.2-alpine
+
+# Move our redis.conf in
+COPY ./redis.conf /usr/local/etc/redis/redis.conf
+
+# Move the server start helper script in
+WORKDIR /redis
+COPY ./start_server.sh .
+```
+
+So, it looks like we are setting the bind IP via the environment variable like we thought, but we don't need the port number inside the container - we are just using the default. But we do have to tell Cloud Run what port the server is on. Added an echo of REDIS_PORT and REDIS_IP to `start_server.sh` and rebuilt and pushed the container to DockerHub. Try again:
+
+```bash
+$ ./cloud_run_deploy.sh
+
+Deploying container to Cloud Run service [redis] in project [ask-agatha] region [us-central1]
+X Deploying new service...                                                                                   
+  - Creating Revision...                                                                                     
+  . Routing traffic...                                                                                       
+    Setting IAM Policy...                                                                                    
+Deployment failed                                                                                            
+  Setting IAM policy failed, try "gcloud beta run services add-iam-policy-binding --region=us-central1 --member=allUsers --role=roles/run.invoker redis"
+ERROR: (gcloud.run.deploy) Revision 'redis-00001-9zx' is not ready and cannot serve traffic. The user-provided container failed to start and listen on the port defined provided by the PORT=6379 environment variable within the allocated timeout. This can happen when the container port is misconfigured or if the timeout is too short. The health check timeout can be extended. Logs for this revision might contain more information.
+
+Logs URL: https://console.cloud.google.com/logs/viewer?project=ask-agatha&resource=cloud_run_revision/service_name/redis/revision_name/redis-00001-9zx&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22redis%22%0Aresource.labels.revision_name%3D%22redis-00001-9zx%22 
+For more troubleshooting guidance, see https://cloud.google.com/run/docs/troubleshooting#container-failed-to-start
+
+$ gcloud run services logs read redis --limit=100 --project ask-agatha
+
+2024-11-18 15:07:35 sysctl: write error: I/O error
+2024-11-18 15:07:35 3:C 18 Nov 2024 15:07:35.569 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+2024-11-18 15:07:35 3:M 18 Nov 2024 15:07:35.572 # WARNING: The TCP backlog setting of 511 cannot be enforced because /proc/sys/net/core/somaxconn is set to the lower value of 128.
+2024-11-18 15:07:40 3:M 18 Nov 2024 15:07:40.575 # Warning: Could not create server TCP listening socket -requirepass:6379: Try again
+2024-11-18 15:07:40 3:M 18 Nov 2024 15:07:40.575 # Failed listening on port 6379 (tcp), aborting.
+```
+
+Looks like we failed setting the IAM policy. Try again answering 'no' to `Allow unauthenticated invocations to [redis] (y/N)?`. Ok, that fixed the IAM error, but the container logs are still the same. Maybe it's an issue with exposing that port. When running the containers locally via Docker compose we do:
+
+```text
+    ports:
+      - '6379:6379'
+```
+
+Maybe we need to specify this via the Dockerfile? Let's try adding `EXPOSE 6379` to the Dockerfile and re-building the image.
+
+Nope - no help. Exact same issue. Don't think `EXPOSE` is sufficent. If I were going to run this container localy with docker I would add `-p 6379:6379` to map the port - do I need to do that somehow with glcoud?
+
+

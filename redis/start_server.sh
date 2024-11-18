@@ -1,5 +1,8 @@
 #!/bin/sh
 
+echo $REDIS_PORT
+echo $REDIS_IP
+
 # Set memory overcommit
 sysctl vm.overcommit_memory=1
 
