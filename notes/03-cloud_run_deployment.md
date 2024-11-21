@@ -1325,3 +1325,44 @@ OK! Calling this a deployment? Still have issues:
 
 1. There are problems with bitsandbytes inside of the API container - solution is probably to just pip install it rather than go through all of the trouble of compiling a specific version for compatibility with k80 cards.
 2. Networking - solution is to read more.
+
+Modified API container to install bitsandbytes via pip and re-built, pushed to Docker hub.
+
+## 7. Secrets
+
+After accidentally committing some secrets in this file, update everything. Had to delete secrets manually from the Cloud Consol Secret Manager and re-create:
+
+```bash
+printf $REDIS_PASSWORD | gcloud secrets create redis_password --data-file=- --replication-policy="automatic"
+printf $HF_TOKEN | gcloud secrets create hf_token --data-file=- --replication-policy="automatic"
+printf $TELEGRAM_TOKEN | gcloud secrets create telegram_token --data-file=- --replication-policy="automatic"
+```
+
+Re-deploy everything and check the logs:
+
+```bash
+$ gcloud run services logs read agatha --limit=100 --project ask-agatha
+
+2024-11-21 12:26:47 ==========
+2024-11-21 12:26:47 == CUDA ==
+2024-11-21 12:26:47 ==========
+2024-11-21 12:26:47 CUDA Version 11.4.3
+2024-11-21 12:26:47 Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+2024-11-21 12:26:47 This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+2024-11-21 12:26:47 By pulling and using the container, you accept the terms and conditions of this license:
+2024-11-21 12:26:47 https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+2024-11-21 12:26:47 A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+2024-11-21 12:26:49 [2024-11-21 12:26:49 +0000] [36] [INFO] Starting gunicorn 23.0.0
+2024-11-21 12:26:49 [2024-11-21 12:26:49 +0000] [36] [INFO] Listening at: http://0.0.0.0:5000 (36)
+2024-11-21 12:26:49 [2024-11-21 12:26:49 +0000] [36] [INFO] Using worker: sync
+2024-11-21 12:26:49 [2024-11-21 12:26:49 +0000] [38] [INFO] Booting worker with pid: 38
+2024-11-21 12:26:50 Will log to: /agatha_bot/logs/telegram_bot.log
+2024-11-21 12:27:01 [nltk_data] Downloading package stopwords to /root/nltk_data...
+2024-11-21 12:27:01 [nltk_data]   Unzipping corpora/stopwords.zip.
+2024-11-21 12:27:01 [nltk_data] Downloading package wordnet to /root/nltk_data...
+2024-11-21 12:29:06 Downloading shards:   0%|          | 0/4 [00:00<?, ?it/s]
+2024-11-21 12:31:05 Downloading shards:  25%|██▌       | 1/4 [01:58<05:56, 118.77s/it]
+2024-11-21 12:32:04 Downloading shards:  50%|█████     | 2/4 [03:58<03:58, 119.06s/it]
+```
+
+Sweet, looks like we got it - all we need now is the networking!
