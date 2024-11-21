@@ -31,7 +31,7 @@ Payment can be request-based or instance-based. Request-based doesn't charge whe
 
 ## [Quickstart: Deploy to Cloud Run](https://cloud.google.com/run/docs/quickstarts/deploy-container)
 
-### 1. Setup
+## 1. Setup
 
 - Sign in to Google Cloud
 - Create a project: ask-agatha
@@ -41,11 +41,11 @@ Payment can be request-based or instance-based. Request-based doesn't charge whe
 
 Can deploy from DockerHub, but Google recommends their own artifact registry. See [Create remote repositories](https://cloud.google.com/artifact-registry/docs/repositories/remote-repo). We will come back and set that up later.
 
-### 2. Deploy container image
+## 2. Deploy container image
 
-#### 2.1. Set-up local shell with gcloud cli
+### 2.1. Set-up local shell with gcloud cli
 
-##### 2.1.1. Install gcloud
+#### 2.1.1. Install gcloud
 
 Documentation [here](https://cloud.google.com/sdk/docs/install). Following the Debian/Ubuntu instructions on *pyrite*:
 
@@ -103,9 +103,9 @@ gcloud init
 
 This brings you to a web login page for a verification code and then ask which GC project you want to associate to. Used *ask-agatha*.
 
-##### 2.1.2. Initialize gcloud
+#### 2.1.2. Initialize gcloud
 
-Documentation [here](https://cloud.google.com/sdk/docs/initializing). After running `glcoud init` and following initial set-up instructions, do the following:
+Documentation [here](https://cloud.google.com/sdk/docs/initializing). After running `gcloud init` and following initial set-up instructions, do the following:
 
 Set the default region with:
 
@@ -128,7 +128,7 @@ Your active configuration is: [default]
 
 OK, looks like we are ready to go with the default configuration.
 
-#### 2.2. Add secrets
+### 2.2. Add secrets
 
 The containers need to have access to a few secrets. We are providing these locally from Docker Compose via environment variables:
 
@@ -171,11 +171,11 @@ And set it as the service account for ask-agatha:
 gcloud run services update ask-agatha --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com
 ```
 
-#### 2.2. Deploy the image(s)
+### 2.2. Deploy the image(s)
 
 From local shell on *pyrite*:
 
-##### 2.2.1. Text classification API
+#### 2.2.1. Text classification API
 
 ```bash
 $ gcloud run deploy api \
@@ -225,7 +225,7 @@ Logs URL: https://console.cloud.google.com/logs/viewer?project=ask-agatha&resour
 For more troubleshooting guidance, see https://cloud.google.com/run/docs/troubleshooting#container-failed-to-start
 ```
 
-##### 2.2.2. Troubleshooting
+#### 2.2.2. Troubleshooting
 
 OK, so could be any number of problems:
 
@@ -235,11 +235,11 @@ OK, so could be any number of problems:
 
 Let's see if we can get anything useful from the logs - nope not, really. Would love to see the logs from inside the container. Not sure how to do that. Let's start doing things we know we need...
 
-##### 2.2.3. Attach GPU(s)
+#### 2.2.3. Attach GPU(s)
 
 Following the [GPU (services) documentation](https://cloud.google.com/run/docs/configuring/services/gpu).
 
-###### 2.2.3.1. Configure CPU always allocated
+##### 2.2.3.1. Configure CPU always allocated
 
 ```bash
 gcloud run services update api --no-cpu-throttling
@@ -247,7 +247,7 @@ gcloud run services update api --no-cpu-throttling
 
 **Note**: can also be set during deployment with by passing `--no-cpu-throttling`.
 
-###### 2.2.3.2. Configure 8 CPUs
+##### 2.2.3.2. Configure 8 CPUs
 
 ```bash
 gcloud run services update api --cpu 8
@@ -255,7 +255,7 @@ gcloud run services update api --cpu 8
 
 **Note**: can also be set during deployment with by passing `--cpu`.
 
-###### 2.2.3.3. Configure 32 GB memory
+##### 2.2.3.3. Configure 32 GB memory
 
 ```bash
 gcloud run services update api --memory 32G
@@ -263,7 +263,7 @@ gcloud run services update api --memory 32G
 
 **Note**: can also be set during deployment with by passing `--memory`.
 
-###### 2.2.3.4. Configure concurrency
+##### 2.2.3.4. Configure concurrency
 
 Let's set for 2, that's the most workers we can handle on a single GPU.
 
@@ -273,7 +273,7 @@ gcloud run services update api --concurrency 2
 
 **Note**: can also be set during deployment with by passing `--concurrency`.
 
-###### 2.2.3.5. Configure max instances
+##### 2.2.3.5. Configure max instances
 
 ```bash
 gcloud run services update api --max-instances 1
@@ -281,7 +281,7 @@ gcloud run services update api --max-instances 1
 
 **Note**: can also be set during deployment with by passing `--max-instances`.
 
-###### 2.2.3.6. Deploy with GPU
+##### 2.2.3.6. Deploy with GPU
 
 Put it all together:
 
@@ -314,7 +314,7 @@ For more troubleshooting guidance, see https://cloud.google.com/run/docs/trouble
 
 OK, logs not helpful. I'm a little worried that it's not starting because redis is not there. Let's try just starting the redis container. After that, I think we need some networking setup to get inter-container communication working.
 
-##### 2.2.4. Redis container
+#### 2.2.4. Redis container
 
 ```bash
 $ gcloud beta run deploy redis \
@@ -469,7 +469,7 @@ Still the exact same thing. I wonder if it is actually getting updated - we didn
 
 The inconsistency with vm.overcommit is bothering me, but the real problem is port 6379 - maybe let's try re-building the image? Here are the relevant files:
 
-##### start_server.sh
+#### start_server.sh
 
 This is the entrypoint - it is run via `gcloud run deploy` using the `--command` flag.
 
@@ -534,6 +534,794 @@ Looks like we failed setting the IAM policy. Try again answering 'no' to `Allow 
 
 Maybe we need to specify this via the Dockerfile? Let's try adding `EXPOSE 6379` to the Dockerfile and re-building the image.
 
-Nope - no help. Exact same issue. Don't think `EXPOSE` is sufficent. If I were going to run this container localy with docker I would add `-p 6379:6379` to map the port - do I need to do that somehow with glcoud?
+Nope - no help. Exact same issue. Don't think `EXPOSE` is sufficient. If I were going to run this container locally with docker I would add `-p 6379:6379` to map the port - do I need to do that somehow with gcloud?
 
+## 3. Back-up
 
+OK, this is starting to turn into a mess. Let's back up and double check the containers. Then let's look at the Google Cloud Run 'sidecar' pattern. It appears to use a yaml file much like Docker Compose to deploy multiple containers with one main 'ingress' container and other 'sidecar' containers. This might alleviate some issues with containers not starting because services aren't present. But before we do that, let's rebuild each container image and test them locally.
+
+The following environment variables are set via our virtualenv on the local machine:
+
+```bash
+export HF_HOME="/mnt/fast_scratch/huggingface_transformers_cache"
+export HF_TOKEN="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"
+export HOST_IP="0.0.0.0"
+export REDIS_IP="0.0.0.0"
+export FLASK_PORT="5000"
+export REDIS_PORT="6379"
+export REDIS_PASSWORD="806Motthill"
+export TELEGRAM_TOKEN="7233074236:AAEQBg1aMy-9zo_dF_yT6ftpqNdlGVfylvo"
+```
+
+### 3.1. Redis
+
+Dockerfile:
+
+```Dockerfile
+FROM redis:7.2-alpine
+
+# Move our redis.conf in
+COPY ./redis.conf /usr/local/etc/redis/redis.conf
+
+# Move the server start helper script in
+WORKDIR /redis
+COPY ./start_server.sh .
+
+CMD ['./start_server.sh']
+```
+
+start_server.sh:
+
+```bash
+#!/bin/sh
+
+echo $REDIS_PORT
+echo $REDIS_IP
+
+# Set memory overcommit
+sysctl vm.overcommit_memory=1
+
+# Start redis server
+redis-server /usr/local/etc/redis/redis.conf \
+--loglevel warning \
+--bind $REDIS_IP \
+--requirepass $REDIS_PASSWORD
+```
+
+### 3.2. Telegram bot
+
+Dockerfile:
+
+```Dockerfile
+FROM python:3.10-slim-bookworm
+
+# Turns off buffering for easier container logging
+ENV PYTHONUNBUFFERED=1
+
+# Update & install python 3.8 & pip
+RUN apt-get update
+RUN apt-get upgrade -y
+RUN apt-get install -y python3 python3-pip
+RUN python3 -m pip install --upgrade pip
+
+# Set the working directory and move the source code in
+WORKDIR /agatha_bot
+COPY . /agatha_bot
+
+# Install dependencies
+RUN pip install -r requirements.txt
+
+CMD ["python3", "./bot.py"]
+```
+
+The start-up command runs the bot directly.
+
+### 3.2. Agatha API
+
+Dockerfile:
+
+```Dockerfile
+FROM nvidia/cuda:11.4.3-runtime-ubuntu20.04
+
+# Turns off buffering for easier container logging
+ENV PYTHONUNBUFFERED=1
+
+# Update & install python 3.8 & pip
+RUN apt-get update
+RUN apt-get upgrade -y
+RUN apt-get install -y python3 python3-pip
+RUN python3 -m pip install --upgrade pip
+
+# Set the woring directory and move the source code in
+WORKDIR /agatha_api
+COPY . /agatha_api
+
+# Install dependencies
+RUN pip install -r requirements.txt
+
+# Install bitsandbytes
+WORKDIR /agatha_api/bitsandbytes-0.42.0
+RUN python3 setup.py install
+
+# Clean up
+RUN rm -r /agatha_api/bitsandbytes-0.42.0
+
+# Set the working directory back
+WORKDIR /agatha_api
+
+CMD ["./start_api.sh"]
+```
+
+start_api.sh:
+
+```bash
+#!/bin/bash
+
+# Authenticate session to HuggingFace so we can download gated models if needed
+python3 -c "from huggingface_hub.hf_api import HfFolder; HfFolder.save_token('$HF_TOKEN')"
+
+# Start the API with Gunicorn
+gunicorn -w 1 --bind $HOST_IP:$FLASK_PORT 'api:flask_app'
+```
+
+### 3.3. Build & push
+
+Build the image and push to Docker Hub:
+
+```bash
+build_docker_images.sh
+docker push gperdrizet/agatha:redis
+docker push gperdrizet/agatha:bot
+docker push gperdrizet/agatha:api
+```
+
+### 3.4. Docker Compose
+
+Run all three containers via Docker Compose.
+
+compose.yaml:
+
+```yaml
+name: agatha
+
+services:
+
+  redis:
+    container_name: redis
+    image: gperdrizet/agatha:redis
+    restart: unless-stopped
+    environment:
+      REDIS_IP: $REDIS_IP
+      REDIS_PORT: $REDIS_PORT
+      REDIS_PASSWORD: $REDIS_PASSWORD
+    ports:
+      - $REDIS_PORT:$REDIS_PORT
+    privileged: true
+
+  agatha_api:
+    container_name: agatha_api
+    image: gperdrizet/agatha:api
+    restart: unless-stopped
+    environment:
+      HOST_IP: $HOST_IP
+      FLASK_PORT: $FLASK_PORT
+      REDIS_IP: $REDIS_IP
+      REDIS_PORT: $REDIS_PORT
+      HF_TOKEN: $HF_TOKEN
+      REDIS_PASSWORD: $REDIS_PASSWORD
+    ports:
+      - $FLASK_PORT:$FLASK_PORT
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: ['0', '1', '2']
+            capabilities: [gpu]
+
+  agatha_bot:
+    container_name:  agatha_bot
+    image: gperdrizet/agatha:bot
+    restart: unless-stopped
+    environment:
+      HOST_IP: agatha_api
+      FLASK_PORT: $FLASK_PORT
+      TELEGRAM_TOKEN: $TELEGRAM_TOKEN
+```
+
+Everything looks great, all container start with no errors and Agatha works. The only possible issue I see going into this is that the API container takes a wild to spin up - it needs to download the nltk data and both models. But, I do see that gunicorn is listening on `http://0.0.0.0:5000` before all of that starts. Hopefully the container passes the Cloud Run health check.
+
+### 3.5. Cloud Run with sidecar
+
+OK, now we will try and do the same thing via cloud run with sidecar. Here is the configuration file:
+
+sidecar.yaml
+
+```yaml
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+  name: agatha
+  labels:
+    cloud.googleapis.com/location: "us-central1"
+spec:
+  template:
+    spec:
+      containers:
+        - image: "gperdrizet/agatha:api"
+          ports:
+            - containerPort: 5000
+          env:
+            - name: HOST_IP
+              value: $HOST_IP
+            - name: FLASK_PORT
+              value: $FLASK_PORT
+            - name: REDIS_IP
+              value: $REDIS_IP
+            - name: REDIS_PORT
+              value: $REDIS_PORT
+            - name: HF_TOKEN
+              value: $HF_TOKEN
+            - name: REDIS_PASSWORD
+              value: $REDIS_PASSWORD
+
+        - image: "gperdrizet/agatha:redis"
+          ports:
+            - containerPort: 6379
+          env:
+            - name: REDIS_IP
+              value: $REDIS_IP
+            - name: REDIS_PORT
+              value: $REDIS_PORT
+            - name: REDIS_PASSWORD
+              value: $REDIS_PASSWORD
+
+        - image: "gperdrizet/agatha:bot"
+          env:
+            - name: HOST_IP
+              value: agatha_api
+            - name: FLASK_PORT
+              value: $FLASK_PORT
+            - name: TELEGRAM_TOKEN
+              value: $TELEGRAM_TOKEN
+```
+
+And, go!
+
+```bash
+$ gcloud beta run services replace sidecar.yaml
+
+Applying new configuration to Cloud Run service [agatha] in project [ask-agatha] region [us-central1]
+X Deploying new service...                                                                                                                                            
+  . Creating Revision...                                                                                                                                              
+  . Routing traffic...                                                                                                                                                
+Deployment failed                                                                                                                                                     
+ERROR: (gcloud.beta.run.services.replace) spec.template.spec.containers: Revision template should contain exactly one container with an exposed port.
+```
+
+Nope - Ok, I really don't think that Cloud Run is the way to do this. We are spending too much time trying to work around limitations of the service. Agatha is not some simple node.js web app. It's a fully engineered custom feature engineering and inference pipeline. Looks like it's gonna be GKE for us. But it still bothers me that I can't get the flask API up - it's listening. Let's try one more time with tne new image. I'd at least like to see an error complaining that it can't contact redis. At least that way, we would know that we are doing everything right-ish.
+
+## 4. One last shot: Agatha API, stand-alone
+
+```bash
+$ gcloud beta run deploy api \
+  --image gperdrizet/agatha:api \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-secrets=HF_TOKEN=hf_token:latest \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --port $FLASK_PORT \
+  --no-cpu-throttling \
+  --cpu 8 \
+  --memory 32G \
+  --concurrency 2 \
+  --max-instances 1 \
+  --gpu 1 \
+  --gpu-type "nvidia-l4"
+
+Allow unauthenticated invocations to [api] (y/N)?  n
+
+Deploying container to Cloud Run service [api] in project [ask-agatha] region [us-central1]
+X Deploying new service...                                                                                                                                            
+  - Creating Revision...                                                                                                                                              
+  . Routing traffic...                                                                                                                                                
+Deployment failed                                                                                                                                                     
+ERROR: (gcloud.beta.run.deploy) Revision 'api-00001-wbr' is not ready and cannot serve traffic. The user-provided container failed to start and listen on the port defined provided by the PORT=5000 environment variable within the allocated timeout. This can happen when the container port is misconfigured or if the timeout is too short. The health check timeout can be extended. Logs for this revision might contain more information.
+
+Logs URL: https://console.cloud.google.com/logs/viewer?project=ask-agatha&resource=cloud_run_revision/service_name/api/revision_name/api-00001-wbr&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22api%22%0Aresource.labels.revision_name%3D%22api-00001-wbr%22 
+For more troubleshooting guidance, see https://cloud.google.com/run/docs/troubleshooting#container-failed-to-start
+```
+
+Looks like it's failing health checks. It's checking the right port though. Let's look at the container logs and see if something else failed inside.
+
+```bash
+$ gcloud run services logs read api --limit=100 --project ask-agatha
+
+2024-11-20 21:52:45 ==========
+2024-11-20 21:52:45 == CUDA ==
+2024-11-20 21:52:45 ==========
+2024-11-20 21:52:45 CUDA Version 11.4.3
+2024-11-20 21:52:45 Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+2024-11-20 21:52:45 This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+2024-11-20 21:52:45 By pulling and using the container, you accept the terms and conditions of this license:
+2024-11-20 21:52:45 https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+2024-11-20 21:52:45 A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+2024-11-20 21:52:45 Error: '' is not a valid port number.
+```
+
+Oooo, tantalizing - CUDA looks good, but the port number environment variable is empty... Yep, looking at the run command above, I set the port for Cloud Run to talk to the container on, but I didn't pass it in as an environment variable. Trying one more time:
+
+```bash
+$ gcloud beta run deploy api \
+  --image gperdrizet/agatha:api \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-secrets=HF_TOKEN=hf_token:latest \
+  --update-env-vars FLASK_PORT=$FLASK_PORT \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --port $FLASK_PORT \
+  --no-cpu-throttling \
+  --cpu 8 \
+  --memory 32G \
+  --concurrency 2 \
+  --max-instances 1 \
+  --gpu 1 \
+  --gpu-type "nvidia-l4"
+
+Deploying container to Cloud Run service [api] in project [ask-agatha] region [us-central1]
+✓ Deploying... Done.                                                                                                                                                  
+  ✓ Creating Revision...                                                                                                                                              
+  ✓ Routing traffic...                                                                                                                                                
+Done.                                                                                                                                                                 
+Service [api] revision [api-00002-7sl] has been deployed and is serving 100 percent of traffic.
+Service URL: https://api-224558092745.us-central1.run.app
+```
+
+Woah! We did it. Let's look at the logs:
+
+```bash
+$ gcloud run services logs read api --limit=100 --project ask-agatha
+
+2024-11-20 22:10:41 ==========
+2024-11-20 22:10:41 == CUDA ==
+2024-11-20 22:10:41 ==========
+2024-11-20 22:10:42 CUDA Version 11.4.3
+2024-11-20 22:10:42 Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+2024-11-20 22:10:42 This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+2024-11-20 22:10:42 By pulling and using the container, you accept the terms and conditions of this license:
+2024-11-20 22:10:42 https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+2024-11-20 22:10:42 A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+2024-11-20 22:10:44 [2024-11-20 22:10:44 +0000] [38] [INFO] Starting gunicorn 22.0.0
+2024-11-20 22:10:44 [2024-11-20 22:10:44 +0000] [38] [INFO] Listening at: http://0.0.0.0:5000 (38)
+2024-11-20 22:10:44 [2024-11-20 22:10:44 +0000] [38] [INFO] Using worker: sync
+2024-11-20 22:10:44 [2024-11-20 22:10:44 +0000] [40] [INFO] Booting worker with pid: 40
+2024-11-20 22:10:52 [2024-11-20 22:10:52 +0000] [40] [ERROR] Exception in worker process
+2024-11-20 22:10:52 Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/arbiter.py", line 609, in spawn_worker
+    worker.init_process()
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/workers/base.py", line 134, in init_process
+    self.load_wsgi()
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/workers/base.py", line 146, in load_wsgi
+    self.wsgi = self.app.wsgi()
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/app/base.py", line 67, in wsgi
+    self.callable = self.load()
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/app/wsgiapp.py", line 58, in load
+    return self.load_wsgiapp()
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/app/wsgiapp.py", line 48, in load_wsgiapp
+    return util.import_app(self.app_uri)
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/util.py", line 371, in import_app
+    mod = importlib.import_module(module)
+  File "/usr/lib/python3.8/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1014, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 991, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 975, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 671, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 848, in exec_module
+  File "<frozen importlib._bootstrap>", line 219, in _call_with_frames_removed
+  File "/agatha_api/api.py", line 6, in <module>
+    import functions.flask_app as app_funcs
+  File "/agatha_api/functions/flask_app.py", line 10, in <module>
+    import configuration as config
+  File "/agatha_api/configuration.py", line 34, in <module>
+    HOST_IP=os.environ['HOST_IP']
+  File "/usr/lib/python3.8/os.py", line 675, in __getitem__
+    raise KeyError(key) from None
+KeyError: 'HOST_IP'
+2024-11-20 22:10:52 [2024-11-20 22:10:52 +0000] [40] [INFO] Worker exiting (pid: 40)
+2024-11-20 22:10:53 [2024-11-20 22:10:53 +0000] [38] [ERROR] Worker (pid:40) exited with code 3
+2024-11-20 22:10:53 [2024-11-20 22:10:53 +0000] [38] [ERROR] Shutting down: Master
+2024-11-20 22:10:53 [2024-11-20 22:10:53 +0000] [38] [ERROR] Reason: Worker failed to boot.
+```
+
+OK, looks like I forgot to send in the IP for flask to listen on and the redis IP. This is where I think we are going to run into trouble. We don't have a Redis container running. How about this:
+
+```bash
+$ gcloud beta run deploy api \
+  --image gperdrizet/agatha:api \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-secrets=HF_TOKEN=hf_token:latest \
+  --update-env-vars FLASK_PORT=$FLASK_PORT \
+  --update-env-vars HOST_IP=$HOST_IP \
+  --update-env-vars REDIS_IP=$REDIS_IP \
+  --update-env-vars REDIS_PORT=$REDIS_PORT \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --port $FLASK_PORT \
+  --no-cpu-throttling \
+  --cpu 8 \
+  --memory 32G \
+  --concurrency 2 \
+  --max-instances 1 \
+  --gpu 1 \
+  --gpu-type "nvidia-l4"
+```
+
+```bash
+$ gcloud run services logs read api --limit=100 --project ask-agatha
+
+2024-11-20 22:31:46 ==========
+2024-11-20 22:31:46 == CUDA ==
+2024-11-20 22:31:46 ==========
+2024-11-20 22:31:46 CUDA Version 11.4.3
+2024-11-20 22:31:46 Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+2024-11-20 22:31:46 This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+2024-11-20 22:31:46 By pulling and using the container, you accept the terms and conditions of this license:
+2024-11-20 22:31:46 https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+2024-11-20 22:31:46 A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+2024-11-20 22:31:47 [2024-11-20 22:31:47 +0000] [35] [INFO] Starting gunicorn 22.0.0
+2024-11-20 22:31:47 [2024-11-20 22:31:47 +0000] [35] [INFO] Listening at: http://0.0.0.0:5000 (35)
+2024-11-20 22:31:47 [2024-11-20 22:31:47 +0000] [35] [INFO] Using worker: sync
+2024-11-20 22:31:47 [2024-11-20 22:31:47 +0000] [37] [INFO] Booting worker with pid: 37
+2024-11-20 22:31:59 [nltk_data] Downloading package stopwords to /root/nltk_data...
+2024-11-20 22:31:59 [nltk_data]   Unzipping corpora/stopwords.zip.
+2024-11-20 22:31:59 [nltk_data] Downloading package wordnet to /root/nltk_data...
+2024-11-20 22:32:00 False
+2024-11-20 22:32:00 ===================================BUG REPORT===================================
+2024-11-20 22:32:00 ================================================================================
+2024-11-20 22:32:00 The following directories listed in your path were found to be non-existent: {PosixPath('/usr/local/nvidia/lib')}
+2024-11-20 22:32:00 The following directories listed in your path were found to be non-existent: {PosixPath('gunicorn/22.0.0')}
+2024-11-20 22:32:00 CUDA_SETUP: WARNING! libcudart.so not found in any environmental path. Searching in backup paths...
+2024-11-20 22:32:00 DEBUG: Possible options found for libcudart.so: {PosixPath('/usr/local/cuda/lib64/libcudart.so.11.0')}
+2024-11-20 22:32:00 CUDA SETUP: PyTorch settings found: CUDA_VERSION=117, Highest Compute Capability: 8.9.
+2024-11-20 22:32:00 CUDA SETUP: To manually override the PyTorch CUDA version please see:https://github.com/TimDettmers/bitsandbytes/blob/main/how_to_use_nonpytorch_cuda.md
+2024-11-20 22:32:00 CUDA SETUP: Required library version not found: libbitsandbytes_cuda117.so. Maybe you need to compile it from source?
+2024-11-20 22:32:00 CUDA SETUP: Defaulting to libbitsandbytes_cpu.so...
+2024-11-20 22:32:00 ================================================ERROR=====================================
+2024-11-20 22:32:00 /usr/local/lib/python3.8/dist-packages/bitsandbytes-0.42.0-py3.8.egg/bitsandbytes/cuda_setup/main.py:167: UserWarning: Welcome to bitsandbytes. For bug reports, please run
+2024-11-20 22:32:00 CUDA SETUP: CUDA detection failed! Possible reasons:
+2024-11-20 22:32:00 1. You need to manually override the PyTorch CUDA version. Please see: "https://github.com/TimDettmers/bitsandbytes/blob/main/how_to_use_nonpytorch_cuda.md
+2024-11-20 22:32:00 2. CUDA driver not installed
+2024-11-20 22:32:00 python -m bitsandbytes
+2024-11-20 22:32:00 3. CUDA not installed
+2024-11-20 22:32:00   warn(msg)
+2024-11-20 22:32:00 /usr/local/lib/python3.8/dist-packages/bitsandbytes-0.42.0-py3.8.egg/bitsandbytes/cuda_setup/main.py:167: UserWarning: /usr/local/nvidia/lib:/usr/local/nvidia/lib64 did not contain ['libcudart.so', 'libcudart.so.11.0', 'libcudart.so.12.0'] as expected! Searching further paths...
+2024-11-20 22:32:00 4. You have multiple conflicting CUDA libraries
+2024-11-20 22:32:00   warn(msg)
+2024-11-20 22:32:00 5. Required library not pre-compiled for this bitsandbytes release!
+2024-11-20 22:32:00 CUDA SETUP: If you compiled from source, try again with `make CUDA_VERSION=DETECTED_CUDA_VERSION` for example, `make CUDA_VERSION=113`.
+2024-11-20 22:32:00 CUDA SETUP: The CUDA version for the compile might depend on your conda install. Inspect CUDA version via `conda list | grep cuda`.
+2024-11-20 22:32:00 ================================================================================
+2024-11-20 22:32:00 CUDA SETUP: Something unexpected happened. Please compile from source:
+2024-11-20 22:32:00 git clone https://github.com/TimDettmers/bitsandbytes.git
+2024-11-20 22:32:00 cd bitsandbytes
+2024-11-20 22:32:00 CUDA_VERSION=117 make cuda11x
+2024-11-20 22:32:00 python setup.py install
+2024-11-20 22:32:00 CUDA SETUP: Setup Failed!
+2024-11-20 22:32:00 [2024-11-20 22:32:00 +0000] [37] [ERROR] Exception in worker process
+2024-11-20 22:32:00 Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/transformers/utils/import_utils.py", line 1778, in _get_module
+    return importlib.import_module("." + module_name, self.__name__)
+  File "/usr/lib/python3.8/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1014, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 991, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 975, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 671, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 848, in exec_module
+  File "<frozen importlib._bootstrap>", line 219, in _call_with_frames_removed
+  File "/usr/local/lib/python3.8/dist-packages/transformers/integrations/bitsandbytes.py", line 21, in <module>
+    import bitsandbytes as bnb
+  File "/usr/local/lib/python3.8/dist-packages/bitsandbytes-0.42.0-py3.8.egg/bitsandbytes/__init__.py", line 6, in <module>
+    from . import cuda_setup, utils, research
+  File "/usr/local/lib/python3.8/dist-packages/bitsandbytes-0.42.0-py3.8.egg/bitsandbytes/research/__init__.py", line 1, in <module>
+    from . import nn
+  File "/usr/local/lib/python3.8/dist-packages/bitsandbytes-0.42.0-py3.8.egg/bitsandbytes/research/nn/__init__.py", line 1, in <module>
+    from .modules import LinearFP8Mixed, LinearFP8Global
+  File "/usr/local/lib/python3.8/dist-packages/bitsandbytes-0.42.0-py3.8.egg/bitsandbytes/research/nn/modules.py", line 8, in <module>
+    from bitsandbytes.optim import GlobalOptimManager
+  File "/usr/local/lib/python3.8/dist-packages/bitsandbytes-0.42.0-py3.8.egg/bitsandbytes/optim/__init__.py", line 6, in <module>
+    from bitsandbytes.cextension import COMPILED_WITH_CUDA
+  File "/usr/local/lib/python3.8/dist-packages/bitsandbytes-0.42.0-py3.8.egg/bitsandbytes/cextension.py", line 20, in <module>
+    raise RuntimeError('''
+RuntimeError: 
+2024-11-20 22:32:00         CUDA Setup failed despite GPU being available. Please run the following command to get more information:
+2024-11-20 22:32:00         python -m bitsandbytes
+2024-11-20 22:32:00         Inspect the output of the command and see if you can locate CUDA libraries. You might need to add them
+2024-11-20 22:32:00         to your LD_LIBRARY_PATH. If you suspect a bug, please take the information from python -m bitsandbytes
+2024-11-20 22:32:00         and open an issue at: https://github.com/TimDettmers/bitsandbytes/issues
+2024-11-20 22:32:00 The above exception was the direct cause of the following exception:
+2024-11-20 22:32:00 Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/arbiter.py", line 609, in spawn_worker
+    worker.init_process()
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/workers/base.py", line 134, in init_process
+    self.load_wsgi()
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/workers/base.py", line 146, in load_wsgi
+    self.wsgi = self.app.wsgi()
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/app/base.py", line 67, in wsgi
+    self.callable = self.load()
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/app/wsgiapp.py", line 58, in load
+    return self.load_wsgiapp()
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/app/wsgiapp.py", line 48, in load_wsgiapp
+    return util.import_app(self.app_uri)
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/util.py", line 371, in import_app
+    mod = importlib.import_module(module)
+  File "/usr/lib/python3.8/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1014, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 991, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 975, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 671, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 848, in exec_module
+  File "<frozen importlib._bootstrap>", line 219, in _call_with_frames_removed
+  File "/agatha_api/api.py", line 37, in <module>
+    reader_model, writer_model=helper_funcs.start_models(logger)
+  File "/agatha_api/functions/helper.py", line 179, in start_models
+    reader_model.load()
+  File "/agatha_api/classes/llm.py", line 74, in load
+    self.model = AutoModelForCausalLM.from_pretrained(
+  File "/usr/local/lib/python3.8/dist-packages/transformers/models/auto/auto_factory.py", line 564, in from_pretrained
+    return model_class.from_pretrained(
+  File "/usr/local/lib/python3.8/dist-packages/transformers/modeling_utils.py", line 3657, in from_pretrained
+    hf_quantizer.validate_environment(
+  File "/usr/local/lib/python3.8/dist-packages/transformers/quantizers/quantizer_bnb_4bit.py", line 78, in validate_environment
+    from ..integrations import validate_bnb_backend_availability
+  File "<frozen importlib._bootstrap>", line 1039, in _handle_fromlist
+  File "/usr/local/lib/python3.8/dist-packages/transformers/utils/import_utils.py", line 1766, in __getattr__
+    module = self._get_module(self._class_to_module[name])
+  File "/usr/local/lib/python3.8/dist-packages/transformers/utils/import_utils.py", line 1780, in _get_module
+    raise RuntimeError(
+RuntimeError: Failed to import transformers.integrations.bitsandbytes because of the following error (look up to see its traceback):
+2024-11-20 22:32:00         CUDA Setup failed despite GPU being available. Please run the following command to get more information:
+2024-11-20 22:32:00         python -m bitsandbytes
+2024-11-20 22:32:00         Inspect the output of the command and see if you can locate CUDA libraries. You might need to add them
+2024-11-20 22:32:00         to your LD_LIBRARY_PATH. If you suspect a bug, please take the information from python -m bitsandbytes
+2024-11-20 22:32:00         and open an issue at: https://github.com/TimDettmers/bitsandbytes/issues
+2024-11-20 22:32:00 [2024-11-20 22:32:00 +0000] [37] [INFO] Worker exiting (pid: 37)
+```
+
+OK, this is actually good news, we very carefully pinned and compiled a specific version of bitsandbytes to work on our older K80 GPUs with. The fact that it has trouble on modern hardware is not a huge surprise. I think the solution there is to clone the GitHub repo to a Compute Engine instance with a L4 GPU and get the container working there. That I can work with.
+
+Let's see if we can get the redis container going.
+
+## 5. One last shot: Redis, stand-alone
+
+```bash
+gcloud beta run deploy redis \
+  --image gperdrizet/agatha:redis \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-env-vars REDIS_IP=$REDIS_IP \
+  --update-env-vars REDIS_PORT=$REDIS_PORT \
+  --port $REDIS_PORT \
+  --no-cpu-throttling
+
+Allow unauthenticated invocations to [redis] (y/N)?  n
+
+Deploying container to Cloud Run service [redis] in project [ask-agatha] region [us-central1]
+✓ Deploying new service... Done.                                                                                                                                                              
+  ✓ Creating Revision...                                                                                                                                                                      
+  ✓ Routing traffic...                                                                                                                                                                        
+Done.                                                                                                                                                                                         
+Service [redis] revision [redis-00001-bvn] has been deployed and is serving 100 percent of traffic.
+Service URL: https://redis-224558092745.us-central1.run.app
+```
+
+Holy cow! Working too - check the container logs:
+
+```bash
+$ gcloud run services logs read redis --limit=100 --project ask-agatha
+
+2024-11-21 04:30:57 6379
+2024-11-21 04:30:57 0.0.0.0
+2024-11-21 04:30:57 sysctl: write error: I/O error
+2024-11-21 04:30:57 3:C 21 Nov 2024 04:30:57.624 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+2024-11-21 04:30:57 3:M 21 Nov 2024 04:30:57.627 # WARNING: The TCP backlog setting of 511 cannot be enforced because /proc/sys/net/core/somaxconn is set to the lower value of 128.
+2024-11-21 04:34:10 GET 403 https://redis-224558092745.us-central1.run.app/
+2024-11-21 04:34:10 GET 403 https://redis-224558092745.us-central1.run.app/favicon.ico
+```
+
+OK, good. Still have that pesky overcommit error, let's not worry about it for now.
+
+Last one is the bot.
+
+## 6. Telegram bot
+
+Issue here is, we know this one will fail the health check because it is not running a webserver or listening on a port at all. I can think of three options:
+
+1. Add a simple flask server just for the health check
+2. Run it as a job so that there is no health check
+3. Run it as a sidecar to the API
+
+The last one seems like the most elegant, 'correct' solution. Let's give it a shot. Tried with a sidecar.yaml file, but couldn't figure out how to pass secrets from secrets manager into the container as environment variables. According to [the documentation](https://cloud.google.com/run/docs/deploying#gcloud_2) it's also possible to run a sidecar configuration via `gcloud run deploy`. Let's try that.
+
+```bash
+gcloud run deploy agatha \
+  --container api \
+  --image=gperdrizet/agatha:api \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-secrets=HF_TOKEN=hf_token:latest \
+  --set-env-vars=FLASK_PORT=$FLASK_PORT \
+  --set-env-vars=HOST_IP=$HOST_IP \
+  --set-env-vars=REDIS_IP=$REDIS_IP \
+  --set-env-vars=REDIS_PORT=$REDIS_PORT \
+  --service-account=ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --port=$FLASK_PORT \
+  --no-cpu-throttling \
+  --cpu=8 \
+  --memory=32G \
+  --concurrency=2 \
+  --max-instances=1 \
+  --gpu=1 \
+  --gpu-type="nvidia-l4" \
+  --container=bot \
+  --image=gperdrizet/agatha:api \
+  --update-secrets=TELEGRAM_TOKEN=telegram_token:latest \
+  --set-env-vars=HOST_IP=$HOST_IP \
+  --set-env-vars=FLASK_PORT=$FLASK_PORT \
+  --service-account=ask-agatha-service@ask-agatha.iam.gserviceaccount.com
+```
+
+OK, getting errors about different release tracks. Seems like arguments from the beta standard? release tracks are not compatible. We need the beta track to run the API container with the GPU. So what if we make the bot a sidecar to the redis container and the API stand-alone?
+
+```bash
+gcloud beta run deploy agatha \
+  --container redis \
+  --image gperdrizet/agatha:redis \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-env-vars REDIS_IP=$REDIS_IP \
+  --update-env-vars REDIS_PORT=$REDIS_PORT \
+  --port $REDIS_PORT \
+  --container=bot \
+  --image=gperdrizet/agatha:bot \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --update-secrets=TELEGRAM_TOKEN=telegram_token:latest \
+  --set-env-vars=HOST_IP=$HOST_IP \
+  --set-env-vars=FLASK_PORT=$FLASK_PORT
+
+ERROR: (gcloud.beta.run.deploy) unrecognized arguments:
+  
+ --service-account flag is available in one or more alternate release tracks. Try:
+
+  gcloud run deploy --service-account
+  gcloud alpha run deploy --service-account
+
+  --service-account (did you mean '--service-account'?)
+  ask-agatha-service@ask-agatha.iam.gserviceaccount.com
+  To search the help text of gcloud commands, run:
+  gcloud help -- SEARCH_TERMS
+```
+
+Going around in circles. The above error makes me thing that I should not use the beta release channel, so:
+
+```bash
+$ gcloud run deploy agatha \
+  --container redis \
+  --image=gperdrizet/agatha:redis \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-env-vars REDIS_IP=$REDIS_IP \
+  --update-env-vars REDIS_PORT=$REDIS_PORT \
+  --port $REDIS_PORT \
+  --container bot \
+  --image=gperdrizet/agatha:bot \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --update-secrets=TELEGRAM_TOKEN=telegram_token:latest \
+  --set-env-vars=HOST_IP=$HOST_IP \
+  --set-env-vars=FLASK_PORT=$FLASK_PORT
+
+ERROR: (gcloud.run.deploy) unrecognized arguments:
+  
+ --service-account flag is available in one or more alternate release tracks. Try:
+
+  gcloud alpha run deploy --service-account
+  gcloud beta run deploy --service-account
+
+  --service-account (did you mean '--service-account'?)
+  ask-agatha-service@ask-agatha.iam.gserviceaccount.com
+  To search the help text of gcloud commands, run:
+  gcloud help -- SEARCH_TERMS
+```
+
+So, which is it? And without the service account, we can't use the secrets manager... Wait, I figured it out. The --service-account flag must come before the first --container flag. Like this:
+
+```bash
+$ gcloud run deploy agatha \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --container redis \
+  --image=gperdrizet/agatha:redis \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-env-vars REDIS_IP=$REDIS_IP \
+  --update-env-vars REDIS_PORT=$REDIS_PORT \
+  --port $REDIS_PORT \
+  --container bot \
+  --image=gperdrizet/agatha:bot \
+  --update-secrets=TELEGRAM_TOKEN=telegram_token:latest \
+  --set-env-vars=HOST_IP=$HOST_IP \
+  --set-env-vars=FLASK_PORT=$FLASK_PORT
+
+Deploying container to Cloud Run service [agatha] in project [ask-agatha] region [us-central1]
+✓ Deploying... Done.                                                                                                 
+  ✓ Creating Revision...                                                                                             
+  ✓ Routing traffic...                                                                                               
+Done.                                                                                                                
+Service [agatha] revision [agatha-00003-fkx] has been deployed and is serving 100 percent of traffic.
+Service URL: https://agatha-224558092745.us-central1.run.app
+```
+
+OK, almost there, let's set it up so that redis is a standalone container and the bot runs as a sidecar to the API.
+
+```bash
+$ gcloud beta run deploy agatha \
+  --service-account=ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --concurrency=2 \
+  --max-instances=1 \
+  --no-cpu-throttling \
+  --gpu-type="nvidia-l4" \
+  --container api \
+  --image=gperdrizet/agatha:api \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-secrets=HF_TOKEN=hf_token:latest \
+  --set-env-vars=FLASK_PORT=$FLASK_PORT \
+  --set-env-vars=HOST_IP=$HOST_IP \
+  --set-env-vars=REDIS_IP=$REDIS_IP \
+  --set-env-vars=REDIS_PORT=$REDIS_PORT \
+  --port=$FLASK_PORT \
+  --cpu=4 \
+  --memory=16Gi \
+  --gpu=1 \
+  --container=bot \
+  --image=gperdrizet/agatha:bot \
+  --update-secrets=TELEGRAM_TOKEN=telegram_token:latest \
+  --set-env-vars=HOST_IP=$HOST_IP \
+  --set-env-vars=FLASK_PORT=$FLASK_PORT
+
+Allow unauthenticated invocations to [agatha] (y/N)?  n
+
+Deploying container to Cloud Run service [agatha] in project [ask-agatha] region [us-central1]
+✓ Deploying new service... Done.                                                                                     
+  ✓ Creating Revision...                                                                                             
+  ✓ Routing traffic...                                                                                               
+Done.                                                                                                                
+Service [agatha] revision [agatha-00001-lms] has been deployed and is serving 100 percent of traffic.
+Service URL: https://agatha-224558092745.us-central1.run.app
+```
+
+Order of arguments really matters here. Also, setting `--cpu 8` gives the error: `ERROR: (gcloud.beta.run.deploy) spec.template.spec.containers.resources.limits.cpu: Invalid value specified for cpu. Total millicpu may not exceed 8000.` Also, GPU needs at least 16Gi memory - that's Gi, not G... don't get it wrong.
+
+Last, redis:
+
+```bash
+$ gcloud run deploy redis \
+  --image gperdrizet/agatha:redis \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-env-vars REDIS_IP=$REDIS_IP \
+  --update-env-vars REDIS_PORT=$REDIS_PORT \
+  --port $REDIS_PORT \
+  --no-cpu-throttling
+
+Allow unauthenticated invocations to [redis] (y/N)?  n
+
+Deploying container to Cloud Run service [redis] in project [ask-agatha] region [us-central1]
+✓ Deploying new service... Done.                                                                                     
+  ✓ Creating Revision...                                                                                             
+  ✓ Routing traffic...                                                                                               
+Done.                                                                                                                
+Service [redis] revision [redis-00001-8x8] has been deployed and is serving 100 percent of traffic.
+Service URL: https://redis-224558092745.us-central1.run.app
+```
+
+OK! Calling this a deployment? Still have issues:
+
+1. There are problems with bitsandbytes inside of the API container - solution is probably to just pip install it rather than go through all of the trouble of compiling a specific version for compatibility with k80 cards.
+2. Networking - solution is to read more.
