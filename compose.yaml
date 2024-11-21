@@ -35,8 +35,8 @@ services:
             device_ids: ['0', '1', '2']
             capabilities: [gpu]
 
-  agath_bot:
-    container_name:  agath_bot
+  agatha_bot:
+    container_name:  agatha_bot
     image: gperdrizet/agatha:bot
     restart: unless-stopped
     environment:
