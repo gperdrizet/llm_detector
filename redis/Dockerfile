@@ -7,5 +7,4 @@ COPY ./redis.conf /usr/local/etc/redis/redis.conf
 WORKDIR /redis
 COPY ./start_server.sh .
 
-# Expose the default Redis Port
-EXPOSE 6379
+CMD ["./start_server.sh"]

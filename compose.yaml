@@ -7,12 +7,11 @@ services:
     image: gperdrizet/agatha:redis
     restart: unless-stopped
     environment:
-      REDIS_IP: '0.0.0.0'
-      REDIS_PORT: '6379'
+      REDIS_IP: $REDIS_IP
+      REDIS_PORT: $REDIS_PORT
       REDIS_PASSWORD: $REDIS_PASSWORD
     ports:
-      - '6379:6379'
-    command: ./start_server.sh
+      - $REDIS_PORT:$REDIS_PORT
     privileged: true
 
   agatha_api:
@@ -20,14 +19,14 @@ services:
     image: gperdrizet/agatha:api
     restart: unless-stopped
     environment:
-      HOST_IP: '0.0.0.0'
-      FLASK_PORT: '5000'
-      REDIS_IP: redis
-      REDIS_PORT: '6379'
+      HOST_IP: $HOST_IP
+      FLASK_PORT: $FLASK_PORT
+      REDIS_IP: $REDIS_IP
+      REDIS_PORT: $REDIS_PORT
       HF_TOKEN: $HF_TOKEN
       REDIS_PASSWORD: $REDIS_PASSWORD
     ports:
-      - 5000:5000
+      - $FLASK_PORT:$FLASK_PORT
     deploy:
       resources:
         reservations:
@@ -35,7 +34,6 @@ services:
           - driver: nvidia
             device_ids: ['0', '1', '2']
             capabilities: [gpu]
-    command: ./start_api.sh
 
   agath_bot:
     container_name:  agath_bot
@@ -43,6 +41,5 @@ services:
     restart: unless-stopped
     environment:
       HOST_IP: agatha_api
-      FLASK_PORT: '5000'
+      FLASK_PORT: $FLASK_PORT
       TELEGRAM_TOKEN: $TELEGRAM_TOKEN
-    command: python3 ./bot.py
