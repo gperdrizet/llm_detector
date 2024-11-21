@@ -1366,3 +1366,328 @@ $ gcloud run services logs read agatha --limit=100 --project ask-agatha
 ```
 
 Sweet, looks like we got it - all we need now is the networking!
+
+## 8. Networking
+
+Now, we need communication between the containers. From the documentation, it sounds like we need to set-up a virtual private cloud network (VPC). Let's read up on that. Two sources:
+
+1. [VPC networks](https://cloud.google.com/vpc/docs/vpc)
+2. [Private networking and Cloud Run](https://cloud.google.com/run/docs/securing/private-networking)
+
+### 8.1. VPC networks
+
+Internal Google Cloud network for all of your stuff:
+
+- Connectivity for VMs
+- Proxies/load balancers
+- VPN/VLAN connections to external machines (pyrite!)
+- Sends traffic from external load balancers to services
+
+Networks are global subnets are zonal.
+
+Can create multiple networks in auto or custom mode:
+
+1. Auto: makes on subnet in each region using per-defined IP range. Can add more subnets manualy.
+2. Custom: make the subnets yourself.
+
+Projects start with a default auto mode network with IPv4 firewall rules in place, but no IPv6 rules.
+
+Had to enable compute engine API to see VPC network page in Cloud Console.
+
+Sounds like we need to set up direct VPC egress for our source services. The docs also mention making sure that traffic going to Cloud Run routes through the VPC - I don't know if we need to worry about this because nothing needs to call in to our services yet. The bot just calls out. As long as the containers can talk to each other and the bot container has internet access we are golden.
+
+#### 8.1. Configure services for direct VPC egress
+
+Documentation [here](https://cloud.google.com/run/docs/configuring/vpc-direct-vpc#direct-vpc-service).
+
+Looks like we need to add the following to our deploy commands:
+
+```text
+--network=NETWORK
+--subnet=SUBNET
+--network-tags=NETWORK_TAG_NAMES
+--vpc-egress=EGRESS_SETTING
+--region=REGION
+```
+
+OK, let's figure out the values:
+
+1. network: name of VPC network: 'default' from Cloud Console networking page
+2. subnet: name of subnet: also 'default' from Cloud Console network page, 'SUBNETS' tab
+3. network-tags: optional, tags for service revisions
+4. vpc-egress: egress setting value, either 'all-traffic' or 'private-ranges-only'
+5. region: services region: us-cental1
+
+OK, try it!
+
+```bash
+$ gcloud run deploy redis \
+  --image gperdrizet/agatha:redis \
+  --service-account ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-env-vars REDIS_IP=$REDIS_IP \
+  --update-env-vars REDIS_PORT=$REDIS_PORT \
+  --port $REDIS_PORT \
+  --no-cpu-throttling \
+  --network=default \
+  --subnet=default \
+  --vpc-egress=all-traffic \
+  --region=us-central1
+
+Deploying container to Cloud Run service [redis] in project [ask-agatha] region [us-central1]
+✓ Deploying... Done.                                                                         
+  ✓ Creating Revision...                                                                     
+  ✓ Routing traffic...                                                                       
+Done.                                                                                        
+Service [redis] revision [redis-00002-xvs] has been deployed and is serving 100 percent of traffic.
+Service URL: https://redis-224558092745.us-central1.run.app
+```
+
+```bash
+$ gcloud beta run deploy agatha \
+  --service-account=ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
+  --concurrency=2 \
+  --max-instances=1 \
+  --no-cpu-throttling \
+  --gpu-type="nvidia-l4" \
+  --network=default \
+  --subnet=default \
+  --vpc-egress=all-traffic \
+  --region=us-central1 \
+  --container api \
+  --image=gperdrizet/agatha:api \
+  --update-secrets=REDIS_PASSWORD=redis_password:latest \
+  --update-secrets=HF_TOKEN=hf_token:latest \
+  --set-env-vars=FLASK_PORT=$FLASK_PORT \
+  --set-env-vars=HOST_IP=$HOST_IP \
+  --set-env-vars=REDIS_IP=$REDIS_IP \
+  --set-env-vars=REDIS_PORT=$REDIS_PORT \
+  --port=$FLASK_PORT \
+  --cpu=4 \
+  --memory=16Gi \
+  --gpu=1 \
+  --container=bot \
+  --image=gperdrizet/agatha:bot \
+  --update-secrets=TELEGRAM_TOKEN=telegram_token:latest \
+  --set-env-vars=HOST_IP=$HOST_IP \
+  --set-env-vars=FLASK_PORT=$FLASK_PORT
+
+Service URL: https://redis-224558092745.us-central1.run.app
+Deploying container to Cloud Run service [agatha] in project [ask-agatha] region [us-central1]
+✓ Deploying... Done.                                                                         
+  ✓ Creating Revision...                                                                     
+  ✓ Routing traffic...                                                                       
+Done.                                                                                        
+Service [agatha] revision [agatha-00002-kbz] has been deployed and is serving 100 percent of traffic.
+Service URL: https://agatha-224558092745.us-central1.run.app
+```
+
+Sweet, no obvious errors. Now check the networking configuration with:
+
+```bash
+$ gcloud run services describe redis --region=us-central1
+
+✔ Service redis in region us-central1
+ 
+URL:     https://redis-224558092745.us-central1.run.app
+Ingress: all
+Traffic:
+  100% LATEST (currently redis-00002-xvs)
+ 
+Last updated on 2024-11-21T15:24:03.170653Z by gperdrizet@ask-agatha.com:
+  Revision redis-00002-xvs
+  Container None
+    Image:           gperdrizet/agatha:redis
+    Port:            6379
+    Memory:          512Mi
+    CPU:             1000m
+    Env vars:
+      REDIS_IP       0.0.0.0
+      REDIS_PORT     6379
+    Secrets:
+      REDIS_PASSWORD redis_password:latest
+    Startup Probe:
+      TCP every 240s
+      Port:          6379
+      Initial delay: 0s
+      Timeout:       240s
+      Failure threshold: 1
+      Type:          Default
+  Service account:   ask-agatha-service@ask-agatha.iam.gserviceaccount.com
+  Concurrency:       80
+  Max Instances:     100
+  Timeout:           300s
+  VPC access:
+    Network:         default
+    Subnet:          default
+    Egress:          all-traffic
+  CPU Allocation:    CPU is always allocated
+```
+
+OK, VPC access stanza looks good!
+
+```bash
+$ gcloud run services describe agatha --region=us-central1
+
+URL:     https://agatha-224558092745.us-central1.run.app
+Ingress: all
+Traffic:
+  100% LATEST (currently agatha-00002-kbz)
+ 
+Last updated on 2024-11-21T15:24:41.735267Z by gperdrizet@ask-agatha.com:
+  Revision agatha-00002-kbz
+  Container api
+    Image:           gperdrizet/agatha:api
+    Port:            5000
+    Memory:          16Gi
+    CPU:             4
+    GPU:             1
+    GPU Type:        nvidia-l4
+    Env vars:
+      FLASK_PORT     5000
+      HOST_IP        0.0.0.0
+      REDIS_IP       0.0.0.0
+      REDIS_PORT     6379
+    Secrets:
+      HF_TOKEN       hf_token:latest
+      REDIS_PASSWORD redis_password:latest
+    Startup Probe:
+      TCP every 240s
+      Port:          5000
+      Initial delay: 0s
+      Timeout:       240s
+      Failure threshold: 1
+      Type:          Default
+  Container bot
+    Image:           gperdrizet/agatha:bot
+    Memory:          256Mi
+    CPU:             1000m
+    Env vars:
+      FLASK_PORT     5000
+      HOST_IP        0.0.0.0
+    Secrets:
+      TELEGRAM_TOKEN telegram_token:latest
+  Service account:   ask-agatha-service@ask-agatha.iam.gserviceaccount.com
+  Concurrency:       2
+  Max Instances:     1
+  Timeout:           300s
+  VPC access:
+    Network:         default
+    Subnet:          default
+    Egress:          all-traffic
+  CPU Allocation:    CPU is always allocated
+```
+
+Looks good! But how do I know what IPs to use? I'm assuming 0.0.0.0 is not right, that's fine for the service inside the container, but what is the service container's IP? Did this with container names via a network set-up via compose.yaml locally...
+
+Maybe we use the urls it provides? Let's try that I guess.
+
+- Redis: https://redis-224558092745.us-central1.run.app
+- Agatha API: https://agatha-224558092745.us-central1.run.app
+
+Now, tell the API the redis ip is the redis url and tell the bot that the API ip is the API url. 
+
+Also, check the firewall rules. From Cloud Consol go to Networking > VPC network > FIREWALLS. It looks like all of the rules relate to ingress. We might be OK, since we don't need to call into the VPC. Let's try it!
+
+OK, no obvious errors!... Agatha, are you there?
+
+```bash
+$ gcloud run services logs read agatha --limit=100 --project ask-agatha
+
+2024-11-21 15:41:05 ==========
+2024-11-21 15:41:05 == CUDA ==
+2024-11-21 15:41:05 ==========
+2024-11-21 15:41:05 CUDA Version 11.4.3
+2024-11-21 15:41:05 Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+2024-11-21 15:41:05 This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+2024-11-21 15:41:05 By pulling and using the container, you accept the terms and conditions of this license:
+2024-11-21 15:41:05 https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+2024-11-21 15:41:05 A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+2024-11-21 15:41:07 Will log to: /agatha_bot/logs/telegram_bot.log
+2024-11-21 15:41:07 [2024-11-21 15:41:07 +0000] [35] [INFO] Starting gunicorn 23.0.0
+2024-11-21 15:41:07 [2024-11-21 15:41:07 +0000] [35] [INFO] Listening at: http://0.0.0.0:5000 (35)
+2024-11-21 15:41:07 [2024-11-21 15:41:07 +0000] [35] [INFO] Using worker: sync
+2024-11-21 15:41:07 [2024-11-21 15:41:07 +0000] [37] [INFO] Booting worker with pid: 37
+2024-11-21 15:41:13 Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/httpx/_transports/default.py", line 72, in map_httpcore_exceptions
+    yield
+  File "/usr/local/lib/python3.10/site-packages/httpx/_transports/default.py", line 377, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+  File "/usr/local/lib/python3.10/site-packages/httpcore/_async/connection_pool.py", line 216, in handle_async_request
+    raise exc from None
+  File "/usr/local/lib/python3.10/site-packages/httpcore/_async/connection_pool.py", line 196, in handle_async_request
+    response = await connection.handle_async_request(
+  File "/usr/local/lib/python3.10/site-packages/httpcore/_async/connection.py", line 99, in handle_async_request
+    raise exc
+  File "/usr/local/lib/python3.10/site-packages/httpcore/_async/connection.py", line 76, in handle_async_request
+    stream = await self._connect(request)
+  File "/usr/local/lib/python3.10/site-packages/httpcore/_async/connection.py", line 122, in _connect
+    stream = await self._network_backend.connect_tcp(**kwargs)
+  File "/usr/local/lib/python3.10/site-packages/httpcore/_backends/auto.py", line 30, in connect_tcp
+    return await self._backend.connect_tcp(
+  File "/usr/local/lib/python3.10/site-packages/httpcore/_backends/anyio.py", line 115, in connect_tcp
+    with map_exceptions(exc_map):
+  File "/usr/local/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+2024-11-21 15:41:13 httpcore.ConnectTimeout
+2024-11-21 15:41:13 The above exception was the direct cause of the following exception:
+2024-11-21 15:41:13 Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/telegram/request/_httpxrequest.py", line 293, in do_request
+    res = await self._client.request(
+  File "/usr/local/lib/python3.10/site-packages/httpx/_client.py", line 1585, in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+  File "/usr/local/lib/python3.10/site-packages/httpx/_client.py", line 1674, in send
+    response = await self._send_handling_auth(
+  File "/usr/local/lib/python3.10/site-packages/httpx/_client.py", line 1702, in _send_handling_auth
+    response = await self._send_handling_redirects(
+  File "/usr/local/lib/python3.10/site-packages/httpx/_client.py", line 1739, in _send_handling_redirects
+    response = await self._send_single_request(request)
+  File "/usr/local/lib/python3.10/site-packages/httpx/_client.py", line 1776, in _send_single_request
+    response = await transport.handle_async_request(request)
+  File "/usr/local/lib/python3.10/site-packages/httpx/_transports/default.py", line 376, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/usr/local/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.10/site-packages/httpx/_transports/default.py", line 89, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+2024-11-21 15:41:13 httpx.ConnectTimeout
+2024-11-21 15:41:13 The above exception was the direct cause of the following exception:
+2024-11-21 15:41:13 Traceback (most recent call last):
+  File "/agatha_bot/./bot.py", line 159, in <module>
+    application.run_polling()
+  File "/usr/local/lib/python3.10/site-packages/telegram/ext/_application.py", line 865, in run_polling
+    return self.__run(
+  File "/usr/local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1063, in __run
+    loop.run_until_complete(self.initialize())
+  File "/usr/local/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+    return future.result()
+  File "/usr/local/lib/python3.10/site-packages/telegram/ext/_application.py", line 487, in initialize
+    await self.bot.initialize()
+  File "/usr/local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 297, in initialize
+    await super().initialize()
+  File "/usr/local/lib/python3.10/site-packages/telegram/_bot.py", line 761, in initialize
+    await self.get_me()
+  File "/usr/local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 1920, in get_me
+    return await super().get_me(
+  File "/usr/local/lib/python3.10/site-packages/telegram/_bot.py", line 893, in get_me
+    result = await self._post(
+  File "/usr/local/lib/python3.10/site-packages/telegram/_bot.py", line 617, in _post
+    return await self._do_post(
+  File "/usr/local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 351, in _do_post
+    return await super()._do_post(
+  File "/usr/local/lib/python3.10/site-packages/telegram/_bot.py", line 646, in _do_post
+    result = await request.post(
+  File "/usr/local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 202, in post
+    result = await self._request_wrapper(
+  File "/usr/local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 334, in _request_wrapper
+    code, payload = await self.do_request(
+  File "/usr/local/lib/python3.10/site-packages/telegram/request/_httpxrequest.py", line 310, in do_request
+    raise TimedOut from err
+telegram.error.TimedOut: Timed out
+```
+
+OK, think I figured it out - line 159 in bot.py is where we start the application and begin polling the Telegram servers for updates. Seems like somehow in out VPC network config we blocked access to the outside. Seem to have fixed it by setting `--vpc-egress=private-ranges-only`.
+
+Ok, no errors or obvious issues, but no answer on the Telegram app. I wish I could see my nice logs - but I can't find a way to access the filesystem of a running container. Let's update the services to log to STDOUT.
