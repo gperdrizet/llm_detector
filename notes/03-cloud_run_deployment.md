@@ -544,13 +544,13 @@ The following environment variables are set via our virtualenv on the local mach
 
 ```bash
 export HF_HOME="/mnt/fast_scratch/huggingface_transformers_cache"
-export HF_TOKEN="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"
+export HF_TOKEN="xxx"
 export HOST_IP="0.0.0.0"
 export REDIS_IP="0.0.0.0"
 export FLASK_PORT="5000"
 export REDIS_PORT="6379"
-export REDIS_PASSWORD="806Motthill"
-export TELEGRAM_TOKEN="7233074236:AAEQBg1aMy-9zo_dF_yT6ftpqNdlGVfylvo"
+export REDIS_PASSWORD="xxx"
+export TELEGRAM_TOKEN="xxx"
 ```
 
 ### 3.1. Redis
