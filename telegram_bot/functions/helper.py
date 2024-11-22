@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import Callable
 
+import sys
 import os
 import glob
 import logging
@@ -42,6 +43,10 @@ def start_logger(
 
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
+    stdout_handler=logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(formatter)
+    logger.addHandler(stdout_handler)
 
     logger.info('############################################### ')
     logger.info('########### Starting Telegram Bot ############# ')

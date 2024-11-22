@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import Callable
 
+import sys
 import os
 import glob
 import re
@@ -46,6 +47,10 @@ def start_logger() -> Callable:
         config.LOG_PREFIX, datefmt = '%Y-%m-%d %I:%M %p')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
+    stdout_handler=logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(formatter)
+    logger.addHandler(stdout_handler)
 
     logger.info('############################################### ')
     logger.info('########### Starting LLM detector ############# ')

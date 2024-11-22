@@ -274,7 +274,7 @@ RUN apt-get upgrade -y
 RUN apt-get install -y python3 python3-pip
 RUN python3 -m pip install --upgrade pip
 
-# Set the woring directory and move the source code in
+# Set the working directory and move the source code in
 WORKDIR /agatha_bot
 COPY . /agatha_bot
 

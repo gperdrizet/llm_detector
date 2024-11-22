@@ -6,3 +6,5 @@ test_app.py
 Dockerfile
 compose.yaml
 build_agatha_api_image.sh
+models--meta-llama--Meta-Llama-3-8B
+models--meta-llama--Meta-Llama-3-8B-instruct

@@ -1691,3 +1691,19 @@ telegram.error.TimedOut: Timed out
 OK, think I figured it out - line 159 in bot.py is where we start the application and begin polling the Telegram servers for updates. Seems like somehow in out VPC network config we blocked access to the outside. Seem to have fixed it by setting `--vpc-egress=private-ranges-only`.
 
 Ok, no errors or obvious issues, but no answer on the Telegram app. I wish I could see my nice logs - but I can't find a way to access the filesystem of a running container. Let's update the services to log to STDOUT.
+
+OK, added the following to the `start_logger()` helper function for the API and the bot:
+
+```python
+stdout_handler=logging.StreamHandler(sys.stdout)
+stdout_handler.setFormatter(formatter)
+logger.addHandler(stdout_handler)
+```
+
+Seems to work locally - rebuild and push the images.
+
+Ok, new issue - it now seems like the API container may be crashing or something. I can see the network/CPU/memory utilization rise at the models are being downloaded, but they never seemed to finish. memory goes to about 50% and bytes received from the internet goes up to 40 M/s second for a minute or two and then everything stops. Like, even the traces stop. But the weird thing is the container is healthy in the Cloud console. Not sure what is going on. Are we reading the models into memory? We do only have 16 Gi, but the API doesn't use that much system memory...
+
+OK, making progress - you need to set 8 CPUs to max out the memory at 32 Gi for a container, but for sidecar configs, the CPUs are split between the containers, so gave the API 6 CPUs with 24 Gi memory and the bot 2 CPUs. Let's see if we can download the models now.
+
+Nope, same behavior. I am starting to think maybe it's being spun down because Google see it is alive and healthy, but it's not processing requests. We did remove the `--no-cpu-throttling` flag. We could try putting it back, but I think it was in conflict with other parts of the configuration. The other option is to put the models in the container. This is more Cloud Run crap that makes me think we really should build this on GKE.
