@@ -41,12 +41,12 @@ REDIS_URL=f'redis://:{REDIS_PASSWORD}@{REDIS_IP}:{REDIS_PORT}'
 
 # Models to use for scoring
 READER_MODEL='meta-llama/Meta-Llama-3-8B'
-READER_DEVICE='cuda:1'
+READER_DEVICE='auto'
 
 WRITER_MODEL='meta-llama/Meta-Llama-3-8B-instruct'
-WRITER_DEVICE='cuda:2'
+WRITER_DEVICE='auto'
 
-CALCULATION_DEVICE='cuda:2'
+CALCULATION_DEVICE='auto'
 
 PERPLEXITY_RATIO_KLD_KDE = f'{DATA_PATH}/perplexity_ratio_KLD_KDE.pkl'
 TFIDF_LUT = f'{DATA_PATH}/TFIDF_lut.pkl'
@@ -61,7 +61,7 @@ XGBOOST_CLASSIFIER = f'{DATA_PATH}/XGBoost_classifier.pkl'
 DEFAULT_CACHE_DIR=PROJECT_ROOT_PATH
 DEFAULT_HF_MODEL_STRING='meta-llama/Meta-Llama-3-8B'
 DEFAULT_MODEL_NAME='LLaMA3'
-DEFAULT_DEVICE_MAP='cuda:0'
+DEFAULT_DEVICE_MAP='auto'
 DEFAULT_CPU_CORES=16
 DEFAULT_AVAILABLE_GPUS=['cuda:0', 'cuda:1', 'cuda:2']
 
