@@ -19,8 +19,10 @@ gcloud beta run deploy agatha \
   --execution-environment gen2 \
   --service-account=ask-agatha-service@ask-agatha.iam.gserviceaccount.com \
   --concurrency=1 \
+  --min-instances=1 \
   --max-instances=1 \
   --gpu-type="nvidia-l4" \
+  --no-cpu-throttling \
   --network=default \
   --subnet=default \
   --ingress=all \

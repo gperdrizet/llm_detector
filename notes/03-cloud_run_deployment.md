@@ -1720,3 +1720,35 @@ First up, I rebuilt the API image with the model inside. The image is 32 GB comp
 OK, not surprisingly, deployment failed with `Revision 'agatha-00001-vvj' is not ready and cannot serve traffic. Container import failed:`. Google doesn't like me trying to cheat and stuff the models in the image.
 
 Last up, try to deploy the original image, which pulls the models from HuggingFace on start-up, adding `--no-cpu-throttling` to the run deploy command.
+
+Holy crap I think, we might be there. Still getting an error, but we added `--no-cpu-throttling` and `--min-instances 1` to the cloud run deploy command. Now the shards download sucessfully, but we get an error when loading them. Here is the relevent part of the stack trace:
+
+```text
+File "/agatha_api/api.py", line 37, in <module>
+    reader_model, writer_model=helper_funcs.start_models(logger)
+  File "/agatha_api/functions/helper.py", line 184, in start_models
+    reader_model.load()
+  File "/agatha_api/classes/llm.py", line 74, in load
+    self.model = AutoModelForCausalLM.from_pretrained(
+  File "/usr/local/lib/python3.8/dist-packages/transformers/models/auto/auto_factory.py", line 564, in from_pretrained
+    return model_class.from_pretrained(
+  File "/usr/local/lib/python3.8/dist-packages/transformers/modeling_utils.py", line 4225, in from_pretrained
+    ) = cls._load_pretrained_model(
+  File "/usr/local/lib/python3.8/dist-packages/transformers/modeling_utils.py", line 4728, in _load_pretrained_model
+    new_error_msgs, offload_index, state_dict_index = _load_state_dict_into_meta_model(
+  File "/usr/local/lib/python3.8/dist-packages/transformers/modeling_utils.py", line 993, in _load_state_dict_into_meta_model
+    set_module_tensor_to_device(model, param_name, param_device, **set_module_kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/accelerate/utils/modeling.py", line 329, in set_module_tensor_to_device
+    new_value = value.to(device)
+RuntimeError: CUDA error: invalid device ordinal
+```
+
+So, pretty obviously, the fact that we are setting the CUDA device manually is the issue. Unfortunately, that means we need to update the container, this time setting:
+
+```python
+READER_DEVICE='cuda'
+WRITER_DEVICE='cuda'
+CALCULATION_DEVICE='cuda'
+```
+
+In the API's `configuration.py`, rather than setting a specific device.
