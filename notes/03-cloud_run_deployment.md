@@ -538,7 +538,7 @@ Nope - no help. Exact same issue. Don't think `EXPOSE` is sufficient. If I were 
 
 ## 3. Back-up
 
-OK, this is starting to turn into a mess. Let's back up and double check the containers. Then let's look at the Google Cloud Run 'sidecar' pattern. It appears to use a yaml file much like Docker Compose to deploy multiple containers with one main 'ingress' container and other 'sidecar' containers. This might alleviate some issues with containers not starting because services aren't present. But before we do that, let's rebuild each container image and test them locally.
+OK, this is starting to turn into a mess. Let's back up and double-check the containers. Then let's look at the Google Cloud Run 'sidecar' pattern. It appears to use a YAML file much like Docker Compose to deploy multiple containers with one main 'ingress' container and other 'sidecar' containers. This might alleviate some issues with containers not starting because services aren't present. But before we do that, let's rebuild each container image and test them locally.
 
 The following environment variables are set via our virtualenv on the local machine:
 
@@ -632,7 +632,7 @@ RUN apt-get upgrade -y
 RUN apt-get install -y python3 python3-pip
 RUN python3 -m pip install --upgrade pip
 
-# Set the woring directory and move the source code in
+# Set the working directory and move the source code in
 WORKDIR /agatha_api
 COPY . /agatha_api
 
@@ -679,7 +679,7 @@ docker push gperdrizet/agatha:api
 
 Run all three containers via Docker Compose.
 
-compose.yaml:
+`compose.yaml`:
 
 ```yaml
 name: agatha
@@ -800,7 +800,7 @@ Deployment failed
 ERROR: (gcloud.beta.run.services.replace) spec.template.spec.containers: Revision template should contain exactly one container with an exposed port.
 ```
 
-Nope - Ok, I really don't think that Cloud Run is the way to do this. We are spending too much time trying to work around limitations of the service. Agatha is not some simple node.js web app. It's a fully engineered custom feature engineering and inference pipeline. Looks like it's gonna be GKE for us. But it still bothers me that I can't get the flask API up - it's listening. Let's try one more time with tne new image. I'd at least like to see an error complaining that it can't contact redis. At least that way, we would know that we are doing everything right-ish.
+Nope - Ok, I really don't think that Cloud Run is the way to do this. We are spending too much time trying to work around limitations of the service. Agatha is not some simple node.js web app. It's a fully engineered custom feature engineering and inference pipeline. Looks like it's gonna be GKE for us. But it still bothers me that I can't get the flask API up - it's listening. Let's try one more time with the new image. I'd at least like to see an error complaining that it can't contact redis. At least that way, we would know that we are doing everything right-ish.
 
 ## 4. One last shot: Agatha API, stand-alone
 
@@ -1170,7 +1170,7 @@ gcloud run deploy agatha \
   --service-account=ask-agatha-service@ask-agatha.iam.gserviceaccount.com
 ```
 
-OK, getting errors about different release tracks. Seems like arguments from the beta standard? release tracks are not compatible. We need the beta track to run the API container with the GPU. So what if we make the bot a sidecar to the redis container and the API stand-alone?
+OK, getting errors about different release tracks. Seems like arguments from the beta and standard release tracks are not compatible. We need the beta track to run the API container with the GPU. So what if we make the bot a sidecar to the redis container and the API stand-alone?
 
 ```bash
 gcloud beta run deploy agatha \
@@ -1258,7 +1258,7 @@ Service [agatha] revision [agatha-00003-fkx] has been deployed and is serving 10
 Service URL: https://agatha-224558092745.us-central1.run.app
 ```
 
-OK, almost there, let's set it up so that redis is a standalone container and the bot runs as a sidecar to the API.
+OK, almost there, let's set it up so that redis is a stand-alone container and the bot runs as a sidecar to the API.
 
 ```bash
 $ gcloud beta run deploy agatha \
@@ -1323,14 +1323,14 @@ Service URL: https://redis-224558092745.us-central1.run.app
 
 OK! Calling this a deployment? Still have issues:
 
-1. There are problems with bitsandbytes inside of the API container - solution is probably to just pip install it rather than go through all of the trouble of compiling a specific version for compatibility with k80 cards.
+1. There are problems with bitsandbytes inside the API container - solution is probably to just pip install it rather than go through all the trouble of compiling a specific version for compatibility with k80 cards.
 2. Networking - solution is to read more.
 
 Modified API container to install bitsandbytes via pip and re-built, pushed to Docker hub.
 
 ## 7. Secrets
 
-After accidentally committing some secrets in this file, update everything. Had to delete secrets manually from the Cloud Consol Secret Manager and re-create:
+After accidentally committing some secrets in this file, update everything. Had to delete secrets manually from the Cloud Console Secret Manager and re-create:
 
 ```bash
 printf $REDIS_PASSWORD | gcloud secrets create redis_password --data-file=- --replication-policy="automatic"
@@ -1369,7 +1369,7 @@ Sweet, looks like we got it - all we need now is the networking!
 
 ## 8. Networking
 
-Now, we need communication between the containers. From the documentation, it sounds like we need to set-up a virtual private cloud network (VPC). Let's read up on that. Two sources:
+Now, we need communication between the containers. From the documentation, it sounds like we need to set up a virtual private cloud network (VPC). Let's read up on that. Two sources:
 
 1. [VPC networks](https://cloud.google.com/vpc/docs/vpc)
 2. [Private networking and Cloud Run](https://cloud.google.com/run/docs/securing/private-networking)
@@ -1387,7 +1387,7 @@ Networks are global subnets are zonal.
 
 Can create multiple networks in auto or custom mode:
 
-1. Auto: makes on subnet in each region using per-defined IP range. Can add more subnets manualy.
+1. Auto: makes on subnet in each region using per-defined IP range. Can add more subnets manually.
 2. Custom: make the subnets yourself.
 
 Projects start with a default auto mode network with IPv4 firewall rules in place, but no IPv6 rules.
@@ -1400,7 +1400,7 @@ Sounds like we need to set up direct VPC egress for our source services. The doc
 
 Documentation [here](https://cloud.google.com/run/docs/configuring/vpc-direct-vpc#direct-vpc-service).
 
-Looks like we need to add the following to our deploy commands:
+Looks like we need to add the following to our deployment commands:
 
 ```text
 --network=NETWORK
@@ -1580,14 +1580,14 @@ Last updated on 2024-11-21T15:24:41.735267Z by gperdrizet@ask-agatha.com:
 
 Looks good! But how do I know what IPs to use? I'm assuming 0.0.0.0 is not right, that's fine for the service inside the container, but what is the service container's IP? Did this with container names via a network set-up via compose.yaml locally...
 
-Maybe we use the urls it provides? Let's try that I guess.
+Maybe we use the URLs it provides? Let's try that I guess.
 
-- Redis: https://redis-224558092745.us-central1.run.app
-- Agatha API: https://agatha-224558092745.us-central1.run.app
+- Redis: `https://redis-224558092745.us-central1.run.app`
+- Agatha API: `https://agatha-224558092745.us-central1.run.app`
 
-Now, tell the API the redis ip is the redis url and tell the bot that the API ip is the API url. 
+Now, tell the API the redis ip is the redis URL and tell the bot that the API ip is the API URL.
 
-Also, check the firewall rules. From Cloud Consol go to Networking > VPC network > FIREWALLS. It looks like all of the rules relate to ingress. We might be OK, since we don't need to call into the VPC. Let's try it!
+Also, check the firewall rules. From Cloud Console go to Networking > VPC network > FIREWALLS. It looks like all the rules relate to ingress. We might be OK, since we don't need to call into the VPC. Let's try it!
 
 OK, no obvious errors!... Agatha, are you there?
 
@@ -1690,7 +1690,7 @@ telegram.error.TimedOut: Timed out
 
 OK, think I figured it out - line 159 in bot.py is where we start the application and begin polling the Telegram servers for updates. Seems like somehow in out VPC network config we blocked access to the outside. Seem to have fixed it by setting `--vpc-egress=private-ranges-only`.
 
-Ok, no errors or obvious issues, but no answer on the Telegram app. I wish I could see my nice logs - but I can't find a way to access the filesystem of a running container. Let's update the services to log to STDOUT.
+Ok, no errors or obvious issues, but no answer on the Telegram app. I wish I could see my nice logs - but I can't find a way to access the file system of a running container. Let's update the services to log to STDOUT.
 
 OK, added the following to the `start_logger()` helper function for the API and the bot:
 
@@ -1702,8 +1702,21 @@ logger.addHandler(stdout_handler)
 
 Seems to work locally - rebuild and push the images.
 
-Ok, new issue - it now seems like the API container may be crashing or something. I can see the network/CPU/memory utilization rise at the models are being downloaded, but they never seemed to finish. memory goes to about 50% and bytes received from the internet goes up to 40 M/s second for a minute or two and then everything stops. Like, even the traces stop. But the weird thing is the container is healthy in the Cloud console. Not sure what is going on. Are we reading the models into memory? We do only have 16 Gi, but the API doesn't use that much system memory...
+Ok, new issue - it now seems like the API container may be crashing or something. I can see the network/CPU/memory utilization rise at the models are being downloaded, but they never seemed to finish. Memory goes to about 50% and bytes received from the internet goes up to 40 M/s second for a minute or two and then everything stops. Like, even the traces stop. But the weird thing is the container is healthy in the Cloud console. Not sure what is going on. Are we reading the models into memory? We do only have 16 Gi, but the API doesn't use that much system memory...
+
+## 9. More troubleshooting: model loading
 
 OK, making progress - you need to set 8 CPUs to max out the memory at 32 Gi for a container, but for sidecar configs, the CPUs are split between the containers, so gave the API 6 CPUs with 24 Gi memory and the bot 2 CPUs. Let's see if we can download the models now.
 
-Nope, same behavior. I am starting to think maybe it's being spun down because Google see it is alive and healthy, but it's not processing requests. We did remove the `--no-cpu-throttling` flag. We could try putting it back, but I think it was in conflict with other parts of the configuration. The other option is to put the models in the container. This is more Cloud Run crap that makes me think we really should build this on GKE.
+Nope, same behavior. I am starting to think maybe it's being spun down because Google sees it is alive and healthy, but it's not processing requests. We did remove the `--no-cpu-throttling` flag. We could try putting it back, but I think it was in conflict with other parts of the configuration. The other option is to put the models in the container. This is more Cloud Run crap that makes me think we really should build this on GKE.
+
+It's been a few weeks over, and I'm about ready to ditch this mess for GKE, but I want to try two last things before we archive this, declare Cloud Run the wrong tool and move on.
+
+1. Package the models in the container with the API
+2. Add back `--no-cpu-throttling` to the run config.
+
+First up, I rebuilt the API image with the model inside. The image is 32 GB compressed, so this is not a great solution anyway, but let's give it a shot and see if we learn anything.
+
+OK, not surprisingly, deployment failed with `Revision 'agatha-00001-vvj' is not ready and cannot serve traffic. Container import failed:`. Google doesn't like me trying to cheat and stuff the models in the image.
+
+Last up, try to deploy the original image, which pulls the models from HuggingFace on start-up, adding `--no-cpu-throttling` to the run deploy command.
