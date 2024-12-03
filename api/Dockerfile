@@ -6,8 +6,8 @@ ENV PYTHONUNBUFFERED=1
 # Update & install python & pip
 RUN apt-get update
 RUN apt-get upgrade -y
-RUN apt-get install -y python3 python3-pip
-RUN python3 -m pip install --upgrade pip
+RUN apt-get install -y python3.8 python3-pip
+RUN python3.8 -m pip install --upgrade pip
 
 # Set the working directory and move the source code in
 WORKDIR /agatha_api
