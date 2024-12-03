@@ -9,12 +9,15 @@ RUN apt-get upgrade -y
 RUN apt-get install -y python3.8 python3-pip
 RUN python3.8 -m pip install --upgrade pip
 
+# Install dependencies
+RUN pip install -r requirements.txt
+
+# Make mount point for Google Cloud storage bucket for HuggingFace model cache
+RUN mkdir /mnt/hf_cache
+
 # Set the working directory and move the source code in
 WORKDIR /agatha_api
 COPY . /agatha_api
-
-# Install dependencies
-RUN pip install -r requirements.txt
 
 # # Install bitsandbytes
 # WORKDIR /agatha_api/bitsandbytes-0.42.0
