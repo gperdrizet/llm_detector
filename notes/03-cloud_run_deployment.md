@@ -1704,7 +1704,9 @@ Seems to work locally - rebuild and push the images.
 
 Ok, new issue - it now seems like the API container may be crashing or something. I can see the network/CPU/memory utilization rise at the models are being downloaded, but they never seemed to finish. Memory goes to about 50% and bytes received from the internet goes up to 40 M/s second for a minute or two and then everything stops. Like, even the traces stop. But the weird thing is the container is healthy in the Cloud console. Not sure what is going on. Are we reading the models into memory? We do only have 16 Gi, but the API doesn't use that much system memory...
 
-## 9. More troubleshooting: model loading
+## 9. More troubleshooting
+
+### 9.1. Model loading
 
 OK, making progress - you need to set 8 CPUs to max out the memory at 32 Gi for a container, but for sidecar configs, the CPUs are split between the containers, so gave the API 6 CPUs with 24 Gi memory and the bot 2 CPUs. Let's see if we can download the models now.
 
@@ -1746,9 +1748,180 @@ RuntimeError: CUDA error: invalid device ordinal
 So, pretty obviously, the fact that we are setting the CUDA device manually is the issue. Unfortunately, that means we need to update the container, this time setting:
 
 ```python
-READER_DEVICE='cuda'
-WRITER_DEVICE='cuda'
-CALCULATION_DEVICE='cuda'
+READER_DEVICE='cuda:0'
+WRITER_DEVICE='cuda:0'
+CALCULATION_DEVICE='cuda:0'
+DEFAULT_DEVICE_MAP='cuda:0'
+DEFAULT_AVAILABLE_GPUS=['cuda:0']
 ```
 
-In the API's `configuration.py`, rather than setting a specific device.
+In the API's `configuration.py`. We can do a better job of handling device ordinals here - but for now, we are running one container with one GPU, so let's go with this and move on.
+
+Now we have a new issue - it seems like we are filling up the container's memory while trying to load the models. Looks like when we download the models they go into memory and then loading them, we use more memory. Also see this error from Cloud Console:
+
+```text
+[ERROR] Worker (pid:5485) was sent SIGKILL! Perhaps out of memory?
+```
+
+So the plan is to attach a Cloud Storage bucket to the container to store the models. Also, this way we don't have to keep downloading them each time we spin the container up.
+
+#### 9.1.1. Cloud storage bucket
+
+Documentation [here](https://cloud.google.com/run/docs/configuring/services/cloud-storage-volume-mounts#gcloud).
+
+The two models together are 30 GB on disk. Let's set up a dedicated Cloud Storage bucket to hold them.
+
+- Set up a bucket called *agatha_hf_models* in region *us-central1*
+- Gave ask agatha service account storage admin IAM role
+
+Added the following to the agatha cloud run deploy command in the general section before the container specific stanzas:
+
+```bash
+--add-volume name=hf_cache,type=cloud-storage,bucket=agatha_hf_models \
+```
+
+And the following in the api container stanza:
+
+```bash
+--add-volume-mount volume=hf_cache,mount-path=/mnt/hf_cache \
+```
+
+Now we have to set up the container to use `/mnt/hf_cache` as the cache for HuggingFace models. To do this, we need to change two things. First, I'm pretty sure we have to make that directory from the Dockerfile. Then, second, we have to set `HF_HOME` environment variable via the cloud run deploy command.
+
+Arrghhh, we are getting so close - we got father this time - the bot actualy got a message from Telegram!! I can see the following in the logs on Cloud Consol:
+
+```text
+INFO - telegram_bot.score_text - Got text fragment from user
+DEBUG - telegram_bot.score_text - User has requested default response mode
+```
+
+Which is expected logging from the bot. But I also see the following:
+
+```text
+"Downloading shards:  25%|██▌       | 1/4 [01:58<05:54, 118.07s/it]/usr/local/lib/python3.8/dist-packages/huggingface_hub/file_download.py:653: UserWarning: Not enough free disk space to download the file. The expected file size is: 4999.80 MB. The target location /agatha_api/models--meta-llama--Meta-Llama-3-8B-instruct/blobs only has 4712.32 MB free disk space."
+```
+
+This happens during the second model download. Looking in the cloud storage bucket, it seems like we are only half using it. It contains a `hub` directory and `token` file as expected for a HF cache, but no data. Kinda seems like we are setting the cache location correctly via the environment variable and then not using it. OK, yep found it, in the API's `configuration.py` we are setting the default cache path to the API's root path. Think I did that as an experiment to try packaging the models with in the image. Let's change it to `/mnt/hf_cache` via the `HF_HOME` environment variable and try again.
+
+OK, looks good. The disk error went away, and the models show up in the Cloud Storage bucket. There is still a pretty significant issue: while downloading the model I see peaks of 40 MiB/s coming in from the 'internet'. But when loading the model. I see around 7.5 Mib/s coming in from 'Google'. I interpret this to mean that loading models from our storage bucket is glacially slow for some reason, taking more than an hour to load one model. This may be another strike against Cloud Run - I don't think it's meant to handle this amount of data this way.
+
+Now on to the second problem...
+
+## 9.2. Bot: invalid URL
+
+Here is the stacktrace from the logs on Cloud Consol:
+
+```text
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1319, in process_update
+    await coroutine
+  File "/usr/local/lib/python3.10/site-packages/telegram/ext/_handlers/basehandler.py", line 158, in handle_update
+    return await self.callback(update, context)
+  File "/agatha_bot/./bot.py", line 61, in score_text
+    result_id = await submission
+  File "/agatha_bot/functions/scoring_api.py", line 29, in submit_text
+    body = urllib.request.urlopen(req, json_bytes_payload).read()
+  File "/usr/local/lib/python3.10/urllib/request.py", line 216, in urlopen
+    return opener.open(url, data, timeout)
+  File "/usr/local/lib/python3.10/urllib/request.py", line 519, in open
+    response = self._open(req, data)
+  File "/usr/local/lib/python3.10/urllib/request.py", line 536, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+  File "/usr/local/lib/python3.10/urllib/request.py", line 496, in _call_chain
+    result = func(*args)
+  File "/usr/local/lib/python3.10/urllib/request.py", line 1377, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+  File "/usr/local/lib/python3.10/urllib/request.py", line 1348, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/usr/local/lib/python3.10/http/client.py", line 1283, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/usr/local/lib/python3.10/http/client.py", line 1294, in _send_request
+    self.putrequest(method, url, **skips)
+  File "/usr/local/lib/python3.10/http/client.py", line 1128, in putrequest
+    self._validate_path(url)
+  File "/usr/local/lib/python3.10/http/client.py", line 1228, in _validate_path
+    raise InvalidURL(f"URL can't contain control characters. {url!r} "
+http.client.InvalidURL: URL can't contain control characters. '//agatha-224558092745.us-central1.run.app:                                 5000/submit_text' (found at least ' ')
+```
+
+So, pretty clear that the issue is the URL the bot is using a bad url to send the request to Flask. Here is the stanza from `scoring_api.py`:
+
+```python
+# Setup the request
+req = urllib.request.Request(f'''http://{config.HOST_IP}:\
+                              {config.FLASK_PORT}/submit_text''')
+req.add_header('Content-Type', 'application/json; charset=utf-8')
+req.add_header('Content-Length', len(json_bytes_payload))
+
+# Submit the request
+body = urllib.request.urlopen(req, json_bytes_payload).read()
+```
+
+Right now, we are setting the following via environment variables and the cloud run deploy command:
+
+- **HOST_IP**: https://agatha-224558092745.us-central1.run.app
+- **FLASK_PROT**: 5000
+
+It could be as simple as duplicating the https:// part. Let's try removing it from the HOST_IP environment variable in the cloud run command and doing the same for REDIS_IP.
+
+OK, doing so seems to aleviate the `InvalidURL` error, but now we have a new problem. When I test it via the Telegram app, I see the message come in as evidenced by:
+
+```text
+INFO - telegram_bot.score_text - Got text fragment from user
+DEBUG - telegram_bot.score_text - User has requested default response mode
+```
+
+In the logs - but then nothing for ~ 15 minutes followed by two errors:
+
+```text
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/urllib/request.py", line 1348, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/usr/local/lib/python3.10/http/client.py", line 1283, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/usr/local/lib/python3.10/http/client.py", line 1329, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/usr/local/lib/python3.10/http/client.py", line 1278, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/usr/local/lib/python3.10/http/client.py", line 1038, in _send_output
+    self.send(msg)
+  File "/usr/local/lib/python3.10/http/client.py", line 976, in send
+    self.connect()
+  File "/usr/local/lib/python3.10/http/client.py", line 942, in connect
+    self.sock = self._create_connection(
+  File "/usr/local/lib/python3.10/socket.py", line 857, in create_connection
+    raise err
+  File "/usr/local/lib/python3.10/socket.py", line 845, in create_connection
+    sock.connect(sa)
+TimeoutError: [Errno 110] Connection timed out
+```
+
+And:
+
+```text
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1319, in process_update
+    await coroutine
+  File "/usr/local/lib/python3.10/site-packages/telegram/ext/_handlers/basehandler.py", line 158, in handle_update
+    return await self.callback(update, context)
+  File "/agatha_bot/./bot.py", line 61, in score_text
+    result_id = await submission
+  File "/agatha_bot/functions/scoring_api.py", line 29, in submit_text
+    body = urllib.request.urlopen(req, json_bytes_payload).read()
+  File "/usr/local/lib/python3.10/urllib/request.py", line 216, in urlopen
+    return opener.open(url, data, timeout)
+  File "/usr/local/lib/python3.10/urllib/request.py", line 519, in open
+    response = self._open(req, data)
+  File "/usr/local/lib/python3.10/urllib/request.py", line 536, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+  File "/usr/local/lib/python3.10/urllib/request.py", line 496, in _call_chain
+    result = func(*args)
+  File "/usr/local/lib/python3.10/urllib/request.py", line 1377, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+  File "/usr/local/lib/python3.10/urllib/request.py", line 1351, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 110] Connection timed out>
+```
+
+The relevant stanza from `scoring_api.py`:
+
