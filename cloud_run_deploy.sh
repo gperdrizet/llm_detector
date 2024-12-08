@@ -37,11 +37,11 @@ gcloud beta run deploy agatha \
   --update-secrets=REDIS_PASSWORD=redis_password:latest \
   --update-secrets=HF_TOKEN=hf_token:latest \
   --set-env-vars=HF_HOME=/mnt/hf_cache \
-  --set-env-vars=FLASK_PORT=$FLASK_PORT \
-  --set-env-vars=HOST_IP=$HOST_IP \
+  --set-env-vars=FLASK_PORT=5000 \
+  --set-env-vars=HOST_IP=0.0.0.0 \
   --set-env-vars=REDIS_IP=redis-224558092745.us-central1.run.app \
   --set-env-vars=REDIS_PORT=$REDIS_PORT \
-  --port=$FLASK_PORT \
+  --port=5000 \
   --cpu=6 \
   --memory=24Gi \
   --gpu=1 \
@@ -49,6 +49,6 @@ gcloud beta run deploy agatha \
   --container=bot \
   --image=gperdrizet/agatha:bot \
   --update-secrets=TELEGRAM_TOKEN=telegram_token:latest \
-  --set-env-vars=HOST_IP=agatha-224558092745.us-central1.run.app \
-  --set-env-vars=FLASK_PORT=$FLASK_PORT \
+  --set-env-vars=HOST_IP=0.0.0.0 \
+  --set-env-vars=FLASK_PORT=5000 \
   --cpu=2

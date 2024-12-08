@@ -1723,7 +1723,7 @@ OK, not surprisingly, deployment failed with `Revision 'agatha-00001-vvj' is not
 
 Last up, try to deploy the original image, which pulls the models from HuggingFace on start-up, adding `--no-cpu-throttling` to the run deploy command.
 
-Holy crap I think, we might be there. Still getting an error, but we added `--no-cpu-throttling` and `--min-instances 1` to the cloud run deploy command. Now the shards download sucessfully, but we get an error when loading them. Here is the relevent part of the stack trace:
+Holy crap I think, we might be there. Still getting an error, but we added `--no-cpu-throttling` and `--min-instances 1` to the cloud run deploy command. Now the shards download successfully, but we get an error when loading them. Here is the relevant part of the stack trace:
 
 ```text
 File "/agatha_api/api.py", line 37, in <module>
@@ -1788,7 +1788,7 @@ And the following in the api container stanza:
 
 Now we have to set up the container to use `/mnt/hf_cache` as the cache for HuggingFace models. To do this, we need to change two things. First, I'm pretty sure we have to make that directory from the Dockerfile. Then, second, we have to set `HF_HOME` environment variable via the cloud run deploy command.
 
-Arrghhh, we are getting so close - we got father this time - the bot actualy got a message from Telegram!! I can see the following in the logs on Cloud Consol:
+Arrghhh, we are getting so close - we got father this time - the bot actually got a message from Telegram!! I can see the following in the logs on Cloud Consol:
 
 ```text
 INFO - telegram_bot.score_text - Got text fragment from user
@@ -1859,12 +1859,12 @@ body = urllib.request.urlopen(req, json_bytes_payload).read()
 
 Right now, we are setting the following via environment variables and the cloud run deploy command:
 
-- **HOST_IP**: https://agatha-224558092745.us-central1.run.app
+- **HOST_IP**: `https://agatha-224558092745.us-central1.run.app`
 - **FLASK_PROT**: 5000
 
 It could be as simple as duplicating the https:// part. Let's try removing it from the HOST_IP environment variable in the cloud run command and doing the same for REDIS_IP.
 
-OK, doing so seems to aleviate the `InvalidURL` error, but now we have a new problem. When I test it via the Telegram app, I see the message come in as evidenced by:
+OK, doing so seems to alleviate the `InvalidURL` error, but now we have a new problem. When I test it via the Telegram app, I see the message come in as evidenced by:
 
 ```text
 INFO - telegram_bot.score_text - Got text fragment from user
@@ -1925,3 +1925,134 @@ urllib.error.URLError: <urlopen error [Errno 110] Connection timed out>
 
 The relevant stanza from `scoring_api.py`:
 
+```python
+  # Setup the request
+  req = urllib.request.Request(f'''http://{config.HOST_IP}:\
+                                {config.FLASK_PORT}/submit_text''')
+  req.add_header('Content-Type', 'application/json; charset=utf-8')
+  req.add_header('Content-Length', len(json_bytes_payload))
+
+  # Submit the request
+  body = urllib.request.urlopen(req, json_bytes_payload).read()
+
+  # Read and parse the results
+  contents = json.loads(body)
+```
+
+So, we are getting stuck at the same place. Now, it seems like the bot just never get's an answer from the API. Since there are no errors from the API, I assume the connections is mis-configured somehow. Let's look at that.
+
+Right now, we are using the internal url provided from Cloud Console for the api/bot sidecar combo container, but I wonder if this is necessary? Maybe we should just be using localhost or 0.0.0.0? Here are the relevant addresses and ports right now:
+
+On the API container:
+
+- HOST_IP: 0.0.0.0, this tells Flask what IP address to listen on
+- FLASK_PORT: 5000, this tells Flask what port to use, it is also used for the Cloud Run health check, which completes successfully
+
+On the bot container
+
+- HOST_IP: agatha-224558092745.us-central1.run.app, this tells the bot where to call the API and is probably wrong
+- FLASK_PORT: 5000, same as above - port flask is listening on.
+
+One further observation - within the bot container, the API url is formatted with http, while on the Cloud run dashboard the container URL is https. This could be the problem?
+
+OK, looking at some documentation - think I was right with my first guess. The entrypoint container and the sidecar share a loopback interface. See [here](https://cloud.google.com/blog/products/serverless/cloud-run-now-supports-multi-container-deployments). So, let's use `localhost` for the `HOST_IP` in both the api and bot containers.
+
+My guess is, we will have problems reaching Redis next - it seems like using the container URL should work, even if `localhost` is the better option. This leads me to believe our networking is misconfigured or incorrectly specified somehow. Let's see.
+
+OK, new problems. Telling Flask to listen on `localhost` results in a failed health check. Let's try having both containers use `0.0.0.0`.
+
+In the diagram from the article, they have traffic coming into then entrypoint container on port 8080 and a different address, which is presumably also being used for the health check, while the containers communicate over the loopback. This seems like another Cloud Run limitation - we don't need to accept requests from the outside and letting Cloud Run use Flask for the health check is a somewhat hacky solution.
+
+Also, the extremely slow model loading from the Cloud Storage bucket is killing us - it takes about 2 hours to load the models at <10 MiB/s. This is a crazy low read throughput and it makes it impossible to troubleshoot anything.
+
+Arggh, can we move on to GKE yet?
+
+OK, one two hour wait for re-deployment later, here is what happened. Start-up went normally. Sent text via telegram and...
+
+```text
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/workers/sync.py", line 134, in handle
+    self.handle_request(listener, req, client, addr)
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/workers/sync.py", line 177, in handle_request
+    respiter = self.wsgi(environ, resp.start_response)
+  File "/usr/local/lib/python3.8/dist-packages/flask/app.py", line 1498, in __call__
+    return self.wsgi_app(environ, start_response)
+  File "/usr/local/lib/python3.8/dist-packages/flask/app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/usr/local/lib/python3.8/dist-packages/flask/app.py", line 880, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.8/dist-packages/flask/app.py", line 865, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+  File "/agatha_api/functions/flask_app.py", line 194, in submit_text
+    result=score_text.delay(text_string, response_mode)
+  File "/usr/local/lib/python3.8/dist-packages/celery/app/task.py", line 444, in delay
+    return self.apply_async(args, kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/celery/app/task.py", line 594, in apply_async
+    return app.send_task(
+  File "/usr/local/lib/python3.8/dist-packages/celery/app/base.py", line 801, in send_task
+    amqp.send_task_message(P, name, message, **options)
+  File "/usr/local/lib/python3.8/dist-packages/celery/app/amqp.py", line 518, in send_task_message
+    ret = producer.publish(
+  File "/usr/local/lib/python3.8/dist-packages/kombu/messaging.py", line 186, in publish
+    return _publish(
+  File "/usr/local/lib/python3.8/dist-packages/kombu/connection.py", line 556, in _ensured
+    return fun(*args, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/kombu/messaging.py", line 195, in _publish
+    channel = self.channel
+  File "/usr/local/lib/python3.8/dist-packages/kombu/messaging.py", line 218, in _get_channel
+    channel = self._channel = channel()
+  File "/usr/local/lib/python3.8/dist-packages/kombu/utils/functional.py", line 34, in __call__
+    value = self.__value__ = self.__contract__()
+  File "/usr/local/lib/python3.8/dist-packages/kombu/messaging.py", line 234, in <lambda>
+    channel = ChannelPromise(lambda: connection.default_channel)
+  File "/usr/local/lib/python3.8/dist-packages/kombu/connection.py", line 953, in default_channel
+    self._ensure_connection(**conn_opts)
+  File "/usr/local/lib/python3.8/dist-packages/kombu/connection.py", line 459, in _ensure_connection
+    return retry_over_time(
+  File "/usr/local/lib/python3.8/dist-packages/kombu/utils/functional.py", line 318, in retry_over_time
+    return fun(*args, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/kombu/connection.py", line 934, in _connection_factory
+    self._connection = self._establish_connection()
+  File "/usr/local/lib/python3.8/dist-packages/kombu/connection.py", line 860, in _establish_connection
+    conn = self.transport.establish_connection()
+  File "/usr/local/lib/python3.8/dist-packages/kombu/transport/virtual/base.py", line 975, in establish_connection
+    self._avail_channels.append(self.create_channel(self))
+  File "/usr/local/lib/python3.8/dist-packages/kombu/transport/virtual/base.py", line 953, in create_channel
+    channel = self.Channel(connection)
+  File "/usr/local/lib/python3.8/dist-packages/kombu/transport/redis.py", line 744, in __init__
+    self.client.ping()
+  File "/usr/local/lib/python3.8/dist-packages/redis/commands/core.py", line 1212, in ping
+    return self.execute_command("PING", **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/redis/client.py", line 559, in execute_command
+    return self._execute_command(*args, **options)
+  File "/usr/local/lib/python3.8/dist-packages/redis/client.py", line 565, in _execute_command
+    conn = self.connection or pool.get_connection(command_name, **options)
+  File "/usr/local/lib/python3.8/dist-packages/redis/connection.py", line 1422, in get_connection
+    connection.connect()
+  File "/usr/local/lib/python3.8/dist-packages/redis/connection.py", line 357, in connect
+    sock = self.retry.call_with_retry(
+  File "/usr/local/lib/python3.8/dist-packages/redis/retry.py", line 62, in call_with_retry
+    return do()
+  File "/usr/local/lib/python3.8/dist-packages/redis/connection.py", line 358, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+  File "/usr/local/lib/python3.8/dist-packages/redis/connection.py", line 718, in _connect
+    sock.connect(socket_address)
+  File "/usr/local/lib/python3.8/dist-packages/gunicorn/workers/base.py", line 204, in handle_abort
+    sys.exit(1)
+SystemExit: 1
+```
+
+Looks like I was right, there are a few other errors in the logs, but I think this is the telling one - it looks like the API's redis client can't reach the redis server. Big surprise. OK, so now what?
+
+## 10. Fin
+
+Probably should have done this a long time ago - moving on to GKE. Spent an hour reading the documentation this afternoon and, honestly it seems like an autopilot GKE cluster is simpler to set up than this. There are many other reason why Cloud Run is not a good fit discussed throughout this document, but the ones that kill it for me finally are:
+
+1. Slow read speed from the Cloud Storage bucket
+2. The fact that each container needs a HTTPs health check, which means
+3. We have to run the API and bot in a sidecar configuration, leading to the fact that
+4. It won't scale because the telegram bot container are attached at the hip and we can't run more than one bot instance, otherwise telegram returns an error
+5. Cloud Run doesn't natively scale with GPU use anyway, we would have to build that our selves...
+6. Constraints on resources that can be assigned to the containers - i.e. capped CPUs, minimum CPUs to use a GPU, minimum memory to use X cpus etc.
+
+Suffice to say, it's kind of a mess and won't work for this project.
