@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Helper script to build all project Docker images
+# Helper script to build and push local deployment images
 
+# Build the images
 cd ./redis
 ./build_redis_image.sh
 
@@ -10,3 +11,8 @@ cd ../api
 
 cd ../telegram_bot
 ./build_bot_image.sh
+
+# Push the images
+docker push gperdrizet/agatha:redis-local
+docker push gperdrizet/agatha:api-local
+docker push gperdrizet/agatha:bot-local

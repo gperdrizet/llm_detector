@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker build -t gperdrizet/agatha:redis .
+docker build -t gperdrizet/agatha:redis-local .
