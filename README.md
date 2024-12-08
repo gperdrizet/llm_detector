@@ -34,7 +34,7 @@ Agatha is a synthetic text detection service available on [Telegram Messenger](h
 
 - **Easily accessible** - use it anywhere you can access Telegram: iOS or Android apps and any web browser.
 - **Simple interface** - no frills, just send the bot text and it will send back the probability that the text was machine generated.
-- **Useful and accurate** - provides a probability that text is synthetic, allowing users to make their own decisions when evaluating content. Maximum likelihood classification accuracy ~90% on held-out test data.
+- **Useful and accurate** - provides a probability that text is synthetic, allowing users to make their own decisions when evaluating content. Maximum likelihood classification accuracy ~98% on held-out test data.
 - **Model agnostic** - agatha is not trained to detect the output of a specific LLM, instead, it uses a gradient boosting classifier and a set of numerical features derived from/calibrated on a large corpus of human and synthetic text samples from multiple LLMs.
 - **No logs** - no user data or message contents are ever persisted to disk.
 - **Open source codebase** - agatha is an open source project. Clone it, fork it, extend it, modify it, host it yourself and use it the way you want to use it.
@@ -60,7 +60,7 @@ For best results, submitted text must be between 50 and 500 words.
 
 ## 4. Performance
 
-Agatha is >99% accurate on hold-out test data depending on the submitted text length. (see example confusion matrix below). Classification accuracy is lowest on short text and best on text >= 150 words. The miss-classified examples are more or less evenly split between false negatives and false positives.
+Agatha is >98% accurate on hold-out test data depending on the submitted text length. (see example confusion matrix below). Classification accuracy is lowest on short text and best on text >= 150 words. The miss-classified examples are more or less evenly split between false negatives and false positives.
 
 ![XGBoost confusion matrix](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/figures/05.8.4.5-performance_benchmark_confusion_matrix.jpg)
 
@@ -80,11 +80,11 @@ These notebooks are the best way to understand the approach and the engineered f
 
 ## 6. About the author
 
-My name is Dr. George Perdrizet, I am a biochemistry & molecular biology PhD seeking a career step from academia to professional data science and/or machine learning engineering. This project was conceived from the scientific literature and built solo over the course of a few weeks - I strongly believe that I have a ton to offer the right organization. If you or anyone you know is interested in an ex-researcher from University of Chicago turned builder and data scientist, please reach out, I'd love to learn from and contribute to your project.
+My name is Dr. George Perdrizet, I am a biochemistry & molecular biology PhD seeking a career step from academia to professional data science and/or machine learning engineering. This project was conceived from the scientific literature and built solo over the course of a few weeks - I strongly believe that I have a lot to offer the right organization. If you or anyone you know is interested in an ex-researcher from University of Chicago turned builder and data scientist, please reach out, I'd love to learn from and contribute to your project.
 
 - **Email**: <hire.me@perdrizet.org>
 - **LinkedIn**: [linkedin.com/gperdrizet](https://www.linkedin.com/in/gperdrizet/)
 
 ## 7. Disclaimer
 
-Malone is an experimental research project meant for educational, informational and entertainment purposes only. Any predictions made are inherently probabilistic in nature and subject to stochastic errors. Text classifications, no matter how high or low the reported probability, should never be interpreted as proof of authorship or the lack thereof in regard to any text submitted for analysis.
+Agatha is an experimental research project meant for educational, informational and entertainment purposes only. All predictions are probabilistic in nature and subject to stochastic errors. Text classifications, no matter how high or low the reported probability, should not be interpreted as definitive proof of authorship or a lack thereof.
