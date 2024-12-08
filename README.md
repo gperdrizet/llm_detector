@@ -60,7 +60,7 @@ For best results, submitted text must be between 50 and 500 words.
 
 ## 4. Performance
 
-Agatha is >98% accurate on hold-out test data depending on the submitted text length. (see example confusion matrix below). Classification accuracy is lowest on short text and best on text >= 150 words. The miss-classified examples are more or less evenly split between false negatives and false positives.
+Agatha is >~97.5% accurate on hold-out test data depending on the submitted text length. (see example confusion matrix below). Classification accuracy is lowest on short text and best on text >= 150 words. The miss-classified examples are more or less evenly split between false negatives and false positives.
 
 ![XGBoost confusion matrix](https://github.com/gperdrizet/llm_detector/blob/main/classifier/notebooks/figures/05.8.4.5-performance_benchmark_confusion_matrix.jpg)
 
@@ -87,4 +87,4 @@ My name is Dr. George Perdrizet, I am a biochemistry & molecular biology PhD see
 
 ## 7. Disclaimer
 
-Agatha is an experimental research project meant for educational, informational and entertainment purposes only. All predictions are probabilistic in nature and subject to stochastic errors. Text classifications, no matter how high or low the reported probability, should not be interpreted as definitive proof of authorship or a lack thereof.
+Agatha is an experimental research project meant for educational, informational and entertainment purposes only. All predictions are probabilistic in nature and subject to stochastic errors. Text classifications, no matter how high or low the reported probability, should not be interpreted as definitive proof of authorship or lack thereof.

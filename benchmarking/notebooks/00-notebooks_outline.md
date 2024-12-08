@@ -2,7 +2,7 @@
 
 ## [01-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/01-LLaMA3-8B.ipynb)
 
-### LLaMA3-8B Benchmarking:
+### LLaMA3-8B Benchmarking
 
 1. **Model loading**
 
@@ -70,7 +70,7 @@
 
 #### 1. Logits calculation
 
-##### 1.1. TLDR
+##### 1.1. TLDR: logits
 
 ##### 1.2. Memory footprint, 4-bit quantization
 
@@ -86,7 +86,7 @@
 
 #### 2. String encoding
 
-##### 2.1. TLDR
+##### 2.1. TLDR: encoding
 
 ##### 2.2. Plot: memory footprint for device map & input sequence length
 
