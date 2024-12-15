@@ -1,6 +1,6 @@
 # Benchmarking/optimization notebooks outline
 
-## [01-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/01-LLaMA3-8B.ipynb)
+## [02-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/02-LLaMA3-8B.ipynb)
 
 ### LLaMA3-8B Benchmarking
 
@@ -64,7 +64,7 @@
 
 ##### 3.3. Conclusion
 
-## [02-logit_calculation.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/02-logit_calculation.ipynb)
+## [03-logit_calculation.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/03-logit_calculation.ipynb)
 
 ### Logit calculation benchmarking
 
@@ -92,7 +92,7 @@
 
 ##### 2.3. Plot: encoding rate for device map & input sequence length
 
-## [03-perplexity_ratio_score.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/03-perplexity_ratio_score.ipynb)
+## [04-perplexity_ratio_score.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/04-perplexity_ratio_score.ipynb)
 
 ### Perplexity ratio score exploratory data analysis
 
