@@ -24,4 +24,4 @@ Published by [Gaggar et al. (2024)](https://arxiv.org/abs/2311.15425). The data 
 
 ### 1.5. ai-text-detection-pile
 
-[HuggingFace dataset](https://huggingface.co/datasets/artem9k/ai-text-detection-pile) with 1.4 million long form text records. Human text is from several documented sources and machine text is from several GPTs. The data itself is not annotated with source information. MIT license.
+[HuggingFace dataset](https://huggingface.co/datasets/artem9k/ai-text-detection-pile) with 1.4 million long form text records uploaded by Artem Yatsenko. Human text is from several documented sources and machine text is from several GPTs. The data itself is not annotated with source information. MIT license.
