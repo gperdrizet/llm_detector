@@ -3,7 +3,7 @@
 import json
 import time
 import urllib.request
-import telegram_bot.configuration as config
+import configuration as config
 
 
 async def submit_text(

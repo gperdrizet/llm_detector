@@ -1,0 +1,7 @@
+__pycache__
+.venv
+assets
+Dockerfile
+.dockerignore
+bot_traffic.ipynb
+build_agatha_bot_image.sh

@@ -9,7 +9,7 @@ import os
 # Mode to run bot in. 'offline' means that a stock response will be
 # returned to anyone who messages the bot with no traffic to the API.
 # 'online' sets the bot up and running.
-MODE = 'offline'
+MODE = 'online'
 
 # Get path to this config file so that we can define
 # other paths relative to it
@@ -31,5 +31,4 @@ HOST_IP = os.environ['HOST_IP']
 FLASK_PORT = os.environ['FLASK_PORT']
 
 # Bot greeting, set at start of new conversation
-BOT_GREETING = """Hi, I'm a bot! I can't talk to you, but if you send me some text,\
-      I'll try to determine if it was written by a human or a machine."""
+BOT_GREETING = """Hi, I'm a bot! I can't talk to you, but if you send me some text, I'll try to determine if it was written by a human or a machine."""
