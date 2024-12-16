@@ -12,8 +12,9 @@ import torch
 # other paths relative to it
 PROJECT_ROOT_PATH=os.path.dirname(os.path.realpath(__file__))
 
-# Raw data path
-RAW_DATA_PATH=DATA_PATH=f'{PROJECT_ROOT_PATH}/data/raw_data'
+# Data paths
+RAW_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/raw_data'
+INTERMEDIATE_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/intermediate_data'
 
 ######################################################################
 # Old v1.1.0 classifier stuff, left in temporarily for compatibility #
