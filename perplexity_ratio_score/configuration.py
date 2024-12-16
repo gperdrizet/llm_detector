@@ -5,12 +5,19 @@ import os
 import torch
 
 ######################################################################
-# Project meta-stuff: paths, logging, etc. ###########################
+# Perplexity ratio scoring globals ###################################
 ######################################################################
 
 # Get path to this config file so that we can define
 # other paths relative to it
 PROJECT_ROOT_PATH=os.path.dirname(os.path.realpath(__file__))
+
+# Raw data path
+RAW_DATA_PATH=DATA_PATH=f'{PROJECT_ROOT_PATH}/data/raw_data'
+
+######################################################################
+# Old v1.1.0 classifier stuff, left in temporarily for compatibility #
+######################################################################
 
 # Other project paths
 DATA_PATH=f'{PROJECT_ROOT_PATH}/data'
