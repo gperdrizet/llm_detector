@@ -4,7 +4,9 @@
 
 ## [02-data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/02-data_exploration.ipynb)
 
-## [03-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/03-LLaMA3-8B.ipynb)
+## [03-data_splitting.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/03-data_exploration.ipynb)
+
+## [04-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/04-LLaMA3-8B.ipynb)
 
 ### LLaMA3-8B Benchmarking
 
@@ -68,7 +70,7 @@
 
 ##### 3.3. Conclusion
 
-## [04-logit_calculation.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/04-logit_calculation.ipynb)
+## [05-logit_calculation.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/05-logit_calculation.ipynb)
 
 ### Logit calculation benchmarking
 
@@ -96,9 +98,9 @@
 
 ##### 2.3. Plot: encoding rate for device map & input sequence length
 
-## [05-Hans_2024_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/05-perplexity_ratio_score.ipynb)
+## [06-Hans_2024_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/06-perplexity_ratio_score.ipynb)
 
-## [06-perplexity_ratio_score.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/05-Hans_2024_data_exploration.ipynb)
+## [07-perplexity_ratio_score.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/07-perplexity_ratio_score.ipynb)
 
 ### Perplexity ratio score exploratory data analysis
 
@@ -131,3 +133,5 @@
 #### Fragment length distribution
 
 #### Thresholding
+
+## [08-kullback-leibler.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/08-kullback-leibler.ipynb)
