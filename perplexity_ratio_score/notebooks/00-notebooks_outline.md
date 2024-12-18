@@ -10,7 +10,9 @@
 
 ## [05-semantic_splitting.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/05-semantic_splitting.ipynb)
 
-## [06-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/06-LLaMA3-8B.ipynb)
+## [06-semantic_chunk_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/06-semantic_chunk_exploration.ipynb)
+
+## [07-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/07-LLaMA3-8B.ipynb)
 
 ### LLaMA3-8B Benchmarking
 
@@ -74,7 +76,7 @@
 
 ##### 3.3. Conclusion
 
-## [07-logit_calculation.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/07-logit_calculation.ipynb)
+## [08-logit_calculation.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/08-logit_calculation.ipynb)
 
 ### Logit calculation benchmarking
 
@@ -102,9 +104,9 @@
 
 ##### 2.3. Plot: encoding rate for device map & input sequence length
 
-## [08-Hans_2024_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/08-perplexity_ratio_score.ipynb)
+## [09-Hans_2024_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/09-perplexity_ratio_score.ipynb)
 
-## [09-perplexity_ratio_score.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/09-perplexity_ratio_score.ipynb)
+## [10-perplexity_ratio_score.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/10-perplexity_ratio_score.ipynb)
 
 ### Perplexity ratio score exploratory data analysis
 
@@ -138,4 +140,4 @@
 
 #### Thresholding
 
-## [10-kullback-leibler.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/10-kullback-leibler.ipynb)
+## [11-kullback-leibler.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/11-kullback-leibler.ipynb)
