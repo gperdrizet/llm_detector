@@ -2,11 +2,13 @@
 
 ## [01-data_wrangling.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/01-data_wrangling.ipynb)
 
-## [02-data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/02-data_exploration.ipynb)
+## [02-text_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/02-text_data_exploration.ipynb)
 
-## [03-data_splitting.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/03-data_exploration.ipynb)
+## [03-text_splitting.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/03-data_exploration.ipynb)
 
-## [04-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/04-LLaMA3-8B.ipynb)
+## [04-sentence_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/04-sentence_data_exploration.ipynb)
+
+## [05-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/05-LLaMA3-8B.ipynb)
 
 ### LLaMA3-8B Benchmarking
 
@@ -70,7 +72,7 @@
 
 ##### 3.3. Conclusion
 
-## [05-logit_calculation.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/05-logit_calculation.ipynb)
+## [06-logit_calculation.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/06-logit_calculation.ipynb)
 
 ### Logit calculation benchmarking
 
@@ -98,9 +100,9 @@
 
 ##### 2.3. Plot: encoding rate for device map & input sequence length
 
-## [06-Hans_2024_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/06-perplexity_ratio_score.ipynb)
+## [07-Hans_2024_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/07-perplexity_ratio_score.ipynb)
 
-## [07-perplexity_ratio_score.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/07-perplexity_ratio_score.ipynb)
+## [08-perplexity_ratio_score.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/08-perplexity_ratio_score.ipynb)
 
 ### Perplexity ratio score exploratory data analysis
 
@@ -134,4 +136,4 @@
 
 #### Thresholding
 
-## [08-kullback-leibler.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/08-kullback-leibler.ipynb)
+## [09-kullback-leibler.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/09-kullback-leibler.ipynb)
