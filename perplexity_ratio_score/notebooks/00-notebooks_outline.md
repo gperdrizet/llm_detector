@@ -4,7 +4,7 @@
 
 ## [02-text_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/02-text_data_exploration.ipynb)
 
-## [03-text_splitting.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/03-data_exploration.ipynb)
+## [03-sentence_splitting.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/03-sentence_splittingipynb)
 
 ## [04-sentence_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/04-sentence_data_exploration.ipynb)
 
