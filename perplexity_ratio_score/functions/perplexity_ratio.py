@@ -7,10 +7,10 @@ from typing import Callable
 import json
 import random
 import torch
-import benchmarking.configuration as config
-import benchmarking.functions.helper as helper_funcs
-from benchmarking.functions.metrics import perplexity, entropy
-import benchmarking.classes.llm as llm_class
+import perplexity_ratio_score.configuration as config
+import perplexity_ratio_score.functions.helper as helper_funcs
+from perplexity_ratio_score.functions.metrics import perplexity, entropy
+import perplexity_ratio_score.classes.llm as llm_class
 
 # Comment ##############################################################
 # Code ########################################################################

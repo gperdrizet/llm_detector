@@ -6,7 +6,7 @@ import gc
 import logging
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
-import benchmarking.configuration as config
+import perplexity_ratio_score.configuration as config
 
 class Llm:
     '''LLM class to bundle configuration options, model and tokenizer

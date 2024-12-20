@@ -8,7 +8,7 @@ import os
 import json
 import logging
 import itertools
-import benchmarking.configuration as config
+import perplexity_ratio_score.configuration as config
 
 # Comment ##############################################################
 # Code ########################################################################

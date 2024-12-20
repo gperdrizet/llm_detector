@@ -8,8 +8,10 @@ import argparse
 import logging
 import tracemalloc
 from logging.handlers import RotatingFileHandler
+
 import torch
-import benchmarking.configuration as config
+
+import perplexity_ratio_score.configuration as config
 
 # Comment ##############################################################
 # Code ########################################################################
@@ -32,6 +34,15 @@ def parse_args() -> dict:
     )
 
     # Add arguments
+    parser.add_argument(
+        '--get_data',
+        required = False,
+        choices = ['True', 'False'],
+        default = 'False',
+        help = 'Get, parse combine and run semantic splitting on text datasets',
+        metavar = '<BOOL>'
+    )
+
     parser.add_argument(
         '--perplexity-ratio',
         required = False,
@@ -204,4 +215,3 @@ def handle_benchmark_runtime_error(
         result[dependent_var] = error_string
 
     return result
-

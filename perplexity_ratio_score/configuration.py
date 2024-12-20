@@ -26,6 +26,7 @@ BENCHMARKING_DATA_PATH=f'{DATA_PATH}/benchmarking'
 HANS_DATA_PATH=f'{DATA_PATH}/hans_2024'
 EXPERIMENT_CONFIGS_PATH=f'{PROJECT_ROOT_PATH}/experiments'
 LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
+PERPLEXITY_OUTPUT_FILE_NAME='old_hans_perplexity_ratio_score_data.json'
 
 # Logging stuff
 LOG_LEVEL='DEBUG'

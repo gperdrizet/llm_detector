@@ -8,10 +8,11 @@ import logging
 from multiprocessing import Manager, Process
 
 import torch
-import benchmarking.classes.llm as llm_class
-import benchmarking.classes.experiment as experiment_class
-import benchmarking.functions.benchmarks as benchmark_funcs
-import benchmarking.functions.helper as helper_funcs
+
+import perplexity_ratio_score.classes.llm as llm_class
+import perplexity_ratio_score.classes.experiment as experiment_class
+import perplexity_ratio_score.functions.benchmarks as benchmark_funcs
+import perplexity_ratio_score.functions.helper as helper_funcs
 
 # Comment ##############################################################
 # Code ########################################################################

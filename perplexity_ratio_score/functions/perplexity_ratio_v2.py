@@ -2,7 +2,7 @@
 of data from https://arxiv.org/abs/2401.12070'''
 
 from __future__ import annotations
-from typing import Callable
+#from typing import Callable
 
 import os
 import time
@@ -14,10 +14,10 @@ import tracemalloc
 import multiprocessing as mp
 from pathlib import Path
 
-import benchmarking.configuration as config
-import benchmarking.functions.helper as helper_funcs
-import benchmarking.classes.llm as llm_class
-from benchmarking.functions.metrics import perplexity, entropy
+import perplexity_ratio_score.configuration as config
+import perplexity_ratio_score.functions.helper as helper_funcs
+import perplexity_ratio_score.classes.llm as llm_class
+from perplexity_ratio_score.functions.metrics import perplexity, entropy
 
 os.environ['TRANSFORMERS_OFFLINE'] = '1'
 
