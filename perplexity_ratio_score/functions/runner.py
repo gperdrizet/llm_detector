@@ -7,7 +7,7 @@ import os
 import logging
 from multiprocessing import Manager, Process
 
-import torch
+#import torch
 
 import perplexity_ratio_score.classes.llm as llm_class
 import perplexity_ratio_score.classes.experiment as experiment_class
