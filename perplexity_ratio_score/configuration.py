@@ -16,6 +16,9 @@ PROJECT_ROOT_PATH=os.path.dirname(os.path.realpath(__file__))
 RAW_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/raw_data'
 INTERMEDIATE_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/intermediate_data'
 
+# Logs path
+LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
+
 ######################################################################
 # Old v1.1.0 classifier stuff, left in temporarily for compatibility #
 ######################################################################
@@ -25,7 +28,7 @@ DATA_PATH=f'{PROJECT_ROOT_PATH}/data'
 BENCHMARKING_DATA_PATH=f'{DATA_PATH}/benchmarking'
 HANS_DATA_PATH=f'{DATA_PATH}/hans_2024'
 EXPERIMENT_CONFIGS_PATH=f'{PROJECT_ROOT_PATH}/experiments'
-LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
+#LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
 PERPLEXITY_OUTPUT_FILE_NAME='old_hans_perplexity_ratio_score_data.json'
 
 # Logging stuff

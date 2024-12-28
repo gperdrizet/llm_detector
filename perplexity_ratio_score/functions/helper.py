@@ -7,6 +7,7 @@ import glob
 import argparse
 import logging
 import tracemalloc
+from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
 import torch
@@ -80,6 +81,9 @@ def start_logger(
 ) -> Callable:
 
     '''Sets up logging, returns logger'''
+
+    # Make sure we have a logs directory
+    Path(config.LOG_PATH).mkdir(parents=True, exist_ok=True)
 
     # Clear logs if asked
     if config.CLEAR_LOGS is True:
