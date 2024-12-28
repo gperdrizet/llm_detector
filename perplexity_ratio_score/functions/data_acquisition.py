@@ -21,11 +21,13 @@ from datasets import load_dataset, utils
 # Internal imports
 import perplexity_ratio_score.configuration as config
 
+
 def get_data():
     '''Main function to run steps in data acquisition pipeline.'''
 
     _=download_raw_data()
-    _=parse_raw_data()
+    parsed_text=parse_raw_data()
+    _=save_parsed_text(parsed_text)
 
 
 def download_raw_data():
@@ -363,7 +365,7 @@ def parse_raw_data():
     return parsed_text
 
 
-def save_parsed_data(parsed_text: dict):
+def save_parsed_text(parsed_text: dict):
     '''Saves parsed and combined text data as single JSON
     file and parquet shards.'''
 
