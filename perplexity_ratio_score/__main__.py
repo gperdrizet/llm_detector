@@ -18,7 +18,9 @@ if __name__ == "__main__":
 
     # Run data acquisition pipeline
     if args.get_data != 'False':
+        logger.info('Running data acquisition')
         data_funcs.get_data()
+        logger.info('Data acquisition complete')
 
     # Run perplexity ratio scoring of Hans 2024 data
     if args.perplexity_ratio != 'False':

@@ -82,6 +82,8 @@ def start_logger(
 
     '''Sets up logging, returns logger'''
 
+    print(f'Logging to {config.LOG_PATH}/{logfile_name}')
+
     # Make sure we have a logs directory
     Path(config.LOG_PATH).mkdir(parents=True, exist_ok=True)
 

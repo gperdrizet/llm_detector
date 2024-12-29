@@ -2,36 +2,61 @@
 text data sets for perplexity ratio scoring.'''
 
 # Standard library imports
-#import glob
 import csv
 import json
-#import os.path
 import zipfile
 import urllib.request
+import multiprocessing
+import logging
 from pathlib import Path
 from itertools import product
 
 # PyPI imports
-#import pyarrow
 import kaggle
 import numpy as np
 import pandas as pd
 from datasets import load_dataset, utils
 
 # Internal imports
+import perplexity_ratio_score.functions.helper as helper_funcs
 import perplexity_ratio_score.configuration as config
 
+# Set the cpu count
+n_cpus=multiprocessing.cpu_count()
 
-def get_data():
+
+def get_data() -> None:
     '''Main function to run steps in data acquisition pipeline.'''
 
+    logger=helper_funcs.start_logger(
+        logfile_name='data_acquisition.log',
+        logger_name='data_acquisition'
+    )
+
+    # Get the logger
+    function_logger=logging.getLogger('data_acquisition.get_data')
+
+    # Download the data
+    function_logger.info('Starting data download')
     _=download_raw_data()
+    function_logger.info('Data download complete')
+
+    # Parse the data
+    function_logger.info('Starting data parse')
     parsed_text=parse_raw_data()
+    function_logger.info('Data parse complete')
+
+    # Save the parsed text
+    function_logger.info('Saving parsed text')
     _=save_parsed_text(parsed_text)
+    function_logger.info('Finished')
 
 
 def download_raw_data():
     '''Downloads raw data from internet sources'''
+
+    # Get the logger
+    function_logger=logging.getLogger('data_acquisition.download_raw_data')
 
     ########
     # Hans #
@@ -55,8 +80,11 @@ def download_raw_data():
         if Path(output_file).is_file() is False:
             data_url=f'{hans_base_url}/{data_source}/{data_source}-{generating_model}.jsonl'
             _=urllib.request.urlretrieve(data_url, output_file)
+            function_logger.info(f'Finished downloading Hans {data_source}-{generating_model} data')
 
-    print('Finished downloading Hans data')
+        else:
+            function_logger.info(f'Already have Hans {data_source}-{generating_model} data')
+
 
     ##########
     # Gerami #
@@ -77,7 +105,10 @@ def download_raw_data():
         with zipfile.ZipFile(output_file, 'r') as zip_ref:
             zip_ref.extractall(output_directory)
 
-    print('Finished downloading Gerami data')
+        function_logger.info('Finished downloading Gerami data')
+
+    else:
+        function_logger.info('Already have Gerami data')
 
     ############
     # Grinberg #
@@ -91,17 +122,20 @@ def download_raw_data():
     output_file=f'{output_directory}/human-vs-llm-text-corpus.zip'
 
     # Only download the file if we don't already have it
-    #if Path(output_file).is_file() is False:
-    kaggle.api.dataset_download_files(
-        'starblasters8/human-vs-llm-text-corpus',
-        path=output_directory
-    )
+    if Path(output_file).is_file() is False:
+        kaggle.api.dataset_download_files(
+            'starblasters8/human-vs-llm-text-corpus',
+            path=output_directory
+        )
 
-    # Unzip the data
-    with zipfile.ZipFile(output_file, 'r') as zip_ref:
-        zip_ref.extractall(output_directory)
+        # Unzip the data
+        with zipfile.ZipFile(output_file, 'r') as zip_ref:
+            zip_ref.extractall(output_directory)
 
-    print('Finished downloading Grinberg data')
+        function_logger.info('Finished downloading Grinberg data')
+
+    else:
+        function_logger.info('Already have Grinberg data')
 
     ##########
     # Gaggar #
@@ -125,7 +159,10 @@ def download_raw_data():
         with zipfile.ZipFile(output_file, 'r') as zip_ref:
             zip_ref.extractall(output_directory)
 
-    print('Finished downloading Gaggar data')
+        function_logger.info('Finished downloading Gaggar data')
+
+    else:
+        function_logger.info('Already have Gaggar data')
 
     ############
     # Yatsenko #
@@ -146,13 +183,19 @@ def download_raw_data():
         # Save the dataset to disk
         ds.save_to_disk(output_file)
 
-    print('Finished downloading Yatsenko data')
+        function_logger.info('Finished downloading Yatsenko data')
+
+    else:
+        function_logger.info('Already have Yatsenko data')
 
     return True
 
 
 def parse_raw_data():
     '''Parses and combines text from each data set'''
+
+    # Get the logger
+    function_logger=logging.getLogger('data_acquisition.parse_raw_data')
 
     # Holder for results
     parsed_text={
@@ -215,7 +258,7 @@ def parse_raw_data():
 
                 human_texts+=1
 
-    print(f'\nParsed Hans data: {human_texts + synthetic_texts} '+
+    function_logger.info(f'Parsed Hans data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
 
     ##########
@@ -252,7 +295,7 @@ def parse_raw_data():
 
                 parsed_text['text'].append(row[0])
 
-    print(f'Parsed Gerami data: {human_texts + synthetic_texts} '+
+    function_logger.info(f'Parsed Gerami data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
 
     ############
@@ -290,7 +333,7 @@ def parse_raw_data():
 
         parsed_text['text'].append(text)
 
-    print(f'Parsed Grinberg data: {human_texts + synthetic_texts} '+
+    function_logger.info(f'Parsed Grinberg data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
 
     ##########
@@ -327,7 +370,7 @@ def parse_raw_data():
 
                 parsed_text['text'].append(row[0])
 
-    print(f'Parsed Gaggar data: {human_texts + synthetic_texts} '+
+    function_logger.info(f'Parsed Gaggar data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
 
     ############
@@ -336,7 +379,7 @@ def parse_raw_data():
 
     # Load the dataset
     utils.disable_progress_bar()
-    dataset=load_dataset(f'{config.RAW_DATA_PATH}/yatsenko/data')
+    dataset=load_dataset(f'{config.RAW_DATA_PATH}/yatsenko/data', cache_dir=f'{config.RAW_DATA_PATH}/yatsenko')
 
     # Counters
     human_texts=0
@@ -359,7 +402,7 @@ def parse_raw_data():
 
         parsed_text['text'].append(record['text'])
 
-    print(f'Parsed Yatsenko data: {human_texts + synthetic_texts} '
+    function_logger.info(f'Parsed Yatsenko data: {human_texts + synthetic_texts} '
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
 
     return parsed_text
@@ -369,6 +412,9 @@ def save_parsed_text(parsed_text: dict):
     '''Saves parsed and combined text data as single JSON
     file and parquet shards.'''
 
+    # Get the logger
+    function_logger=logging.getLogger('data_acquisition.save_parsed_text')
+
     # Get some summary stats about the file
     total_texts=len(parsed_text['synthetic'])
     synthetic_texts=sum(parsed_text['synthetic'])
@@ -376,9 +422,9 @@ def save_parsed_text(parsed_text: dict):
     percent_synthetic=(synthetic_texts/total_texts)*100
     percent_human=(human_texts/total_texts)*100
 
-    print(f'\nHave {total_texts} texts')
-    print(f' Human: {human_texts}({percent_human:.1f}%)')
-    print(f' Synthetic: {synthetic_texts}({percent_synthetic:.1f}%)')
+    function_logger.info(f'Have {total_texts} texts')
+    function_logger.info(f'Human: {human_texts}({percent_human:.1f}%)')
+    function_logger.info(f'Synthetic: {synthetic_texts}({percent_synthetic:.1f}%)')
 
     # Set up output directory
     output_directory=f'{config.INTERMEDIATE_DATA_PATH}'
@@ -390,11 +436,12 @@ def save_parsed_text(parsed_text: dict):
 
     # Convert to a dataframe
     data_df=pd.DataFrame(parsed_text)
+
     # Give it a shuffle
     data_df=data_df.sample(frac=1)
 
-    # Split the dataframe into 16 chunks
-    chunks=np.array_split(data_df, 16)
+    # Split the dataframe into two less than the number of cpus chunks
+    chunks=np.array_split(data_df, n_cpus - 2)
 
     # Save each chunk as parquet with a clean index
     for i, chunk in enumerate(chunks):
