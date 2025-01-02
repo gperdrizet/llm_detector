@@ -40,7 +40,16 @@ def parse_args() -> dict:
         required = False,
         choices = ['True', 'False'],
         default = 'False',
-        help = 'Get, parse combine and run semantic splitting on text datasets',
+        help = 'Get, parse combine and shard text datasets',
+        metavar = '<BOOL>'
+    )
+
+    parser.add_argument(
+        '--semantic_split',
+        required = False,
+        choices = ['True', 'False'],
+        default = 'False',
+        help = 'Run semantic splitting sharded text datasets',
         metavar = '<BOOL>'
     )
 
@@ -109,9 +118,7 @@ def start_logger(
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    logger.info('############################################### ')
-    logger.info('########### Starting LLM detector ############# ')
-    logger.info('############################################### ')
+    logger.info('############# Starting logging ################ ')
 
     return logger
 
