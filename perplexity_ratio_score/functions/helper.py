@@ -54,6 +54,15 @@ def parse_args() -> dict:
     )
 
     parser.add_argument(
+        '--perplexity_ratio_score',
+        required = False,
+        choices = ['True', 'False'],
+        default = 'False',
+        help = 'Run perplexity ratio scoring of sharded text datasets',
+        metavar = '<BOOL>'
+    )
+
+    parser.add_argument(
         '--perplexity-ratio',
         required = False,
         choices = ['True', 'False'],

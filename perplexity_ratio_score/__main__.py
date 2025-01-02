@@ -22,10 +22,17 @@ if __name__ == "__main__":
         data_funcs.get_data()
         logger.info('Data acquisition complete')
 
+    # Run text splitting using semantic splitter
     if args.semantic_split != 'False':
         logger.info('Running semantic text splitting')
         data_funcs.semantic_split()
         logger.info('Semantic text splitting complete')
+
+    # Run perplexity ratio scoring on split data
+    if args.perplexity_ratio_score != 'False':
+        logger.info('Running perplexity ratio scoreing')
+        data_funcs.perplexity_ratio_score()
+        logger.info('Perplexity ratio scoreing complete')
 
     # Run perplexity ratio scoring of Hans 2024 data
     if args.perplexity_ratio != 'False':
