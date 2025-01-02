@@ -19,6 +19,9 @@ INTERMEDIATE_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/intermediate_data'
 # Logs path
 LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
 
+# Path to save notebook plots
+PLOT_PATH=f'{PROJECT_ROOT_PATH}/notebooks/plots'
+
 ######################################################################
 # Old v1.1.0 classifier stuff, left in temporarily for compatibility #
 ######################################################################

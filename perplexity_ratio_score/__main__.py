@@ -2,15 +2,15 @@
 
 import perplexity_ratio_score.functions.helper as helper_funcs
 import perplexity_ratio_score.functions.runner as runner_funcs
-import perplexity_ratio_score.functions.data_acquisition as data_funcs
+import perplexity_ratio_score.functions.data_manipulation as data_funcs
 import perplexity_ratio_score.functions.perplexity_ratio as perplexity_funcs
 import perplexity_ratio_score.functions.perplexity_ratio_v2 as perplexity_funcs_v2
 
 if __name__ == "__main__":
 
     logger=helper_funcs.start_logger(
-        logfile_name='main.log',
-        logger_name='main'
+        logfile_name=f'{__name__}.log',
+        logger_name=f'{__name__}'
     )
 
     # Parse command line arguments
@@ -21,6 +21,11 @@ if __name__ == "__main__":
         logger.info('Running data acquisition')
         data_funcs.get_data()
         logger.info('Data acquisition complete')
+
+    if args.semantic_split != 'False':
+        logger.info('Running semantic text splitting')
+        data_funcs.semantic_split()
+        logger.info('Semantic text splitting complete')
 
     # Run perplexity ratio scoring of Hans 2024 data
     if args.perplexity_ratio != 'False':

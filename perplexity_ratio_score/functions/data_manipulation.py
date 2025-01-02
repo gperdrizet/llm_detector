@@ -1,12 +1,35 @@
-'''Collection of functions for data manipulation, parsing and exploration'''
+'''Collection of functions for data manipulation, parsing and exploration. Includes
+functions to download, parse, combine and semantically split text data sets for 
+perplexity ratio scoring.'''
 
 from __future__ import annotations
 from typing import Tuple
 
+import glob
+import csv
 import json
+import zipfile
+import urllib.request
+import logging
+import multiprocessing as mp
+from typing import Tuple
+from pathlib import Path
+from itertools import product
 from statistics import mean, stdev
+
+# PyPI imports
+import kaggle
+import numpy as np
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer # type: ignore
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from datasets import load_dataset, utils
+from semantic_text_splitter import TextSplitter
+from tokenizers import Tokenizer
+
+# Internal imports
+import perplexity_ratio_score.functions.helper as helper_funcs
+import perplexity_ratio_score.configuration as config
 
 def parse_hans_data(
     hans_datasets: dict = None,
@@ -124,3 +147,568 @@ def tf_idf(data_df: pd.DataFrame=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
     )
 
     return human_tfidf_df, synthetic_tfidf_df
+
+
+
+def get_data() -> None:
+    '''Main function to run steps in data acquisition pipeline.'''
+
+    logger=helper_funcs.start_logger(
+        logfile_name=f'{__name__}.log',
+        logger_name=f'{__name__}'
+    )
+
+    # Get the logger
+    function_logger=logging.getLogger(f'{__name__}.get_data')
+
+    # Download the data
+    function_logger.info('Starting data download')
+    _=download_raw_data()
+    function_logger.info('Data download complete')
+
+    # Parse the data
+    function_logger.info('Starting data parse')
+    parsed_text=parse_raw_data()
+    function_logger.info('Data parse complete')
+
+    # Save the parsed text
+    function_logger.info('Saving parsed text')
+    _=save_parsed_text(parsed_text)
+    function_logger.info('Finished')
+
+
+def download_raw_data():
+    '''Downloads raw data from internet sources'''
+
+    # Get the logger
+    function_logger=logging.getLogger(f'{__name__}.download_raw_data')
+
+    ########
+    # Hans #
+    ########
+
+    # Set up output directory
+    output_directory=f'{config.RAW_DATA_PATH}/hans'
+    Path(output_directory).mkdir(parents=True, exist_ok=True)
+
+    # Data source info
+    hans_generating_models=['falcon7','llama2_13']
+    hans_data_sources=['cnn','cc_news','pubmed']
+    hans_base_url=('https://raw.githubusercontent.com'+
+        '/ahans30/Binoculars/refs/heads/main/datasets/core')
+
+    # Loop on generating models and data sources, downloading files for each
+    for generating_model, data_source in product(hans_generating_models, hans_data_sources):
+        output_file=f'{output_directory}/{generating_model}-{data_source}.jsonl'
+
+        # Only download the file if we don't already have it
+        if Path(output_file).is_file() is False:
+            data_url=f'{hans_base_url}/{data_source}/{data_source}-{generating_model}.jsonl'
+            _=urllib.request.urlretrieve(data_url, output_file)
+            function_logger.info(f'Finished downloading Hans {data_source}-{generating_model} data')
+
+        else:
+            function_logger.info(f'Already have Hans {data_source}-{generating_model} data')
+
+
+    ##########
+    # Gerami #
+    ##########
+
+    # Set up output directory
+    output_directory=f'{config.RAW_DATA_PATH}/gerami'
+    Path(output_directory).mkdir(parents=True, exist_ok=True)
+
+    # Output file
+    output_file=f'{output_directory}/ai-vs-human-text.zip'
+
+    # Only download the file if we don't already have it
+    if Path(output_file).is_file() is False:
+        kaggle.api.dataset_download_files('shanegerami/ai-vs-human-text', path=output_directory)
+
+        # Unzip the data
+        with zipfile.ZipFile(output_file, 'r') as zip_ref:
+            zip_ref.extractall(output_directory)
+
+        function_logger.info('Finished downloading Gerami data')
+
+    else:
+        function_logger.info('Already have Gerami data')
+
+    ############
+    # Grinberg #
+    ############
+
+    # Set up output directory
+    output_directory=f'{config.RAW_DATA_PATH}/grinberg'
+    Path(output_directory).mkdir(parents=True, exist_ok=True)
+
+    # Output file
+    output_file=f'{output_directory}/human-vs-llm-text-corpus.zip'
+
+    # Only download the file if we don't already have it
+    if Path(output_file).is_file() is False:
+        kaggle.api.dataset_download_files(
+            'starblasters8/human-vs-llm-text-corpus',
+            path=output_directory
+        )
+
+        # Unzip the data
+        with zipfile.ZipFile(output_file, 'r') as zip_ref:
+            zip_ref.extractall(output_directory)
+
+        function_logger.info('Finished downloading Grinberg data')
+
+    else:
+        function_logger.info('Already have Grinberg data')
+
+    ##########
+    # Gaggar #
+    ##########
+
+    # Set up output directory
+    output_directory=f'{config.RAW_DATA_PATH}/gaggar'
+    Path(output_directory).mkdir(parents=True, exist_ok=True)
+
+    # File IO locations
+    data_url=('https://github.com/HarshOza36/Detection-Of-Machine-Generated-Text'+
+        '/raw/refs/heads/master/data/Final%20Dataset.zip')
+
+    output_file=f'{output_directory}/data.zip'
+
+    # Only download the file if we don't already have it
+    if Path(output_file).is_file() is False:
+        _=urllib.request.urlretrieve(data_url, output_file)
+
+        # Unzip the data
+        with zipfile.ZipFile(output_file, 'r') as zip_ref:
+            zip_ref.extractall(output_directory)
+
+        function_logger.info('Finished downloading Gaggar data')
+
+    else:
+        function_logger.info('Already have Gaggar data')
+
+    ############
+    # Yatsenko #
+    ############
+
+    # Set up output directory
+    output_directory=f'{config.RAW_DATA_PATH}/yatsenko'
+    Path(output_directory).mkdir(parents=True, exist_ok=True)
+
+    # Output directory for the data
+    output_file=f'{output_directory}/data'
+
+    # Only download the file if we don't already have it
+    if Path(output_file).is_dir() is False:
+        utils.disable_progress_bar()
+        ds=load_dataset('artem9k/ai-text-detection-pile')
+
+        # Save the dataset to disk
+        ds.save_to_disk(output_file)
+
+        function_logger.info('Finished downloading Yatsenko data')
+
+    else:
+        function_logger.info('Already have Yatsenko data')
+
+    return True
+
+
+def parse_raw_data():
+    '''Parses and combines text from each data set'''
+
+    # Get the logger
+    function_logger=logging.getLogger(f'{__name__}.parse_raw_data')
+
+    # Holder for results
+    parsed_text={
+        'text': [],
+        'synthetic': [],
+        'author': [],
+        'source': []
+    }
+
+    ########
+    # Hans #
+    ########
+
+    # Hans data set info
+    hans_generating_models=['falcon7','llama2_13']
+    hans_data_sources=['cnn','cc_news','pubmed']
+
+    # Counters
+    human_texts=0
+    synthetic_texts=0
+
+    # Loop on the generating model and original text source
+    for generating_model, data_source in product(hans_generating_models, hans_data_sources):
+
+        # Get the file path
+        file_path=f'{config.RAW_DATA_PATH}/hans/{generating_model}-{data_source}.jsonl'
+
+        # Loop on the JSON lines in the file, parsing each one
+        with open(file_path, encoding='UTF-8') as input_file:
+            for line in input_file:
+                data=json.loads(line)
+
+                # Get the generated text and add to parsed text
+                parsed_text['source'].append('hans')
+                parsed_text['synthetic'].append(1)
+                parsed_text['author'].append(generating_model)
+
+                if generating_model == 'llama2_13':
+                    text=data['meta-llama-Llama-2-13b-hf_generated_text_wo_prompt']
+
+                elif generating_model == 'falcon7':
+                    text=data['-fs-cml-models-Falcon-falcon-7b_generated_text_wo_prompt']
+
+                parsed_text['text'].append(text)
+
+                synthetic_texts+=1
+
+                # Get the human text and add to parsed text
+                parsed_text['source'].append('hans')
+                parsed_text['synthetic'].append(0)
+                parsed_text['author'].append('human')
+
+                if 'article' in data.keys():
+                    text=data['article']
+
+                elif 'text' in data.keys():
+                    text=data['text']
+
+                parsed_text['text'].append(text)
+
+                human_texts+=1
+
+    function_logger.info(f'Parsed Hans data: {human_texts + synthetic_texts} '+
+        f'texts, {human_texts} human and {synthetic_texts} synthetic')
+
+    ##########
+    # Gerami #
+    ##########
+
+    # Data file path
+    file_path=f'{config.RAW_DATA_PATH}/gerami/AI_Human.csv'
+
+    # Counters
+    human_texts=0
+    synthetic_texts=0
+
+    # Read the file
+    with open(file_path, mode='r', encoding='UTF-8') as input_file:
+        reader=csv.reader(input_file)
+
+        # Loop on CSV rows, parsing each
+        for i, row in enumerate(reader):
+
+            # Skip the header row
+            if i > 0:
+                parsed_text['source'].append('gerami')
+
+                if row[1] == '0.0':
+                    parsed_text['synthetic'].append(0)
+                    parsed_text['author'].append('human')
+                    human_texts+=1
+
+                if row[1] == '1.0':
+                    parsed_text['synthetic'].append(1)
+                    parsed_text['author'].append('unknown_model')
+                    synthetic_texts+=1
+
+                parsed_text['text'].append(row[0])
+
+    function_logger.info(f'Parsed Gerami data: {human_texts + synthetic_texts} '+
+        f'texts, {human_texts} human and {synthetic_texts} synthetic')
+
+    ############
+    # Grinberg #
+    ############
+
+    # Data file path
+    file_path=f'{config.RAW_DATA_PATH}/grinberg/data.parquet'
+
+    # Counters
+    human_texts=0
+    synthetic_texts=0
+
+    # Read the file into a Pandas dataframe
+    data_df=pd.read_parquet(file_path)
+    data_df.head()
+
+    # Extract texts and sources
+    texts=data_df['text'].to_list()
+    sources=data_df['source'].to_list()
+
+    # Loop on text and source lists, parse and add the to results
+    for text, source in zip(texts, sources):
+        parsed_text['source'].append('grinberg')
+
+        if source == 'Human':
+            parsed_text['synthetic'].append(0)
+            parsed_text['author'].append('human')
+            human_texts+=1
+
+        if source != 'Human':
+            parsed_text['synthetic'].append(1)
+            parsed_text['author'].append('unknown_model')
+            synthetic_texts+=1
+
+        parsed_text['text'].append(text)
+
+    function_logger.info(f'Parsed Grinberg data: {human_texts + synthetic_texts} '+
+        f'texts, {human_texts} human and {synthetic_texts} synthetic')
+
+    ##########
+    # Gagger #
+    ##########
+
+    # Data file path
+    file_path=f'{config.RAW_DATA_PATH}/gaggar/Complete Dataset/FinalDataset.csv'
+
+    # Counters
+    human_texts=0
+    synthetic_texts=0
+
+    # Read the file
+    with open(file_path, mode='r', encoding='UTF-8') as input_file:
+        reader=csv.reader(input_file)
+
+        # Loop on CSV rows, parsing each
+        for i, row in enumerate(reader):
+
+            # Skip the header row
+            if i > 0:
+                parsed_text['source'].append('gaggar')
+
+                if row[1] == '0':
+                    parsed_text['synthetic'].append(0)
+                    parsed_text['author'].append('human')
+                    human_texts+=1
+
+                if row[1] == '1':
+                    parsed_text['synthetic'].append(1)
+                    parsed_text['author'].append('GPT-3.5-turbo')
+                    synthetic_texts+=1
+
+                parsed_text['text'].append(row[0])
+
+    function_logger.info(f'Parsed Gaggar data: {human_texts + synthetic_texts} '+
+        f'texts, {human_texts} human and {synthetic_texts} synthetic')
+
+    ############
+    # Yatsenko #
+    ############
+
+    # Load the dataset
+    utils.disable_progress_bar()
+    dataset=load_dataset(f'{config.RAW_DATA_PATH}/yatsenko/data', cache_dir=f'{config.RAW_DATA_PATH}/yatsenko')
+
+    # Counters
+    human_texts=0
+    synthetic_texts=0
+
+    # Loop over and parse the dataset
+    for i, record in enumerate(dataset['train']):
+
+        parsed_text['source'].append('yatsenko')
+
+        if record['source'] == 'human':
+            parsed_text['synthetic'].append(0)
+            parsed_text['author'].append('human')
+            human_texts+=1
+
+        if record['source'] == 'ai':
+            parsed_text['synthetic'].append(1)
+            parsed_text['author'].append('unknown_model')
+            synthetic_texts+=1
+
+        parsed_text['text'].append(record['text'])
+
+    function_logger.info(f'Parsed Yatsenko data: {human_texts + synthetic_texts} '
+        f'texts, {human_texts} human and {synthetic_texts} synthetic')
+
+    return parsed_text
+
+
+def save_parsed_text(parsed_text: dict):
+    '''Saves parsed and combined text data as single JSON
+    file and parquet shards.'''
+
+    # Get the logger
+    function_logger=logging.getLogger(f'{__name__}.save_parsed_text')
+
+    # Get some summary stats about the file
+    total_texts=len(parsed_text['synthetic'])
+    synthetic_texts=sum(parsed_text['synthetic'])
+    human_texts=total_texts - synthetic_texts
+    percent_synthetic=(synthetic_texts/total_texts)*100
+    percent_human=(human_texts/total_texts)*100
+
+    function_logger.info(f'Have {total_texts} texts')
+    function_logger.info(f'Human: {human_texts}({percent_human:.1f}%)')
+    function_logger.info(f'Synthetic: {synthetic_texts}({percent_synthetic:.1f}%)')
+
+    # Set up output directory
+    output_directory=f'{config.INTERMEDIATE_DATA_PATH}'
+    Path(output_directory).mkdir(parents=True, exist_ok=True)
+
+    output_path=f'{output_directory}/all_texts.json'
+    function_logger.info(f'Saving master to {output_path}')
+
+    # Save it as JSON
+    with open(output_path, 'w', encoding='utf-8') as output_file:
+        json.dump(parsed_text, output_file, ensure_ascii=False, indent=4)
+
+    # Convert to a dataframe
+    data_df=pd.DataFrame(parsed_text)
+
+    # Give it a shuffle
+    data_df=data_df.sample(frac=1)
+
+    # Do the test-train split
+    training_df, testing_df=train_test_split(data_df, test_size=0.3)
+
+    for data_df, dataset in zip([training_df, testing_df], ['train', 'test']):
+
+        function_logger.info(f'Saving {dataset} data')
+
+        # Split the dataframe into two less than the number of cpus chunks
+        chunks=np.array_split(data_df, mp.cpu_count() - 2)
+
+        # Save each chunk as parquet with a clean index
+        for i, chunk in enumerate(chunks):
+            output_file=f'{config.INTERMEDIATE_DATA_PATH}/{dataset}_texts.{i}.parquet'
+            chunk.reset_index(inplace=True, drop=True)
+            chunk.to_parquet(output_file)
+            function_logger.info(f'Saved {output_file}')
+    
+    function_logger.info(f'Done')
+
+
+def semantic_split() -> None:
+    '''Main function to do semantic splitting of the parsed and sharded text.'''
+
+    logger=helper_funcs.start_logger(
+        logfile_name=f'{__name__}.log',
+        logger_name=f'{__name__}'
+    )
+
+    # Get the logger
+    function_logger=logging.getLogger(f'{__name__}.semantic_split')
+
+    # Set target lengths for splits in tokens
+    target_lengths=[16,32,64,128,256,512]
+
+    # Loop to process training and testing data seperately 
+    for dataset in ['train', 'test']:
+
+        function_logger.info(f'Running semantic splitting on {dataset} data')
+
+        # Collect the results
+        chunks={
+            'text': [],
+            'synthetic': [],
+            'author': [],
+            'source': []
+        }
+
+        for target_length in target_lengths:
+            function_logger.info(f'Splitting with target length {target_length} tokens')
+
+            # Get list of input files
+            input_files=glob.glob(f'{config.INTERMEDIATE_DATA_PATH}/{dataset}_texts.*.parquet')
+
+            # Instantiate pool with one worker per input file
+            pool=mp.Pool(
+                processes=len(input_files),
+                maxtasksperchild=1
+            )
+
+            # Holder for returns from workers
+            async_results=[]
+
+            # Loop input files
+            for i, data_file in enumerate(input_files):
+
+                async_results.append(
+                    pool.apply_async(
+                        split_text,
+                        args=(
+                            data_file,
+                            target_length,
+                            i,
+                        )
+                    )
+                )
+
+            # Clean up
+            pool.close()
+            pool.join()
+
+            # Get the results
+            results=[async_result.get() for async_result in async_results]
+
+            # Collect the results
+            for result in results:
+                for key, value in result.items():
+                    chunks[key].extend(value)
+            
+            function_logger.info(f'Finished target length {target_length}')
+
+        function_logger.info(f'Finished splitting {dataset} data')
+
+        # Convert to Pandas dataframe
+        chunks_df=pd.DataFrame(chunks)
+
+        # Give it a shuffle
+        chunks_df=chunks_df.sample(frac=1)
+
+        # Split the dataframe into shards
+        chunk_shards=np.array_split(chunks_df, mp.cpu_count() - 2)
+
+        # Save each chunk as parquet with a clean index
+        for i, chunk in enumerate(chunk_shards):
+            output_file=f'{config.INTERMEDIATE_DATA_PATH}/{dataset}_chunks.{i}.parquet'
+            chunk.reset_index(inplace=True, drop=True)
+            chunk.to_parquet(output_file)
+
+
+def split_text(data_file: str=None, target_size: int=512, worker: int=0, sample_fraction: float=1) -> dict:
+    '''Function to parallelize semantic splitting of text over input files. 
+    Meant to be called with multiprocessing worker. Take an input file 
+    string, loads the data, splits sentences, collects results in dictionary
+    and returns dictionary.'''
+
+    data_df=pd.read_parquet(data_file)
+
+    results={
+        'text': [],
+        'synthetic': [],
+        'author': [],
+        'source': []
+    }
+
+    # Tokenizer & splitter
+    tokenizer_name='bert-base-uncased'
+    tokenizer=Tokenizer.from_pretrained(tokenizer_name)
+    splitter=TextSplitter.from_huggingface_tokenizer(tokenizer, target_size)
+
+    # Calculate the number of records to process
+    num_records=int(len(data_df)*sample_fraction)
+
+    # Loop over records
+    for i in range(num_records):
+        
+        text=data_df['text'].iloc[i]
+        chunks=splitter.chunks(text)
+
+        for chunk in chunks:
+            results['text'].append(chunk)
+            results['synthetic'].append(data_df['synthetic'].iloc[i])
+            results['author'].append(data_df['author'].iloc[i])
+            results['source'].append(data_df['source'].iloc[i])
+
+    return results
