@@ -4,11 +4,11 @@
 import os
 import glob
 import logging
-import threading
 import multiprocessing as mp
 from pathlib import Path
 
 # PyPI imports
+import torch
 import pandas as pd
 
 # Internal imports
@@ -20,15 +20,15 @@ def run():
 
     # Plan here is to build this parallelized and with the ability to
     # restart from the get-go. This way we can scale to more GPUs if
-    # we want/need to and/or submitt it to Google Cloud as a interutable batch
+    # we want/need to and/or submit it to Google Cloud as a interruptable batch
     # job. Workflow will be as follows:
     #
     # 1. Glob input file list - this will contain both training and testing
     #  shards of semantically split text in parquet format.
     # 2. Check for corresponding output files for each input, if output exists,
-    #  count the lines and compare to input to determin if it is complete.
-    # 3. Loop on input files with missing or incomplete outputs, submitting to 
-    #   n scoring workers, dependent on gpus/memory avalible.
+    #  count the lines and compare to input to determine if it is complete.
+    # 3. Loop on input files with missing or incomplete outputs, submitting to
+    #   n scoring workers, dependent on gpus/memory available.
     # 4. Worker checks for output file, if it exists, reads the data counting
     #  rows so it can resume from the right place.
     # 5. Worker scores text fragments, collecting results.
@@ -50,17 +50,17 @@ def run():
     # Get logger for main process
     log_funcs.configure_worker(logging_queue)
     logger=logging.getLogger(f'{__name__}.run')
-    logger.info(f'Main process started')
+    logger.info('Main process started')
 
     # Get list of input files
     input_files=glob.glob(f'{config.INTERMEDIATE_DATA_PATH}/*chunks.*.parquet')
-    logger.info(f'Read {len(input_files)} input files')
+    logger.info('Read %s input files', len(input_files))
 
     # Set-up output directory and get files, if any
     output_directory=config.SCORED_DATA_PATH
     Path(output_directory).mkdir(parents=True, exist_ok=True)
     output_files=glob.glob(f'{output_directory}/*chunks.*.parquet')
-    logger.info(f'Read {len(output_files)} output files')
+    logger.info('Read %s output files', len(output_files))
 
     # Loop on the input file list and compare to output file list. Assemble list of
     # Input files that have not been scored or are incomplete
@@ -70,7 +70,7 @@ def run():
 
         # Get the input file's name
         input_file_name=os.path.basename(input_file)
-        logger.info(f'Input {i+1}: {input_file_name}')
+        logger.info('Input %s: %s', i+1, input_file_name)
 
         # Check to see if a corresponding output file exists
         output_file=f'{output_directory}/{input_file_name}'
@@ -95,7 +95,7 @@ def run():
             inputs_to_score.append(input_file)
             logger.info('No output exists')
 
-    logger.info(f'Have {len(inputs_to_score)} input files to score')
+    logger.info('Have %s input files to score', len(inputs_to_score))
 
     # Start the multiprocessing manager
     mp_manager=mp.Manager()
@@ -113,20 +113,20 @@ def run():
             mp.Process(target=score_shard, args=(input_queue,i,))
         )
 
-        logger.info(f'Initalized worker {i}')
+        logger.info('initialized worker %s', i)
 
     # Add the input files to the queue
     for input_file in input_files:
         input_queue.put(input_file)
 
-    logger.info(f'Input queue loaded')
+    logger.info('Input queue loaded')
 
     # Start the score workers
     for i, worker in enumerate(scoring_workers):
         worker.start()
-        logger.info(f'Started scoring worker {i}')
+        logger.info('Started scoring worker %s', i)
 
-    # Then, send each score worker a done signial
+    # Then, send each score worker a done signal
     for i in range(num_workers):
         input_queue.put('Done')
 
@@ -147,7 +147,7 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
 
     # Set-up worker's logging
     logger=logging.getLogger(f'{__name__}.score_shard')
-    logger.info(f'Worker {worker_num} started')
+    logger.info('Worker %s started', worker_num)
 
     # Start the main loop
     while True:
@@ -157,8 +157,8 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
 
         # Check for 'Done' signal
         if input_file != 'Done':
-            logger.info(f'Worker {worker_num} got {os.path.basename(input_file)} from queue')
+            logger.info('Worker %s got %s from queue', worker_num, os.path.basename(input_file))
 
         else:
-            logger.info(f'Worker {worker_num} recived stop signal')
+            logger.info('Worker %s received stop signal', worker_num)
             return
