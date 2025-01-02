@@ -15,6 +15,7 @@ PROJECT_ROOT_PATH=os.path.dirname(os.path.realpath(__file__))
 # Data paths
 RAW_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/raw_data'
 INTERMEDIATE_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/intermediate_data'
+SCORED_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/scored_data'
 
 # Logs path
 LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'

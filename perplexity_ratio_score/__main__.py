@@ -5,6 +5,8 @@ import perplexity_ratio_score.functions.runner as runner_funcs
 import perplexity_ratio_score.functions.data_manipulation as data_funcs
 import perplexity_ratio_score.functions.perplexity_ratio as perplexity_funcs
 import perplexity_ratio_score.functions.perplexity_ratio_v2 as perplexity_funcs_v2
+import perplexity_ratio_score.functions.perplexity_ratio_score as perplexity_ratio_score
+
 
 if __name__ == "__main__":
 
@@ -31,7 +33,7 @@ if __name__ == "__main__":
     # Run perplexity ratio scoring on split data
     if args.perplexity_ratio_score != 'False':
         logger.info('Running perplexity ratio scoreing')
-        data_funcs.perplexity_ratio_score()
+        perplexity_ratio_score.run()
         logger.info('Perplexity ratio scoreing complete')
 
     # Run perplexity ratio scoring of Hans 2024 data
