@@ -6,13 +6,13 @@ import gc
 import logging
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
-import configuration as config
+import configuration as config # pylint: disable=import-error
 
 class Llm:
-    '''LLM class to bundle configuration options, model and tokenizer
-    together in once place. Initialize a class instance, override
-    default values for loading, quantization or generation, if desired
-    then, load model and tokenizer with load method.'''
+    '''LLM class to bundle configuration options, model and
+    tokenizer together in once place. Initialize a class
+    instance, override default values for loading, quantization
+    or generation, if desired then, load model and tokenizer with load method.'''
 
     def __init__(
         self,
@@ -29,9 +29,9 @@ class Llm:
         cpu_cores: int=config.CPU_CORES
     ) -> None:
 
-        '''Initial class setup, takes default values from configuration file
-        creates placeholders for LLM and tokenizer to be loaded later and
-        adds logger'''
+        '''Initial class setup, takes default values from
+        configuration file creates placeholders for LLM and
+        tokenizer to be loaded later and adds logger'''
 
         # Add the logger
         self.logger = logging.getLogger(f'{experiment_name}.LLM')
