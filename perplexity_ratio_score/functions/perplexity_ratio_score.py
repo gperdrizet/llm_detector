@@ -12,6 +12,7 @@ import torch
 import pandas as pd
 
 # Internal imports
+import classes.llm as llm_class # pylint: disable=import-error
 import functions.multiprocess_logging as log_funcs # pylint: disable=import-error
 import configuration as config # pylint: disable=import-error
 
@@ -37,10 +38,21 @@ def run() -> None:
 
     # Set-up multiprocess logging to file
     logfile=f'{config.LOG_PATH}/{__name__}.log'
+
+    # Make sure we have a logs directory
+    Path(config.LOG_PATH).mkdir(parents=True, exist_ok=True)
+
+    # Clear logs if asked
+    if config.CLEAR_LOGS is True:
+        for file in glob.glob(f'{config.LOG_PATH}/{logfile}*'):
+            os.remove(file)
+
     print(f'Will log to: {logfile}\n')
 
+    # Start queue for multiprocess logging
     logging_queue=mp.Manager().Queue(-1)
 
+    # Start log listener process
     log_listener=mp.Process(
         target=log_funcs.listener_process,
         args=(logging_queue, log_funcs.configure_listener, logfile)
@@ -161,9 +173,59 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
         input_file=input_queue.get()
 
         # Check for 'Done' signal
-        if input_file != 'Done':
-            logger.info('Worker %s got %s from queue', worker_num, os.path.basename(input_file))
-
-        else:
+        if input_file == 'Done':
             logger.info('Worker %s received stop signal', worker_num)
             return
+
+        else:
+            input_file_name=os.path.basename(input_file)
+            logger.info('Worker %s got %s from queue', worker_num, input_file_name)
+
+            data_df=pd.read_parquet(input_file)
+            logger.info('Worker %s: %s has %s rows', worker_num, input_file_name, len(data_df))
+
+            reader_model_string='tiiuae/falcon-7b'
+            writer_model_string='tiiuae/falcon-7b-instruct'
+            reader_device='cuda:0'
+            writer_device='cuda:0'
+            cpu_cores=12
+
+            # Load the models
+            reader_model=llm_class.Llm(
+                hf_model_string=reader_model_string,
+                device_map=reader_device,
+                cache_dir='/home/siderealyear/projects/huggingface_cache',
+                cpu_cores=cpu_cores
+            )
+
+            writer_model=llm_class.Llm(
+                hf_model_string=writer_model_string,
+                device_map=writer_device,
+                cache_dir='/home/siderealyear/projects/huggingface_cache',
+                cpu_cores=cpu_cores
+            )
+
+            reader_model.load()
+            logger.info(
+                'Worker %s reader loaded %s on %s',
+                worker_num,
+                reader_model_string,
+                reader_device
+            )
+
+            writer_model.load()
+            logger.info(
+                'Worker %s writer loaded %s on %s',
+                worker_num,
+                writer_model_string,
+                writer_device
+            )
+
+            # Set the models to evaluation mode to deactivate any dropout
+            # modules to ensure reproducibility of results during evaluation
+            reader_model.model.eval()
+            writer_model.model.eval()
+
+            # Add end of sequence for the pad token if one has not been defined
+            if not reader_model.tokenizer.pad_token:
+                reader_model.tokenizer.pad_token = reader_model.tokenizer.eos_token

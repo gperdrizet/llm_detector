@@ -36,7 +36,7 @@ EXPERIMENT_CONFIGS_PATH=f'{PROJECT_ROOT_PATH}/experiments'
 PERPLEXITY_OUTPUT_FILE_NAME='old_hans_perplexity_ratio_score_data.json'
 
 # Logging stuff
-LOG_LEVEL='DEBUG'
+LOG_LEVEL='INFO'
 LOG_PREFIX='%(levelname)s - %(name)s - %(message)s'
 CLEAR_LOGS=True
 
