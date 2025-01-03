@@ -73,22 +73,25 @@ class Llm:
         # Set quantization configuration with current values under self
         self.set_quantization_config()
 
-        # Load model
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.hf_model_string,
-            cache_dir=self.cache_dir,
-            device_map=self.device_map,
-            quantization_config=self.quantization_config
-        )
+        # Turn gradient accumulation off
+        with torch.no_grad():
 
-        # Save the freshly loaded model-default generation configuration for later
-        self.default_generation_config = GenerationConfig.from_model_config(self.model.config)
+            # Load model
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.hf_model_string,
+                cache_dir=self.cache_dir,
+                device_map=self.device_map,
+                quantization_config=self.quantization_config
+            )
 
-        # Load tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.hf_model_string,
-            cache_dir=self.cache_dir
-        )
+            # Save the freshly loaded model-default generation configuration for later
+            self.default_generation_config = GenerationConfig.from_model_config(self.model.config)
+
+            # Load tokenizer
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.hf_model_string,
+                cache_dir=self.cache_dir
+            )
 
     def clear(self) -> None:
         '''Removes model and tokenizer, clears GPU memory'''

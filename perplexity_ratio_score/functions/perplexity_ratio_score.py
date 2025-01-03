@@ -178,12 +178,16 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
             return
 
         else:
+
+            # Get the input file name
             input_file_name=os.path.basename(input_file)
             logger.info('Worker %s got %s from queue', worker_num, input_file_name)
 
+            # Load the data
             data_df=pd.read_parquet(input_file)
             logger.info('Worker %s: %s has %s rows', worker_num, input_file_name, len(data_df))
 
+            # Model loading specification
             reader_model_string='tiiuae/falcon-7b'
             writer_model_string='tiiuae/falcon-7b-instruct'
             reader_device='cuda:0'
@@ -228,4 +232,4 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
 
             # Add end of sequence for the pad token if one has not been defined
             if not reader_model.tokenizer.pad_token:
-                reader_model.tokenizer.pad_token = reader_model.tokenizer.eos_token
+                reader_model.tokenizer.pad_token=reader_model.tokenizer.eos_token
