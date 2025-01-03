@@ -12,10 +12,14 @@ import torch
 import pandas as pd
 
 # Internal imports
-import perplexity_ratio_score.functions.multiprocess_logging as log_funcs
-import perplexity_ratio_score.configuration as config
+import multiprocess_logging as log_funcs
 
-def run():
+def run(
+        log_path: str,
+        intermediate_data_path: str,
+        scored_data_path: str
+) -> None:
+
     '''Main function to run perplexity ratio scoring.'''
 
     # Plan here is to build this parallelized and with the ability to
@@ -35,7 +39,7 @@ def run():
     # 6. Worker creates or appends to output file.
 
     # Set-up multiprocess logging to file
-    logfile=f'{config.LOG_PATH}/{__name__}.log'
+    logfile=f'{log_path}/{__name__}.log'
     print(f'Will log to: {logfile}\n')
 
     logging_queue=mp.Manager().Queue(-1)
@@ -53,11 +57,11 @@ def run():
     logger.info('Main process started')
 
     # Get list of input files
-    input_files=glob.glob(f'{config.INTERMEDIATE_DATA_PATH}/*chunks.*.parquet')
+    input_files=glob.glob(f'{intermediate_data_path}/*chunks.*.parquet')
     logger.info('Read %s input files', len(input_files))
 
     # Set-up output directory and get files, if any
-    output_directory=config.SCORED_DATA_PATH
+    output_directory=scored_data_path
     Path(output_directory).mkdir(parents=True, exist_ok=True)
     output_files=glob.glob(f'{output_directory}/*chunks.*.parquet')
     logger.info('Read %s output files', len(output_files))
