@@ -15,6 +15,7 @@ import pandas as pd
 import classes.llm as llm_class # pylint: disable=import-error
 import functions.multiprocess_logging as log_funcs # pylint: disable=import-error
 import configuration as config # pylint: disable=import-error
+from functions.metrics import perplexity, entropy # pylint: disable=import-error
 
 def run() -> None:
 
@@ -234,3 +235,46 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
             data_df=pd.read_parquet(input_file)
             logger.info('Worker %s: %s has %s rows', worker_num, input_file_name, len(data_df))
 
+            # Loop on the dataframe rows, scoring each text and collecting the
+            # scores in a list so that we can add them as a new column later
+            scores=[]
+
+            for i, row in data_df.iterrows():
+
+                # Encode the text with the reader's tokenizer
+                encodings=reader_model.tokenizer(
+                    row['text'],
+                    return_tensors='pt',
+                    return_token_type_ids=False
+                ).to(reader_device)
+
+                # Get reader's logits
+                reader_logits=reader_model.model(**encodings).logits
+
+                # Get the writer's logits
+                writer_logits=writer_model.model(**encodings).logits
+
+                # Calculate perplexity using the reader's encoding and the writer's logits
+                ppl=perplexity(encodings, writer_logits)
+
+                # Calculate the cross-perplexity
+                x_ppl=entropy(
+                    reader_logits,
+                    writer_logits.to(reader_device),
+                    encodings,
+                    reader_model.tokenizer.pad_token_id
+                )
+
+                # finally, get the perplexity ratio score
+                scores.append(ppl / x_ppl)
+
+                # Report progress every 10 rows
+                if i % 10 == 0:
+                    logger.info('Worker %s: finished row %s of %s', worker_num, i+1, len(data_df))
+
+            # Add the perplexity ratio scores back to the dataframe as a new column
+            data_df['perplexity_ratio_score']=scores
+
+            # Save the updated dataframe
+            output_file=f'{config.SCORED_DATA_PATH}/{input_file_name}'
+            data_df.to_parquet(output_file)
