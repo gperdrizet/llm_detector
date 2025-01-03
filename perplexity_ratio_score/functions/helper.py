@@ -10,7 +10,7 @@ import tracemalloc
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
-import configuration as config
+import configuration as config # pylint: disable=import-error
 
 import torch
 
