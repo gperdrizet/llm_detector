@@ -231,6 +231,9 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
             input_file_name=os.path.basename(input_file)
             logger.info('Worker %s got %s from queue', worker_num, input_file_name)
 
+            # Use the input file name to create the output file name
+            output_file=f'{config.SCORED_DATA_PATH}/{input_file_name}'
+
             # Load the data
             data_df=pd.read_parquet(input_file)
             logger.info('Worker %s: %s has %s rows', worker_num, input_file_name, len(data_df))
@@ -268,13 +271,15 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
                 # finally, get the perplexity ratio score
                 scores.append(ppl / x_ppl)
 
-                # Report progress every 10 rows
-                if i % 10 == 0:
+                # Report progress and save intermediate results every 100 rows
+                if i % 100 == 0:
                     logger.info('Worker %s: finished row %s of %s', worker_num, i+1, len(data_df))
+                    temp_df=data_df.iloc[:i+1].copy()
+                    temp_df['perplexity_ratio_score']=scores
+                    temp_df.to_parquet(output_file)
 
             # Add the perplexity ratio scores back to the dataframe as a new column
             data_df['perplexity_ratio_score']=scores
 
-            # Save the updated dataframe
-            output_file=f'{config.SCORED_DATA_PATH}/{input_file_name}'
+            # Save the completed dataframe
             data_df.to_parquet(output_file)
