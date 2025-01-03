@@ -10,9 +10,9 @@ import tracemalloc
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
-import torch
+import configuration as config
 
-import perplexity_ratio_score.configuration as config
+import torch
 
 # Comment ##############################################################
 # Code ########################################################################
@@ -94,8 +94,8 @@ def parse_args() -> dict:
     return args
 
 def start_logger(
-        logfile_name: str='llm_detector.log',
-        logger_name: str='benchmarking'
+        logfile_name: str,
+        logger_name: str,
 ) -> Callable:
 
     '''Sets up logging, returns logger'''
@@ -131,27 +131,27 @@ def start_logger(
 
     return logger
 
-def start_memory_tracking(device_map: str = None) -> None:
+def start_memory_tracking(avalible_gpus: list, device_map: str = None) -> None:
     '''Starts memory tracking using the device map to pick the right tool'''
 
     # Start memory tracking using the correct strategy based on device map
     if device_map != 'cpu':
 
         # Reset memory stats for all GPUs
-        for device in config.AVAILABLE_GPUS:
+        for device in avalible_gpus:
             torch.cuda.reset_peak_memory_stats(device = device)
 
     elif device_map == 'cpu':
         tracemalloc.start()
 
-def get_peak_memory(device_map: str = None) -> float:
+def get_peak_memory(avalible_gpus: list, device_map: str = None) -> float:
     '''Returns peak memory using the device map to pick the right tool'''
 
     # Get peak memory using the correct strategy based on device map
     if device_map != 'cpu':
         peak_memory = 0
 
-        for device in config.AVAILABLE_GPUS:
+        for device in avalible_gpus:
             device_peak_memory = torch.cuda.max_memory_allocated(device = device)
             device_peak_memory = device_peak_memory / (10 ** 9)
             peak_memory += device_peak_memory

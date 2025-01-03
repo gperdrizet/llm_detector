@@ -14,10 +14,10 @@ import tracemalloc
 import multiprocessing as mp
 from pathlib import Path
 
-import perplexity_ratio_score.configuration as config
-import perplexity_ratio_score.functions.helper as helper_funcs
-import perplexity_ratio_score.classes.llm as llm_class
-from perplexity_ratio_score.functions.metrics import perplexity, entropy
+import configuration as config
+import functions.helper as helper_funcs
+import classes.llm as llm_class
+from functions.metrics import perplexity, entropy
 
 os.environ['TRANSFORMERS_OFFLINE'] = '1'
 

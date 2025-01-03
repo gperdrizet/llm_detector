@@ -8,9 +8,9 @@ import random
 from random import sample
 
 #import torch
-import perplexity_ratio_score.configuration as config
-import perplexity_ratio_score.functions.helper as helper_funcs
-from perplexity_ratio_score.functions.metrics import perplexity, entropy
+import configuration as config
+import functions.helper as helper_funcs
+from functions.metrics import perplexity, entropy
 
 # Comment ##############################################################
 # Code ########################################################################

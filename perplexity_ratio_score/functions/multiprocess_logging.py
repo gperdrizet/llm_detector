@@ -7,7 +7,7 @@ import logging
 from typing import Callable
 
 # Internal imports
-import perplexity_ratio_score.configuration as config
+import configuration as config
 
 
 def configure_listener(logfile: str) -> None:
@@ -28,7 +28,7 @@ def listener_process(queue: Callable, configurer: Callable, logfile: str) -> Non
 
     # Set the configuration
     configurer(logfile)
-    
+
     # Loop until we recive the sentinel 'None' value from the queue
     while True:
 

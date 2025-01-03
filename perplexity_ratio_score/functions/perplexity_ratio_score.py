@@ -12,13 +12,10 @@ import torch
 import pandas as pd
 
 # Internal imports
-import multiprocess_logging as log_funcs
+import functions.multiprocess_logging as log_funcs
+import configuration as config
 
-def run(
-        log_path: str,
-        intermediate_data_path: str,
-        scored_data_path: str
-) -> None:
+def run() -> None:
 
     '''Main function to run perplexity ratio scoring.'''
 
@@ -39,7 +36,7 @@ def run(
     # 6. Worker creates or appends to output file.
 
     # Set-up multiprocess logging to file
-    logfile=f'{log_path}/{__name__}.log'
+    logfile=f'{config.LOG_PATH}/{__name__}.log'
     print(f'Will log to: {logfile}\n')
 
     logging_queue=mp.Manager().Queue(-1)
@@ -56,12 +53,16 @@ def run(
     logger=logging.getLogger(f'{__name__}.run')
     logger.info('Main process started')
 
+    # Check how many GPUs we have
+    gpus=torch.cuda.device_count()
+    logger.info('Have %s GPUs', gpus)
+
     # Get list of input files
-    input_files=glob.glob(f'{intermediate_data_path}/*chunks.*.parquet')
+    input_files=glob.glob(f'{config.INTERMEDIATE_DATA_PATH}/*chunks.*.parquet')
     logger.info('Read %s input files', len(input_files))
 
     # Set-up output directory and get files, if any
-    output_directory=scored_data_path
+    output_directory=config.SCORED_DATA_PATH
     Path(output_directory).mkdir(parents=True, exist_ok=True)
     output_files=glob.glob(f'{output_directory}/*chunks.*.parquet')
     logger.info('Read %s output files', len(output_files))

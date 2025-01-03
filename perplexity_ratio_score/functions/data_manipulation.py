@@ -5,6 +5,8 @@ perplexity ratio scoring.'''
 from __future__ import annotations
 from typing import Tuple
 
+# Standard library imports
+import os
 import glob
 import csv
 import json
@@ -12,7 +14,6 @@ import zipfile
 import urllib.request
 import logging
 import multiprocessing as mp
-from typing import Tuple
 from pathlib import Path
 from itertools import product
 from statistics import mean, stdev
@@ -28,8 +29,9 @@ from semantic_text_splitter import TextSplitter
 from tokenizers import Tokenizer
 
 # Internal imports
-import perplexity_ratio_score.functions.helper as helper_funcs
-import perplexity_ratio_score.configuration as config
+import functions.helper as helper_funcs
+import functions.multiprocess_logging as log_funcs
+import configuration as config
 
 def parse_hans_data(
     hans_datasets: dict = None,
@@ -155,29 +157,26 @@ def get_data() -> None:
 
     logger=helper_funcs.start_logger(
         logfile_name=f'{__name__}.log',
-        logger_name=f'{__name__}'
+        logger_name=f'{__name__}.get_data'
     )
 
-    # Get the logger
-    function_logger=logging.getLogger(f'{__name__}.get_data')
-
     # Download the data
-    function_logger.info('Starting data download')
-    _=download_raw_data()
-    function_logger.info('Data download complete')
+    logger.info('Starting data download')
+    download_raw_data()
+    logger.info('Data download complete')
 
     # Parse the data
-    function_logger.info('Starting data parse')
+    logger.info('Starting data parse')
     parsed_text=parse_raw_data()
-    function_logger.info('Data parse complete')
+    logger.info('Data parse complete')
 
     # Save the parsed text
-    function_logger.info('Saving parsed text')
-    _=save_parsed_text(parsed_text)
-    function_logger.info('Finished')
+    logger.info('Saving parsed text')
+    save_parsed_text(parsed_text)
+    logger.info('Finished')
 
 
-def download_raw_data():
+def download_raw_data() -> None:
     '''Downloads raw data from internet sources'''
 
     # Get the logger
@@ -205,10 +204,19 @@ def download_raw_data():
         if Path(output_file).is_file() is False:
             data_url=f'{hans_base_url}/{data_source}/{data_source}-{generating_model}.jsonl'
             _=urllib.request.urlretrieve(data_url, output_file)
-            function_logger.info(f'Finished downloading Hans {data_source}-{generating_model} data')
+
+            function_logger.info(
+                'Finished downloading Hans %s-%s data',
+                data_source,
+                generating_model
+            )
 
         else:
-            function_logger.info(f'Already have Hans {data_source}-{generating_model} data')
+            function_logger.info(
+                'Already have Hans %s-%s data',
+                data_source,
+                generating_model
+            )
 
 
     ##########
@@ -312,8 +320,6 @@ def download_raw_data():
 
     else:
         function_logger.info('Already have Yatsenko data')
-
-    return True
 
 
 def parse_raw_data():
@@ -504,7 +510,10 @@ def parse_raw_data():
 
     # Load the dataset
     utils.disable_progress_bar()
-    dataset=load_dataset(f'{config.RAW_DATA_PATH}/yatsenko/data', cache_dir=f'{config.RAW_DATA_PATH}/yatsenko')
+    dataset=load_dataset(
+        f'{config.RAW_DATA_PATH}/yatsenko/data',
+        cache_dir=f'{config.RAW_DATA_PATH}/yatsenko'
+    )
 
     # Counters
     human_texts=0
@@ -527,8 +536,12 @@ def parse_raw_data():
 
         parsed_text['text'].append(record['text'])
 
-    function_logger.info(f'Parsed Yatsenko data: {human_texts + synthetic_texts} '
-        f'texts, {human_texts} human and {synthetic_texts} synthetic')
+    function_logger.info(
+        'Parsed Yatsenko data: %s texts, %s human and %s synthetic',
+        human_texts + synthetic_texts,
+        human_texts,
+        synthetic_texts
+    )
 
     return parsed_text
 
@@ -547,16 +560,16 @@ def save_parsed_text(parsed_text: dict):
     percent_synthetic=(synthetic_texts/total_texts)*100
     percent_human=(human_texts/total_texts)*100
 
-    function_logger.info(f'Have {total_texts} texts')
-    function_logger.info(f'Human: {human_texts}({percent_human:.1f}%)')
-    function_logger.info(f'Synthetic: {synthetic_texts}({percent_synthetic:.1f}%)')
+    function_logger.info('Have %s texts', total_texts)
+    function_logger.info('Human: %s(%s %%)', human_texts, percent_human)
+    function_logger.info('Synthetic: %s(%s %%)',synthetic_texts, percent_synthetic)
 
     # Set up output directory
     output_directory=f'{config.INTERMEDIATE_DATA_PATH}'
     Path(output_directory).mkdir(parents=True, exist_ok=True)
 
     output_path=f'{output_directory}/all_texts.json'
-    function_logger.info(f'Saving master to {output_path}')
+    function_logger.info('Saving master to %s', output_path)
 
     # Save it as JSON
     with open(output_path, 'w', encoding='utf-8') as output_file:
@@ -573,7 +586,7 @@ def save_parsed_text(parsed_text: dict):
 
     for data_df, dataset in zip([training_df, testing_df], ['train', 'test']):
 
-        function_logger.info(f'Saving {dataset} data')
+        function_logger.info('Saving %s data', dataset)
 
         # Split the dataframe into two less than the number of cpus chunks
         chunks=np.array_split(data_df, mp.cpu_count() - 2)
@@ -583,29 +596,39 @@ def save_parsed_text(parsed_text: dict):
             output_file=f'{config.INTERMEDIATE_DATA_PATH}/{dataset}_texts.{i}.parquet'
             chunk.reset_index(inplace=True, drop=True)
             chunk.to_parquet(output_file)
-            function_logger.info(f'Saved {output_file}')
-    
-    function_logger.info(f'Done')
+            function_logger.info('Saved %s', output_file)
+
+    function_logger.info('Done')
 
 
 def semantic_split() -> None:
     '''Main function to do semantic splitting of the parsed and sharded text.'''
 
-    logger=helper_funcs.start_logger(
-        logfile_name=f'{__name__}.log',
-        logger_name=f'{__name__}'
+    # Set-up multiprocess logging to file
+    logfile=f'{config.LOG_PATH}/{__name__}.log'
+    print(f'Will log to: {logfile}\n')
+
+    logging_queue=mp.Manager().Queue(-1)
+
+    log_listener=mp.Process(
+        target=log_funcs.listener_process,
+        args=(logging_queue, log_funcs.configure_listener, logfile)
     )
 
-    # Get the logger
-    function_logger=logging.getLogger(f'{__name__}.semantic_split')
+    log_listener.start()
+
+    # Get logger for main process
+    log_funcs.configure_worker(logging_queue)
+    logger=logging.getLogger(f'{__name__}.semantic_split')
+    logger.info('Main process started')
 
     # Set target lengths for splits in tokens
     target_lengths=[16,32,64,128,256,512]
 
-    # Loop to process training and testing data seperately 
+    # Loop to process training and testing data seperately
     for dataset in ['train', 'test']:
 
-        function_logger.info(f'Running semantic splitting on {dataset} data')
+        logger.info('Running semantic splitting on %s data', dataset)
 
         # Collect the results
         chunks={
@@ -616,7 +639,7 @@ def semantic_split() -> None:
         }
 
         for target_length in target_lengths:
-            function_logger.info(f'Splitting with target length {target_length} tokens')
+            logger.info('Splitting with target length %s tokens', target_length)
 
             # Get list of input files
             input_files=glob.glob(f'{config.INTERMEDIATE_DATA_PATH}/{dataset}_texts.*.parquet')
@@ -639,7 +662,7 @@ def semantic_split() -> None:
                         args=(
                             data_file,
                             target_length,
-                            i,
+                            i
                         )
                     )
                 )
@@ -655,10 +678,10 @@ def semantic_split() -> None:
             for result in results:
                 for key, value in result.items():
                     chunks[key].extend(value)
-            
-            function_logger.info(f'Finished target length {target_length}')
 
-        function_logger.info(f'Finished splitting {dataset} data')
+            logger.info('Finished target length %s', target_length)
+
+        logger.info('Finished splitting %s data', dataset)
 
         # Convert to Pandas dataframe
         chunks_df=pd.DataFrame(chunks)
@@ -676,13 +699,24 @@ def semantic_split() -> None:
             chunk.to_parquet(output_file)
 
 
-def split_text(data_file: str=None, target_size: int=512, worker: int=0, sample_fraction: float=1) -> dict:
+def split_text(
+        data_file: str=None,
+        target_size: int=512,
+        worker_num: int=0,
+        sample_fraction: float=1
+) -> dict:
+
     '''Function to parallelize semantic splitting of text over input files. 
     Meant to be called with multiprocessing worker. Take an input file 
     string, loads the data, splits sentences, collects results in dictionary
     and returns dictionary.'''
 
+    # Set-up worker's logging
+    logger=logging.getLogger(f'{__name__}.split_text')
+    logger.info('Worker %s started', worker_num)
+
     data_df=pd.read_parquet(data_file)
+    logger.info('Worker %s loaded %s', worker_num, os.path.basename(data_file))
 
     results={
         'text': [],
@@ -701,7 +735,7 @@ def split_text(data_file: str=None, target_size: int=512, worker: int=0, sample_
 
     # Loop over records
     for i in range(num_records):
-        
+
         text=data_df['text'].iloc[i]
         chunks=splitter.chunks(text)
 
@@ -710,5 +744,8 @@ def split_text(data_file: str=None, target_size: int=512, worker: int=0, sample_
             results['synthetic'].append(data_df['synthetic'].iloc[i])
             results['author'].append(data_df['author'].iloc[i])
             results['source'].append(data_df['source'].iloc[i])
+
+    logger.info('Worker %s read %s records', worker_num, i+1)
+    logger.info('Worker %s produced %s records', worker_num, len(results['text']))
 
     return results
