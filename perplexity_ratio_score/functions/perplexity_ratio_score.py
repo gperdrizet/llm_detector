@@ -166,6 +166,53 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
     logger=logging.getLogger(f'{__name__}.score_shard')
     logger.info('Worker %s started', worker_num)
 
+    # Model loading specification
+    reader_model_string='tiiuae/falcon-7b'
+    writer_model_string='tiiuae/falcon-7b-instruct'
+    reader_device='cuda:0'
+    writer_device='cuda:0'
+    cpu_cores=12
+
+    # Load the models
+    reader_model=llm_class.Llm(
+        hf_model_string=reader_model_string,
+        device_map=reader_device,
+        cache_dir='/home/siderealyear/projects/huggingface_cache',
+        cpu_cores=cpu_cores
+    )
+
+    writer_model=llm_class.Llm(
+        hf_model_string=writer_model_string,
+        device_map=writer_device,
+        cache_dir='/home/siderealyear/projects/huggingface_cache',
+        cpu_cores=cpu_cores
+    )
+
+    reader_model.load()
+    logger.info(
+        'Worker %s reader loaded %s on %s',
+        worker_num,
+        reader_model_string,
+        reader_device
+    )
+
+    writer_model.load()
+    logger.info(
+        'Worker %s writer loaded %s on %s',
+        worker_num,
+        writer_model_string,
+        writer_device
+    )
+
+    # Set the models to evaluation mode to deactivate any dropout
+    # modules to ensure reproducibility of results during evaluation
+    reader_model.model.eval()
+    writer_model.model.eval()
+
+    # Add end of sequence for the pad token if one has not been defined
+    if not reader_model.tokenizer.pad_token:
+        reader_model.tokenizer.pad_token=reader_model.tokenizer.eos_token
+
     # Start the main loop
     while True:
 
@@ -187,49 +234,3 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
             data_df=pd.read_parquet(input_file)
             logger.info('Worker %s: %s has %s rows', worker_num, input_file_name, len(data_df))
 
-            # Model loading specification
-            reader_model_string='tiiuae/falcon-7b'
-            writer_model_string='tiiuae/falcon-7b-instruct'
-            reader_device='cuda:0'
-            writer_device='cuda:0'
-            cpu_cores=12
-
-            # Load the models
-            reader_model=llm_class.Llm(
-                hf_model_string=reader_model_string,
-                device_map=reader_device,
-                cache_dir='/home/siderealyear/projects/huggingface_cache',
-                cpu_cores=cpu_cores
-            )
-
-            writer_model=llm_class.Llm(
-                hf_model_string=writer_model_string,
-                device_map=writer_device,
-                cache_dir='/home/siderealyear/projects/huggingface_cache',
-                cpu_cores=cpu_cores
-            )
-
-            reader_model.load()
-            logger.info(
-                'Worker %s reader loaded %s on %s',
-                worker_num,
-                reader_model_string,
-                reader_device
-            )
-
-            writer_model.load()
-            logger.info(
-                'Worker %s writer loaded %s on %s',
-                worker_num,
-                writer_model_string,
-                writer_device
-            )
-
-            # Set the models to evaluation mode to deactivate any dropout
-            # modules to ensure reproducibility of results during evaluation
-            reader_model.model.eval()
-            writer_model.model.eval()
-
-            # Add end of sequence for the pad token if one has not been defined
-            if not reader_model.tokenizer.pad_token:
-                reader_model.tokenizer.pad_token=reader_model.tokenizer.eos_token
