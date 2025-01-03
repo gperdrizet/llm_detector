@@ -12,8 +12,8 @@ import torch
 import pandas as pd
 
 # Internal imports
-import functions.multiprocess_logging as log_funcs
-import configuration as config
+import functions.multiprocess_logging as log_funcs # pylint: disable=import-error
+import configuration as config # pylint: disable=import-error
 
 def run() -> None:
 

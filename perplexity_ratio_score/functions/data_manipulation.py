@@ -25,13 +25,13 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from datasets import load_dataset, utils
-from semantic_text_splitter import TextSplitter
+from semantic_text_splitter import TextSplitter # pylint: disable=no-name-in-module
 from tokenizers import Tokenizer
 
 # Internal imports
 import functions.helper as helper_funcs
-import functions.multiprocess_logging as log_funcs
-import configuration as config
+import functions.multiprocess_logging as log_funcs # pylint: disable=import-error
+import configuration as config # pylint: disable=import-error
 
 def parse_hans_data(
     hans_datasets: dict = None,
