@@ -46,50 +46,8 @@ def run() -> None:
     gpus=torch.cuda.device_count()
     logger.info('Have %s GPUs', gpus)
 
-    # Get list of input files
-    input_files=glob.glob(f'{config.INTERMEDIATE_DATA_PATH}/*chunks.*.parquet')
-    logger.info('Read %s input files', len(input_files))
-
-    # Set-up output directory and get files, if any
-    output_directory=config.SCORED_DATA_PATH
-    Path(output_directory).mkdir(parents=True, exist_ok=True)
-    output_files=glob.glob(f'{output_directory}/*chunks.*.parquet')
-    logger.info('Read %s output files', len(output_files))
-
-    # Loop on the input file list and compare to output file list. Assemble list of
-    # Input files that have not been scored or are incomplete
-    inputs_to_score=[]
-
-    for i, input_file in enumerate(input_files):
-
-        # Get the input file's name
-        input_file_name=os.path.basename(input_file)
-        logger.info('Input %s: %s', i+1, input_file_name)
-
-        # Check to see if a corresponding output file exists
-        output_file=f'{output_directory}/{input_file_name}'
-
-        if Path(output_file).is_file():
-            logger.info('Output exists')
-
-            # Read the output and compare the number of lines to that
-            # in the input. If the line numbers don't match, the output
-            # is incomplete, add the input to the 'to score' list.
-            input_data=pd.read_parquet(input_file)
-            output_data=pd.read_parquet(output_file)
-
-            if len(input_data) == len(output_data):
-                logger.info('Output is complete')
-
-            else:
-                inputs_to_score.append(input_file)
-                logger.info('Output is incomplete')
-
-        else:
-            inputs_to_score.append(input_file)
-            logger.info('No output exists')
-
-    logger.info('Have %s input files to score', len(inputs_to_score))
+    # Get the list of input files that still need to be scored
+    inputs_to_score=read_input_files()
 
     # Start the multiprocessing manager
     mp_manager=mp.Manager()
@@ -110,7 +68,7 @@ def run() -> None:
         logger.info('initialized worker %s', i)
 
     # Add the input files to the queue
-    for input_file in input_files:
+    for input_file in inputs_to_score:
         input_queue.put(input_file)
 
     logger.info('Input queue loaded')
@@ -148,7 +106,7 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
     writer_model_string='tiiuae/falcon-7b-instruct'
     reader_device='cuda:0'
     writer_device='cuda:0'
-    cpu_cores=12
+    cpu_cores=2
 
     # Load the models
     reader_model=llm_class.Llm(
@@ -355,3 +313,54 @@ def start_logging() -> tuple[logging.Logger, mp.Process, mp.Queue]:
     logger.info('Main process started')
 
     return logger, log_listener, logging_queue
+
+def read_input_files() -> list:
+    '''Reads list of input files, check against pre-existing output files
+    if any, returns list of input files that don't have finished output'''
+
+    # Get function logger
+    logger=logging.getLogger(f'{__name__}.read_input_files')
+
+    # Set-up output directory and get files, if any
+    Path(config.SCORED_DATA_PATH).mkdir(parents=True, exist_ok=True)
+
+    # Get list of input files
+    input_files=glob.glob(f'{config.INTERMEDIATE_DATA_PATH}/*chunks.*.parquet')
+    logger.info('Read %s input files', len(input_files))
+
+    # Loop on the input file list and compare to output file list. Assemble list of
+    # Input files that have not been scored or are incomplete
+    inputs_to_score=[]
+
+    for i, input_file in enumerate(input_files):
+
+        # Get the input file's name
+        input_file_name=os.path.basename(input_file)
+        logger.info('Input %s: %s', i+1, input_file_name)
+
+        # Check to see if a corresponding output file exists
+        output_file=f'{config.SCORED_DATA_PATH}/{input_file_name}'
+
+        if Path(output_file).is_file():
+            logger.info('Output exists')
+
+            # Read the output and compare the number of lines to that
+            # in the input. If the line numbers don't match, the output
+            # is incomplete, add the input to the 'to score' list.
+            input_data=pd.read_parquet(input_file)
+            output_data=pd.read_parquet(output_file)
+
+            if len(input_data) == len(output_data):
+                logger.info('Output is complete')
+
+            else:
+                inputs_to_score.append(input_file)
+                logger.info('Output is incomplete')
+
+        else:
+            inputs_to_score.append(input_file)
+            logger.info('No output exists')
+
+    logger.info('Have %s input files to score', len(inputs_to_score))
+
+    return inputs_to_score
