@@ -2,6 +2,7 @@
 
 # Standard library imports
 import os
+import time
 import glob
 import logging
 import multiprocessing as mp
@@ -234,15 +235,44 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
             # Use the input file name to create the output file name
             output_file=f'{config.SCORED_DATA_PATH}/{input_file_name}'
 
+            # Check to see if the output file exists
+            if Path(output_file).is_file():
+                logger.info('Worker %s output for %s exists', worker_num, input_file_name)
+
+                # Read the output data and get the row count
+                output_df=pd.read_parquet(output_file)
+                output_rows=len(output_df)
+
+                # Use the length of the output dataframe as the start
+                # index for the scoring loop
+                start_index=output_rows
+
+                logger.info(
+                    'Worker %s output %s contains %s rows',
+                    worker_num,
+                    input_file_name,
+                    output_rows
+                )
+
+            # If the output file does not exist, start the scoring loop
+            # at index 0
+            else:
+                start_index=0
+                logger.info('Worker %s no output for %s exists', worker_num, input_file_name)
+
             # Load the data
             data_df=pd.read_parquet(input_file)
-            logger.info('Worker %s: %s has %s rows', worker_num, input_file_name, len(data_df))
+            logger.info('Worker %s input %s has %s rows', worker_num, input_file_name, len(data_df))
 
             # Loop on the dataframe rows, scoring each text and collecting the
             # scores in a list so that we can add them as a new column later
+            start_time=time.time()
             scores=[]
 
-            for i, row in data_df.iterrows():
+            for i in range(start_index, len(data_df)+1):
+
+                # Get the row
+                row=data_df.iloc[i]
 
                 # Encode the text with the reader's tokenizer
                 encodings=reader_model.tokenizer(
@@ -272,9 +302,41 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
                 scores.append(ppl / x_ppl)
 
                 # Report progress and save intermediate results every 100 rows
-                if i % 100 == 0:
-                    logger.info('Worker %s: finished row %s of %s', worker_num, i+1, len(data_df))
-                    temp_df=data_df.iloc[:i+1].copy()
+                if (i+1) % 100 == 0:
+
+                    # Get the average scoring rate and predicted time remaining
+                    dt=time.time() - start_time
+
+                    scored_records=i+1
+                    rate=(scored_records - start_index)/dt
+
+                    records_remaining=len(data_df) - scored_records
+                    time_remaining=(records_remaining / rate) / (60*60)
+                    percent_complete=(scored_records / len(data_df)) * 100
+
+                    logger.info('Worker %s: finished row %s of %s',
+                        worker_num,
+                        scored_records,
+                        len(data_df)
+                    )
+                    logger.info(
+                        'Worker %s: %s %% complete',
+                        worker_num,
+                        round(percent_complete,1)
+                    )
+                    logger.info(
+                        'Worker %s scoring rate: %s records per second',
+                        worker_num,
+                        round(rate,1)
+                    )
+                    logger.info(
+                        'Worker %s estimated time remaining: %s hours',
+                        worker_num,
+                        int(time_remaining)
+                    )
+
+                    # Save the data we have so far
+                    temp_df=data_df.iloc[start_index:i+1].copy()
                     temp_df['perplexity_ratio_score']=scores
                     temp_df.to_parquet(output_file)
 
