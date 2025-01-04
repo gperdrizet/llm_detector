@@ -7,10 +7,10 @@ from typing import Callable
 import json
 import random
 import torch
-import configuration as config
-import functions.helper as helper_funcs
-from functions.metrics import perplexity, entropy
-import classes.llm as llm_class
+import configuration as config # pylint: disable=import-error
+import functions.helper as helper_funcs # pylint: disable=import-error
+from functions.metrics import perplexity, entropy # pylint: disable=import-error
+import classes.llm as llm_class # pylint: disable=import-error
 
 # Comment ##############################################################
 # Code ########################################################################
