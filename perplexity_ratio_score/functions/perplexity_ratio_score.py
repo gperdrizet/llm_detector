@@ -1,4 +1,5 @@
 '''Functions to compute perplexity ratio score for semantically split and sharded text data.'''
+from __future__ import annotations
 
 # Standard library imports
 import os
@@ -38,34 +39,8 @@ def run() -> None:
     # 5. Worker scores text fragments, collecting results.
     # 6. Worker creates or appends to output file.
 
-    # Set-up multiprocess logging to file
-    logfile=f'{config.LOG_PATH}/{__name__}.log'
-
-    # Make sure we have a logs directory
-    Path(config.LOG_PATH).mkdir(parents=True, exist_ok=True)
-
-    # Clear logs if asked
-    if config.CLEAR_LOGS is True:
-        for file in glob.glob(f'{config.LOG_PATH}/{logfile}*'):
-            os.remove(file)
-
-    print(f'Will log to: {logfile}\n')
-
-    # Start queue for multiprocess logging
-    logging_queue=mp.Manager().Queue(-1)
-
-    # Start log listener process
-    log_listener=mp.Process(
-        target=log_funcs.listener_process,
-        args=(logging_queue, log_funcs.configure_listener, logfile)
-    )
-
-    log_listener.start()
-
-    # Get logger for main process
-    log_funcs.configure_worker(logging_queue)
-    logger=logging.getLogger(f'{__name__}.run')
-    logger.info('Main process started')
+    # Start multiprocess logging
+    logger, log_listener, logging_queue=start_logging()
 
     # Check how many GPUs we have
     gpus=torch.cuda.device_count()
@@ -345,3 +320,38 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
 
             # Save the completed dataframe
             data_df.to_parquet(output_file)
+
+
+def start_logging() -> tuple[logging.Logger, mp.Process, mp.Queue]:
+    '''Function to set-up and start multiprocess logger in the main process.'''
+
+    # Set-up multiprocess logging to file
+    logfile=f'{config.LOG_PATH}/{__name__}.log'
+
+    # Make sure we have a logs directory
+    Path(config.LOG_PATH).mkdir(parents=True, exist_ok=True)
+
+    # Clear logs if asked
+    if config.CLEAR_LOGS is True:
+        for file in glob.glob(f'{config.LOG_PATH}/{logfile}*'):
+            os.remove(file)
+
+    print(f'Will log to: {logfile}\n')
+
+    # Start queue for multiprocess logging
+    logging_queue=mp.Manager().Queue(-1)
+
+    # Start log listener process
+    log_listener=mp.Process(
+        target=log_funcs.listener_process,
+        args=(logging_queue, log_funcs.configure_listener, logfile)
+    )
+
+    log_listener.start()
+
+    # Get logger for main process
+    log_funcs.configure_worker(logging_queue)
+    logger=logging.getLogger(f'{__name__}.run')
+    logger.info('Main process started')
+
+    return logger, log_listener, logging_queue
