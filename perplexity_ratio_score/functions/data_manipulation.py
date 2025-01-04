@@ -29,7 +29,7 @@ from semantic_text_splitter import TextSplitter # pylint: disable=no-name-in-mod
 from tokenizers import Tokenizer
 
 # Internal imports
-import functions.helper as helper_funcs
+import functions.helper as helper_funcs # pylint: disable=import-error
 import functions.multiprocess_logging as log_funcs # pylint: disable=import-error
 import configuration as config # pylint: disable=import-error
 
@@ -625,7 +625,7 @@ def semantic_split() -> None:
     # Set target lengths for splits in tokens
     target_lengths=[16,32,64,128,256,512]
 
-    # Loop to process training and testing data seperately
+    # Loop to process training and testing data separately
     for dataset in ['train', 'test']:
 
         logger.info('Running semantic splitting on %s data', dataset)
