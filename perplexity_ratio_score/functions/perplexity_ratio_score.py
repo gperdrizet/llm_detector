@@ -11,6 +11,7 @@ from pathlib import Path
 
 # PyPI imports
 import torch
+import numpy as np
 import pandas as pd
 
 # Internal imports
@@ -42,50 +43,113 @@ def run() -> None:
     # Start multiprocess logging
     logger, log_listener, logging_queue=start_logging()
 
-    # Check how many GPUs we have
-    gpus=torch.cuda.device_count()
-    logger.info('Have %s GPUs', gpus)
-
     # Get the list of input files that still need to be scored
     inputs_to_score=read_input_files()
+
+    # Construct GPU worker device list
+    gpu_workers=get_gpu_workers()
+
+    # Decide how many fragments to break each input file into
+    num_fragments=10000
 
     # Start the multiprocessing manager
     mp_manager=mp.Manager()
 
-    # Set-up multiprocessing queue to feed workers
-    input_queue=mp_manager.Queue(maxsize=len(inputs_to_score))
+    # Set-up multiprocessing queues for input and output
+    input_queue=mp_manager.Queue(-1)
+    output_queue=mp_manager.Queue(-1)
+
+    # Set-up a process to collect results from workers
+    result_collector=mp.Process(
+        target=collect_results,
+        args=(
+            output_queue,
+            len(gpu_workers),
+            num_fragments
+        )
+    )
+
+    logger.info('Initalized result collector process')
+    result_collector.start()
+    logger.info('Started result collector process')
 
     # Set-up scoring worker processes
-    num_workers=1
     scoring_workers=[]
 
-    for i in range(num_workers):
+    for i, gpu in enumerate(gpu_workers):
 
         scoring_workers.append(
-            mp.Process(target=score_shard, args=(input_queue,i,))
+            mp.Process(target=score_shard, args=(input_queue,output_queue,gpu,i,))
         )
 
-        logger.info('initialized worker %s', i)
-
-    # Add the input files to the queue
-    for input_file in inputs_to_score:
-        input_queue.put(input_file)
-
-    logger.info('Input queue loaded')
+        logger.info('Initialized scoring worker %s on GPU %s', i, gpu)
 
     # Start the score workers
     for i, worker in enumerate(scoring_workers):
         worker.start()
         logger.info('Started scoring worker %s', i)
 
+    # Loop on the input files, fragment them and send the fragments
+    # to the workers
+    for input_file in inputs_to_score:
+
+        # Get just the filename from the input file path
+        input_file_name=os.path.basename(input_file)
+
+        # Use the input file name to create the output file path
+        output_file=f'{config.SCORED_DATA_PATH}/{input_file_name}'
+
+        # Check to see if the output file exists
+        if Path(output_file).is_file():
+            logger.info('Output for %s exists', input_file_name)
+
+            # Read the output data and get the row count
+            output_df=pd.read_parquet(output_file)
+            output_rows=len(output_df)
+
+            # Use the length of the output dataframe as the start index
+            # from which to load the input data
+            start_index=output_rows
+
+            logger.info('Output %s contains %s rows',input_file_name,output_rows)
+
+        # If the output file does not exist, load the input from index 0
+        else:
+            start_index=0
+            logger.info('No output for %s exists', input_file_name)
+
+        # Load the input data
+        data_df=pd.read_parquet(input_file)
+
+        # Trim the input data using the start index from the end of the output file
+        data_df=data_df.iloc[start_index:]
+
+        # Split the data into chunks of 100 rows
+        data_df_chunks=np.array_split(data_df, num_fragments)
+
+        # Put each chunk and it's corresponding file name into the queue
+        while len(data_df_chunks) > 0:
+
+            # If we have less than two workunits per worker in the queue
+            # add another one
+            if input_queue.qsize() < len(gpu_workers) * 2:
+                input_queue.put([input_file_name, data_df_chunks.pop()])
+
+            # Wait before checking again
+            time.sleep(1)
+
     # Then, send each score worker a done signal
-    for i in range(num_workers):
-        input_queue.put('Done')
+    for i in range(gpu_workers):
+        input_queue.put(['Done', None])
 
     # Join and then close each score worker process
     for worker in scoring_workers:
         worker.join()
         worker.close()
+
+    # Join and close the result collector
+    result_collector.join()
+    result_collector.close()
 
     # Clean up the logging process
     logging_queue.put_nowait(None)
@@ -94,8 +158,15 @@ def run() -> None:
     return
 
 
-def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
-    '''Worker function to score sharded text file.'''
+def score_shard(
+        input_queue: mp.Queue,
+        output_queue: mp.Queue,
+        gpu: str,
+        worker_num: int
+) -> None:
+
+    '''Worker function to score chunk of sharded text file.
+    sends result to collection worker.'''
 
     # Set-up worker's logging
     logger=logging.getLogger(f'{__name__}.score_shard')
@@ -104,21 +175,19 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
     # Model loading specification
     reader_model_string='tiiuae/falcon-7b'
     writer_model_string='tiiuae/falcon-7b-instruct'
-    reader_device='cuda:0'
-    writer_device='cuda:0'
     cpu_cores=2
 
     # Load the models
     reader_model=llm_class.Llm(
         hf_model_string=reader_model_string,
-        device_map=reader_device,
+        device_map=gpu,
         cache_dir='/home/siderealyear/projects/huggingface_cache',
         cpu_cores=cpu_cores
     )
 
     writer_model=llm_class.Llm(
         hf_model_string=writer_model_string,
-        device_map=writer_device,
+        device_map=gpu,
         cache_dir='/home/siderealyear/projects/huggingface_cache',
         cpu_cores=cpu_cores
     )
@@ -128,7 +197,7 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
         'Worker %s reader loaded %s on %s',
         worker_num,
         reader_model_string,
-        reader_device
+        gpu
     )
 
     writer_model.load()
@@ -136,7 +205,7 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
         'Worker %s writer loaded %s on %s',
         worker_num,
         writer_model_string,
-        writer_device
+        gpu
     )
 
     # Set the models to evaluation mode to deactivate any dropout
@@ -151,68 +220,42 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
     # Start the main loop
     while True:
 
-        # Get the next file from the queue
-        input_file=input_queue.get()
+        # Get the next workunit from the queue
+        workunit=input_queue.get()
 
         # Check for 'Done' signal
-        if input_file == 'Done':
+        if workunit[0] == 'Done':
+            output_queue.put(['Done', None])
             logger.info('Worker %s received stop signal', worker_num)
             return
 
-        else:
+        # Unpack the workunit
+        input_file_name=workunit[0]
+        data_df=workunit[1]
+        data_df.reset_index(inplace=True, drop=True)
 
-            # Get the input file name
-            input_file_name=os.path.basename(input_file)
-            logger.info('Worker %s got %s from queue', worker_num, input_file_name)
+        logger.info(
+            'Worker %s recived workunit with %s rows from %s',
+            worker_num,
+            len(data_df),
+            input_file_name
+        )
 
-            # Use the input file name to create the output file name
-            output_file=f'{config.SCORED_DATA_PATH}/{input_file_name}'
+        # Loop on the dataframe rows, scoring each text and collecting the
+        # scores in a list so that we can add them as a new column later
+        scores=[]
 
-            # Check to see if the output file exists
-            if Path(output_file).is_file():
-                logger.info('Worker %s output for %s exists', worker_num, input_file_name)
+        for _, row in data_df.iterrows():
 
-                # Read the output data and get the row count
-                output_df=pd.read_parquet(output_file)
-                output_rows=len(output_df)
-
-                # Use the length of the output dataframe as the start
-                # index for the scoring loop
-                start_index=output_rows
-
-                logger.info(
-                    'Worker %s output %s contains %s rows',
-                    worker_num,
-                    input_file_name,
-                    output_rows
-                )
-
-            # If the output file does not exist, start the scoring loop
-            # at index 0
-            else:
-                start_index=0
-                logger.info('Worker %s no output for %s exists', worker_num, input_file_name)
-
-            # Load the data
-            data_df=pd.read_parquet(input_file)
-            logger.info('Worker %s input %s has %s rows', worker_num, input_file_name, len(data_df))
-
-            # Loop on the dataframe rows, scoring each text and collecting the
-            # scores in a list so that we can add them as a new column later
-            start_time=time.time()
-            scores=[]
-
-            for i in range(start_index, len(data_df)+1):
-
-                # Get the row
-                row=data_df.iloc[i]
+            # Fence to catch CUDA OOM
+            try:
 
                 # Encode the text with the reader's tokenizer
                 encodings=reader_model.tokenizer(
                     row['text'],
                     return_tensors='pt',
                     return_token_type_ids=False
-                ).to(reader_device)
+                ).to(gpu)
 
                 # Get reader's logits
                 reader_logits=reader_model.model(**encodings).logits
@@ -226,7 +269,7 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
                 # Calculate the cross-perplexity
                 x_ppl=entropy(
                     reader_logits,
-                    writer_logits.to(reader_device),
+                    writer_logits.to(gpu),
                     encodings,
                     reader_model.tokenizer.pad_token_id
                 )
@@ -234,50 +277,87 @@ def score_shard(input_queue: mp.Queue, worker_num: int) -> None:
                 # finally, get the perplexity ratio score
                 scores.append(ppl / x_ppl)
 
-                # Report progress and save intermediate results every 100 rows
-                if (i+1) % 100 == 0:
+            except RuntimeError as runtime_error:
 
-                    # Get the average scoring rate and predicted time remaining
-                    dt=time.time() - start_time
+                logger.error('Worker %s', runtime_error)
 
-                    scored_records=i+1
-                    rate=(scored_records - start_index)/dt
+                # For out of memory enter OOM
+                if 'CUDA out of memory' in str(runtime_error):
+                    error_string = 'OOM'
 
-                    records_remaining=len(data_df) - scored_records
-                    time_remaining=(records_remaining / rate) / (60*60)
-                    percent_complete=(scored_records / len(data_df)) * 100
+                # Otherwise enter NAN:
+                else:
+                    error_string = 'NAN'
 
-                    logger.info('Worker %s: finished row %s of %s',
-                        worker_num,
-                        scored_records,
-                        len(data_df)
-                    )
-                    logger.info(
-                        'Worker %s: %s %% complete',
-                        worker_num,
-                        round(percent_complete,1)
-                    )
-                    logger.info(
-                        'Worker %s scoring rate: %s records per second',
-                        worker_num,
-                        round(rate,1)
-                    )
-                    logger.info(
-                        'Worker %s estimated time remaining: %s hours',
-                        worker_num,
-                        int(time_remaining)
-                    )
+                scores.append(error_string)
 
-                    # Save the data we have so far
-                    temp_df=data_df.iloc[start_index:i+1].copy()
-                    temp_df['perplexity_ratio_score']=scores
-                    temp_df.to_parquet(output_file)
+        # Add the perplexity ratio scores back to the dataframe as a new column
+        data_df['perplexity_ratio_score']=scores
 
-            # Add the perplexity ratio scores back to the dataframe as a new column
-            data_df['perplexity_ratio_score']=scores
+        # Put the result in the output queue along with it's corresponding file name
+        output_queue.put([input_file_name, data_df])
 
-            # Save the completed dataframe
-            data_df.to_parquet(output_file)
+
+def collect_results(output_queue: mp.Queue, num_scoring_workers: int, num_fragments: int) -> None:
+    '''Collects results from workers, concatenates them and saves to file'''
+
+    # Get function logger
+    logger=logging.getLogger(f'{__name__}.collect_results')
+
+    # Main loop to collect results
+    results=[]
+    done_count=0
+
+    # Start the timer
+    start_time=time.time()
+
+    while True:
+
+        # Get the next output from the queue
+        output=output_queue.get()
+
+        # Check for stop signal from workers
+        if output[0] == 'Done':
+            done_count+=1
+            if done_count == num_scoring_workers:
+                return
+
+        # Unpack the output
+        output_file_name=output[0]
+        data_df=output[1]
+        logger.info('Got result fragment from %s', output_file_name)
+
+        # Add the new data to the results and concatenate
+        results.append(data_df)
+        results_df=pd.concat(results)
+        results_df.reset_index(inplace=True, drop=True)
+
+        # Save the result
+        output_file=f'{config.SCORED_DATA_PATH}/{output_file_name}'
+        results_df.to_parquet(output_file)
+        logger.info('Saved %s result %s of %s', output_file_name, len(results), num_fragments)
+
+        # Get the average scoring rate and predicted time remaining
+        dt=time.time() - start_time
+
+        scored_fragments=len(results)
+        rate=scored_fragments / dt
+
+        fragments_remaining=num_fragments - scored_fragments
+        time_remaining=(fragments_remaining / rate) / (60*60)
+        percent_complete=(scored_fragments / num_fragments) * 100
+
+        logger.info('%s %s %% complete',output_file_name,round(percent_complete,1))
+        logger.info('Scoring rate: %s fragments per hour',round(rate*60*60,1))
+        logger.info('Estimated time remaining: %s hours',int(time_remaining))
+
+        # If we are finished with this input file, clear the results and reset the timer
+        if len(results) == num_fragments:
+            results=[]
+            start_time=time.time()
+
+        # Wait one second before checking the queue again
+        time.sleep(1)
 
 
 def start_logging() -> tuple[logging.Logger, mp.Process, mp.Queue]:
@@ -364,3 +444,28 @@ def read_input_files() -> list:
     logger.info('Have %s input files to score', len(inputs_to_score))
 
     return inputs_to_score
+
+
+def get_gpu_workers() -> list:
+    '''Constructs list of GPU worker devices'''
+
+    # Get function logger
+    logger=logging.getLogger(f'{__name__}.get_gpu_workers')
+
+    # Check how many GPUs we have
+    gpus=torch.cuda.device_count()
+    logger.info('Have %s GPUs', gpus)
+
+    # Set the number of workers to assign to each GPU
+    workers_per_gpu=1
+
+    # Make a list of the avalible GPU workers
+    gpu_workers=[]
+
+    for gpu in range(gpus):
+        for _ in range(workers_per_gpu):
+            gpu_workers.append(f'cuda:{gpu}')
+
+    logger.info('GPU workers %s', gpu_workers)
+
+    return gpu_workers
