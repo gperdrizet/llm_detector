@@ -330,10 +330,10 @@ def parse_raw_data():
 
     # Holder for results
     parsed_text={
-        'text': [],
-        'synthetic': [],
-        'author': [],
-        'source': []
+        'Text': [],
+        'Synthetic': [],
+        'Author': [],
+        'Source': []
     }
 
     ########
@@ -360,24 +360,25 @@ def parse_raw_data():
                 data=json.loads(line)
 
                 # Get the generated text and add to parsed text
-                parsed_text['source'].append('hans')
-                parsed_text['synthetic'].append(1)
-                parsed_text['author'].append(generating_model)
+                parsed_text['Source'].append('Hans')
+                parsed_text['Synthetic'].append(1)
 
                 if generating_model == 'llama2_13':
+                    parsed_text['Author'].append('LLaMA2-13B')
                     text=data['meta-llama-Llama-2-13b-hf_generated_text_wo_prompt']
 
                 elif generating_model == 'falcon7':
+                    parsed_text['Author'].append('Falcon-7B')
                     text=data['-fs-cml-models-Falcon-falcon-7b_generated_text_wo_prompt']
 
-                parsed_text['text'].append(text)
+                parsed_text['Text'].append(text)
 
                 synthetic_texts+=1
 
                 # Get the human text and add to parsed text
-                parsed_text['source'].append('hans')
-                parsed_text['synthetic'].append(0)
-                parsed_text['author'].append('human')
+                parsed_text['Source'].append('Hans')
+                parsed_text['Synthetic'].append(0)
+                parsed_text['Author'].append('Human')
 
                 if 'article' in data.keys():
                     text=data['article']
@@ -385,7 +386,7 @@ def parse_raw_data():
                 elif 'text' in data.keys():
                     text=data['text']
 
-                parsed_text['text'].append(text)
+                parsed_text['Text'].append(text)
 
                 human_texts+=1
 
@@ -412,19 +413,19 @@ def parse_raw_data():
 
             # Skip the header row
             if i > 0:
-                parsed_text['source'].append('gerami')
+                parsed_text['Source'].append('Gerami')
 
                 if row[1] == '0.0':
-                    parsed_text['synthetic'].append(0)
-                    parsed_text['author'].append('human')
+                    parsed_text['Synthetic'].append(0)
+                    parsed_text['Author'].append('Human')
                     human_texts+=1
 
                 if row[1] == '1.0':
-                    parsed_text['synthetic'].append(1)
-                    parsed_text['author'].append('unknown_model')
+                    parsed_text['Synthetic'].append(1)
+                    parsed_text['Author'].append('Unknown model')
                     synthetic_texts+=1
 
-                parsed_text['text'].append(row[0])
+                parsed_text['Text'].append(row[0])
 
     function_logger.info(f'Parsed Gerami data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
@@ -450,19 +451,19 @@ def parse_raw_data():
 
     # Loop on text and source lists, parse and add the to results
     for text, source in zip(texts, sources):
-        parsed_text['source'].append('grinberg')
+        parsed_text['Source'].append('Grinberg')
 
         if source == 'Human':
-            parsed_text['synthetic'].append(0)
-            parsed_text['author'].append('human')
+            parsed_text['Synthetic'].append(0)
+            parsed_text['Author'].append('Human')
             human_texts+=1
 
         if source != 'Human':
-            parsed_text['synthetic'].append(1)
-            parsed_text['author'].append('unknown_model')
+            parsed_text['Synthetic'].append(1)
+            parsed_text['Author'].append('Unknown model')
             synthetic_texts+=1
 
-        parsed_text['text'].append(text)
+        parsed_text['Text'].append(text)
 
     function_logger.info(f'Parsed Grinberg data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
@@ -487,19 +488,19 @@ def parse_raw_data():
 
             # Skip the header row
             if i > 0:
-                parsed_text['source'].append('gaggar')
+                parsed_text['Source'].append('Gaggar')
 
                 if row[1] == '0':
-                    parsed_text['synthetic'].append(0)
-                    parsed_text['author'].append('human')
+                    parsed_text['Synthetic'].append(0)
+                    parsed_text['Author'].append('Human')
                     human_texts+=1
 
                 if row[1] == '1':
-                    parsed_text['synthetic'].append(1)
-                    parsed_text['author'].append('GPT-3.5-turbo')
+                    parsed_text['Synthetic'].append(1)
+                    parsed_text['Author'].append('GPT-3.5-turbo')
                     synthetic_texts+=1
 
-                parsed_text['text'].append(row[0])
+                parsed_text['Text'].append(row[0])
 
     function_logger.info(f'Parsed Gaggar data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
@@ -522,19 +523,19 @@ def parse_raw_data():
     # Loop over and parse the dataset
     for i, record in enumerate(dataset['train']):
 
-        parsed_text['source'].append('yatsenko')
+        parsed_text['Source'].append('Yatsenko')
 
         if record['source'] == 'human':
-            parsed_text['synthetic'].append(0)
-            parsed_text['author'].append('human')
+            parsed_text['Synthetic'].append(0)
+            parsed_text['Author'].append('Human')
             human_texts+=1
 
         if record['source'] == 'ai':
-            parsed_text['synthetic'].append(1)
-            parsed_text['author'].append('unknown_model')
+            parsed_text['Synthetic'].append(1)
+            parsed_text['Author'].append('Unknown model')
             synthetic_texts+=1
 
-        parsed_text['text'].append(record['text'])
+        parsed_text['Text'].append(record['text'])
 
     function_logger.info(
         'Parsed Yatsenko data: %s texts, %s human and %s synthetic',
@@ -554,8 +555,8 @@ def save_parsed_text(parsed_text: dict):
     function_logger=logging.getLogger(f'{__name__}.save_parsed_text')
 
     # Get some summary stats about the file
-    total_texts=len(parsed_text['synthetic'])
-    synthetic_texts=sum(parsed_text['synthetic'])
+    total_texts=len(parsed_text['Synthetic'])
+    synthetic_texts=sum(parsed_text['Synthetic'])
     human_texts=total_texts - synthetic_texts
     percent_synthetic=(synthetic_texts/total_texts)*100
     percent_human=(human_texts/total_texts)*100
@@ -632,10 +633,10 @@ def semantic_split() -> None:
 
         # Collect the results
         chunks={
-            'text': [],
-            'synthetic': [],
-            'author': [],
-            'source': []
+            'Text': [],
+            'Synthetic': [],
+            'Author': [],
+            'Source': []
         }
 
         for target_length in target_lengths:
@@ -719,10 +720,10 @@ def split_text(
     logger.info('Worker %s loaded %s', worker_num, os.path.basename(data_file))
 
     results={
-        'text': [],
-        'synthetic': [],
-        'author': [],
-        'source': []
+        'Text': [],
+        'Synthetic': [],
+        'Author': [],
+        'Source': []
     }
 
     # Tokenizer & splitter
@@ -736,14 +737,14 @@ def split_text(
     # Loop over records
     for i in range(num_records):
 
-        text=data_df['text'].iloc[i]
+        text=data_df['Text'].iloc[i]
         chunks=splitter.chunks(text)
 
         for chunk in chunks:
-            results['text'].append(chunk)
-            results['synthetic'].append(data_df['synthetic'].iloc[i])
-            results['author'].append(data_df['author'].iloc[i])
-            results['source'].append(data_df['source'].iloc[i])
+            results['Text'].append(chunk)
+            results['Synthetic'].append(data_df['Synthetic'].iloc[i])
+            results['Author'].append(data_df['Author'].iloc[i])
+            results['Source'].append(data_df['Source'].iloc[i])
 
     logger.info('Worker %s read %s records', worker_num, i+1)
     logger.info('Worker %s produced %s records', worker_num, len(results['text']))

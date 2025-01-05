@@ -244,6 +244,10 @@ def score_shard(
         # Loop on the dataframe rows, scoring each text and collecting the
         # scores in a list so that we can add them as a new column later
         scores=[]
+        word_lengths=[]
+        token_lengths=[]
+        perplexities=[]
+        cross_perplexities=[]
 
         for _, row in data_df.iterrows():
 
@@ -274,17 +278,37 @@ def score_shard(
                     reader_model.tokenizer.pad_token_id
                 )
 
-                # Finally, get the perplexity ratio score
+                # Get the perplexity ratio score
                 score=ppl / x_ppl
+
+                # Get the text length in words by splitting on whitespace
+                word_length=len(row['text'].split())
+
+                # Get the text length in tokens
+                token_length=encodings['input_ids'].shape[1]
+
+                # Collect everything
                 scores.append(score[0])
+                word_lengths.append(word_length)
+                token_lengths.append(token_length)
+                perplexities.append(ppl)
+                cross_perplexities.append(x_ppl)
 
             except RuntimeError as runtime_error:
 
                 logger.error('Worker %s: %s', worker_num, runtime_error)
                 scores.append(np.nan)
+                word_lengths.append(np.nan)
+                token_lengths.append(np.nan)
+                perplexities.append(np.nan)
+                cross_perplexities.append(np.nan)
 
         # Add the perplexity ratio scores back to the dataframe as a new column
-        data_df['perplexity_ratio_score']=scores
+        data_df['Perplexity ratio score']=scores
+        data_df['Cross-perplexity']=cross_perplexities
+        data_df['Perplexity']=perplexities
+        data_df['Text length (words)']=word_length
+        data_df['Text length (tokens)']=token_length
 
         # Put the result in the output queue along with it's corresponding file name
         output_queue.put([input_file_name, data_df])
