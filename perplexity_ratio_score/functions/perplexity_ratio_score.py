@@ -256,7 +256,7 @@ def score_shard(
 
                 # Encode the text with the reader's tokenizer
                 encodings=reader_model.tokenizer(
-                    row['text'],
+                    row['Text'],
                     return_tensors='pt',
                     return_token_type_ids=False
                 ).to(gpu)
@@ -282,7 +282,7 @@ def score_shard(
                 score=ppl / x_ppl
 
                 # Get the text length in words by splitting on whitespace
-                word_length=len(row['text'].split())
+                word_length=len(row['Text'].split())
 
                 # Get the text length in tokens
                 token_length=encodings['input_ids'].shape[1]

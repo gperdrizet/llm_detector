@@ -156,7 +156,7 @@ def get_data() -> None:
     '''Main function to run steps in data acquisition pipeline.'''
 
     logger=helper_funcs.start_logger(
-        logfile_name=f'{__name__}.log',
+        logfile_name=f'data_acquisition.log',
         logger_name=f'{__name__}.get_data'
     )
 
@@ -606,7 +606,7 @@ def semantic_split() -> None:
     '''Main function to do semantic splitting of the parsed and sharded text.'''
 
     # Set-up multiprocess logging to file
-    logfile=f'{config.LOG_PATH}/{__name__}.log'
+    logfile=f'{config.LOG_PATH}/semantic_splitting.log'
     print(f'Will log to: {logfile}\n')
 
     logging_queue=mp.Manager().Queue(-1)
@@ -747,6 +747,6 @@ def split_text(
             results['Source'].append(data_df['Source'].iloc[i])
 
     logger.info('Worker %s read %s records', worker_num, i+1)
-    logger.info('Worker %s produced %s records', worker_num, len(results['text']))
+    logger.info('Worker %s produced %s records', worker_num, len(results['Text']))
 
     return results
