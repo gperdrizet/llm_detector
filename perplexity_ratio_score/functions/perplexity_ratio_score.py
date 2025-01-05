@@ -280,17 +280,8 @@ def score_shard(
 
             except RuntimeError as runtime_error:
 
-                logger.error('Worker %s', runtime_error)
-
-                # For out of memory enter OOM
-                if 'CUDA out of memory' in str(runtime_error):
-                    error_string = 'OOM'
-
-                # Otherwise enter NAN:
-                else:
-                    error_string = 'NAN'
-
-                scores.append(error_string)
+                logger.error('Worker %s: %s', worker_num, runtime_error)
+                scores.append(np.nan)
 
         # Add the perplexity ratio scores back to the dataframe as a new column
         data_df['perplexity_ratio_score']=scores
