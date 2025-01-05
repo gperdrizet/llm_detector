@@ -8,7 +8,7 @@ The notebooks in this directory contain data wrangling and EDA of human and synt
 
 This is the original data source used for the v1.0.0 text classifier. Data is available in the [Binoculars](https://github.com/ahans30/Binoculars/tree/main) GitHub repository provided in the [original publication](https://arxiv.org/abs/2401.12070#). Repo has BSD 3-Clause license.
 
-The data came from completions of the first 50 tokens of texts from the CC News, CNN and PubMed datasets by LLaMA-2-13B and Falcon-7B. See the paper for more details
+The data came from completions of the first 50 tokens of texts from the CC News, CNN and PubMed datasets by LLaMA-2-13B and Falcon-7B. See the paper for more details.
 
 ### 1.2. AI vs human text
 
