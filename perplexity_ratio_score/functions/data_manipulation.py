@@ -156,7 +156,7 @@ def get_data() -> None:
     '''Main function to run steps in data acquisition pipeline.'''
 
     logger=helper_funcs.start_logger(
-        logfile_name=f'data_acquisition.log',
+        logfile_name=f'{config.LOG_PATH}/data_acquisition.log',
         logger_name=f'{__name__}.get_data'
     )
 
