@@ -151,7 +151,6 @@ def tf_idf(data_df: pd.DataFrame=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
     return human_tfidf_df, synthetic_tfidf_df
 
 
-
 def get_data() -> None:
     '''Main function to run steps in data acquisition pipeline.'''
 

@@ -380,7 +380,7 @@ def start_logging() -> tuple[logging.Logger, mp.Process, mp.Queue]:
     '''Function to set-up and start multiprocess logger in the main process.'''
 
     # Set-up multiprocess logging to file
-    logfile=f'{config.LOG_PATH}/{__name__}.log'
+    logfile=f'{config.LOG_PATH}/perplexity_ratio_score.log'
 
     # Make sure we have a logs directory
     Path(config.LOG_PATH).mkdir(parents=True, exist_ok=True)
