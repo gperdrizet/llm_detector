@@ -117,7 +117,7 @@ def start_logger(
     handler = RotatingFileHandler(
         f'{config.LOG_PATH}/{logfile_name}',
         encoding = 'utf-8',
-        maxBytes = 1 * 1024 * 1024,  # 1 MiB
+        maxBytes = 5 * 1024 * 1024,  # 5 MiB
         backupCount = 5
     )
 
