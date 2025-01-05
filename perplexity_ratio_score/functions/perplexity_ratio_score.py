@@ -274,8 +274,9 @@ def score_shard(
                     reader_model.tokenizer.pad_token_id
                 )
 
-                # finally, get the perplexity ratio score
-                scores.append(ppl / x_ppl)
+                # Finally, get the perplexity ratio score
+                score=ppl / x_ppl
+                scores.append(score[0])
 
             except RuntimeError as runtime_error:
 
