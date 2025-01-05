@@ -69,7 +69,7 @@ def run() -> None:
         )
     )
 
-    logger.info('Initalized result collector process')
+    logger.info('initialized result collector process')
     result_collector.start()
     logger.info('Started result collector process')
 
@@ -235,7 +235,7 @@ def score_shard(
         data_df.reset_index(inplace=True, drop=True)
 
         logger.info(
-            'Worker %s recived workunit with %s rows from %s',
+            'Worker %s received workunit with %s rows from %s',
             worker_num,
             len(data_df),
             input_file_name
