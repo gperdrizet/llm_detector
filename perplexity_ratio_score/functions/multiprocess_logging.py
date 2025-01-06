@@ -2,7 +2,8 @@
 from python.org logging cookbook'''
 
 # Standard library imports
-import pathlib
+import os
+import glob
 import logging
 from typing import Callable
 
@@ -13,8 +14,10 @@ import configuration as config # pylint: disable=import-error
 def configure_listener(logfile: str) -> None:
     '''Function to configure log listener process.'''
 
-    # Clear old logfile
-    pathlib.Path(logfile).unlink(missing_ok=True)
+    # Clear old log files
+    if config.CLEAR_LOGS is True:
+        for file in glob.glob(f'{logfile}*'):
+            os.remove(file)
 
     root=logging.getLogger()
     handler=logging.handlers.RotatingFileHandler(logfile, maxBytes=100000, backupCount=10)
