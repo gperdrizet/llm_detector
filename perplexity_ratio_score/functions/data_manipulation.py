@@ -154,10 +154,9 @@ def tf_idf(data_df: pd.DataFrame=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
 def get_data() -> None:
     '''Main function to run steps in data acquisition pipeline.'''
 
-    logger=helper_funcs.start_logger(
-        logfile_name=f'{config.LOG_PATH}/data_acquisition.log',
-        logger_name=f'{__name__}.get_data'
-    )
+    # Configure logging and get logger
+    logger=helper_funcs.start_logger(logfile_name='data_acquisition.log')
+    logger=logging.getLogger(f'{__name__}.get_data')
 
     # Download the data
     logger.info('Starting data download')
@@ -179,7 +178,7 @@ def download_raw_data() -> None:
     '''Downloads raw data from internet sources'''
 
     # Get the logger
-    function_logger=logging.getLogger(f'{__name__}.download_raw_data')
+    logger=logging.getLogger(f'{__name__}.download_raw_data')
 
     ########
     # Hans #
@@ -204,14 +203,14 @@ def download_raw_data() -> None:
             data_url=f'{hans_base_url}/{data_source}/{data_source}-{generating_model}.jsonl'
             _=urllib.request.urlretrieve(data_url, output_file)
 
-            function_logger.info(
+            logger.info(
                 'Finished downloading Hans %s-%s data',
                 data_source,
                 generating_model
             )
 
         else:
-            function_logger.info(
+            logger.info(
                 'Already have Hans %s-%s data',
                 data_source,
                 generating_model
@@ -237,10 +236,10 @@ def download_raw_data() -> None:
         with zipfile.ZipFile(output_file, 'r') as zip_ref:
             zip_ref.extractall(output_directory)
 
-        function_logger.info('Finished downloading Gerami data')
+        logger.info('Finished downloading Gerami data')
 
     else:
-        function_logger.info('Already have Gerami data')
+        logger.info('Already have Gerami data')
 
     ############
     # Grinberg #
@@ -264,10 +263,10 @@ def download_raw_data() -> None:
         with zipfile.ZipFile(output_file, 'r') as zip_ref:
             zip_ref.extractall(output_directory)
 
-        function_logger.info('Finished downloading Grinberg data')
+        logger.info('Finished downloading Grinberg data')
 
     else:
-        function_logger.info('Already have Grinberg data')
+        logger.info('Already have Grinberg data')
 
     ##########
     # Gaggar #
@@ -291,10 +290,10 @@ def download_raw_data() -> None:
         with zipfile.ZipFile(output_file, 'r') as zip_ref:
             zip_ref.extractall(output_directory)
 
-        function_logger.info('Finished downloading Gaggar data')
+        logger.info('Finished downloading Gaggar data')
 
     else:
-        function_logger.info('Already have Gaggar data')
+        logger.info('Already have Gaggar data')
 
     ############
     # Yatsenko #
@@ -315,17 +314,17 @@ def download_raw_data() -> None:
         # Save the dataset to disk
         ds.save_to_disk(output_file)
 
-        function_logger.info('Finished downloading Yatsenko data')
+        logger.info('Finished downloading Yatsenko data')
 
     else:
-        function_logger.info('Already have Yatsenko data')
+        logger.info('Already have Yatsenko data')
 
 
 def parse_raw_data():
     '''Parses and combines text from each data set'''
 
     # Get the logger
-    function_logger=logging.getLogger(f'{__name__}.parse_raw_data')
+    logger=logging.getLogger(f'{__name__}.parse_raw_data')
 
     # Holder for results
     parsed_text={
@@ -389,7 +388,7 @@ def parse_raw_data():
 
                 human_texts+=1
 
-    function_logger.info(f'Parsed Hans data: {human_texts + synthetic_texts} '+
+    logger.info(f'Parsed Hans data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
 
     ##########
@@ -426,7 +425,7 @@ def parse_raw_data():
 
                 parsed_text['Text'].append(row[0])
 
-    function_logger.info(f'Parsed Gerami data: {human_texts + synthetic_texts} '+
+    logger.info(f'Parsed Gerami data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
 
     ############
@@ -464,7 +463,7 @@ def parse_raw_data():
 
         parsed_text['Text'].append(text)
 
-    function_logger.info(f'Parsed Grinberg data: {human_texts + synthetic_texts} '+
+    logger.info(f'Parsed Grinberg data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
 
     ##########
@@ -501,7 +500,7 @@ def parse_raw_data():
 
                 parsed_text['Text'].append(row[0])
 
-    function_logger.info(f'Parsed Gaggar data: {human_texts + synthetic_texts} '+
+    logger.info(f'Parsed Gaggar data: {human_texts + synthetic_texts} '+
         f'texts, {human_texts} human and {synthetic_texts} synthetic')
 
     ############
@@ -536,7 +535,7 @@ def parse_raw_data():
 
         parsed_text['Text'].append(record['text'])
 
-    function_logger.info(
+    logger.info(
         'Parsed Yatsenko data: %s texts, %s human and %s synthetic',
         human_texts + synthetic_texts,
         human_texts,
@@ -551,7 +550,7 @@ def save_parsed_text(parsed_text: dict):
     file and parquet shards.'''
 
     # Get the logger
-    function_logger=logging.getLogger(f'{__name__}.save_parsed_text')
+    logger=logging.getLogger(f'{__name__}.save_parsed_text')
 
     # Get some summary stats about the file
     total_texts=len(parsed_text['Synthetic'])
@@ -560,16 +559,16 @@ def save_parsed_text(parsed_text: dict):
     percent_synthetic=(synthetic_texts/total_texts)*100
     percent_human=(human_texts/total_texts)*100
 
-    function_logger.info('Have %s texts', total_texts)
-    function_logger.info('Human: %s(%s %%)', human_texts, percent_human)
-    function_logger.info('Synthetic: %s(%s %%)',synthetic_texts, percent_synthetic)
+    logger.info('Have %s texts', total_texts)
+    logger.info('Human: %s(%s %%)', human_texts, percent_human)
+    logger.info('Synthetic: %s(%s %%)',synthetic_texts, percent_synthetic)
 
     # Set up output directory
     output_directory=f'{config.INTERMEDIATE_DATA_PATH}'
     Path(output_directory).mkdir(parents=True, exist_ok=True)
 
     output_path=f'{output_directory}/all_texts.json'
-    function_logger.info('Saving master to %s', output_path)
+    logger.info('Saving master to %s', output_path)
 
     # Save it as JSON
     with open(output_path, 'w', encoding='utf-8') as output_file:
@@ -586,7 +585,7 @@ def save_parsed_text(parsed_text: dict):
 
     for data_df, dataset in zip([training_df, testing_df], ['train', 'test']):
 
-        function_logger.info('Saving %s data', dataset)
+        logger.info('Saving %s data', dataset)
 
         # Split the dataframe into two less than the number of cpus chunks
         chunks=np.array_split(data_df, mp.cpu_count() - 2)
@@ -596,9 +595,9 @@ def save_parsed_text(parsed_text: dict):
             output_file=f'{config.INTERMEDIATE_DATA_PATH}/{dataset}_texts.{i}.parquet'
             chunk.reset_index(inplace=True, drop=True)
             chunk.to_parquet(output_file)
-            function_logger.info('Saved %s', output_file)
+            logger.info('Saved %s', output_file)
 
-    function_logger.info('Done')
+    logger.info('Done')
 
 
 def semantic_split() -> None:
