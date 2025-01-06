@@ -298,7 +298,12 @@ def score_shard(
 
                 # If it's CUDA OOM, log text input length and shortened error string
                 if 'CUDA out of memory' in str(runtime_error):
-                    logger.error('Worker %s: CUDA OOM with input length: %s words, %s tokens', word_length, token_length)
+                    logger.error(
+                        'Worker %s: CUDA OOM with input length: %s words, %s tokens',
+                        worker_num,
+                        word_length,
+                        token_length
+                    )
 
                 # If it's something else, log the error string
                 else:
