@@ -93,10 +93,7 @@ def parse_args() -> dict:
 
     return args
 
-def start_logger(
-        logfile_name: str,
-        logger_name: str,
-) -> Callable:
+def start_logger(logfile_name: str) -> Callable:
 
     '''Sets up logging, returns logger'''
 
@@ -111,7 +108,7 @@ def start_logger(
             os.remove(file)
 
     # Create logger
-    logger = logging.getLogger(logger_name)
+    logger = logging.getLogger()
     logger.setLevel(config.LOG_LEVEL)
 
     handler = RotatingFileHandler(
