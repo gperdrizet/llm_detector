@@ -7,7 +7,7 @@ import logging
 from typing import Callable
 
 # Internal imports
-import configuration as config
+import configuration as config # pylint: disable=import-error
 
 
 def configure_listener(logfile: str) -> None:
@@ -29,7 +29,7 @@ def listener_process(queue: Callable, configurer: Callable, logfile: str) -> Non
     # Set the configuration
     configurer(logfile)
 
-    # Loop until we recive the sentinel 'None' value from the queue
+    # Loop until we receive the sentinel 'None' value from the queue
     while True:
 
         # Get the next log record
@@ -46,7 +46,7 @@ def listener_process(queue: Callable, configurer: Callable, logfile: str) -> Non
 
 def configure_worker(queue: Callable) -> None:
     '''Function to configure logging in worker processes.'''
-    
+
     # Add handler for logging queue
     handler=logging.handlers.QueueHandler(queue)
     root=logging.getLogger()
