@@ -48,7 +48,7 @@ def perplexity_ratio_score(output_file_name: str) -> None:
         # Skip already completed records
         for i in range(record_number):
             _ = f.readline()
-            logger.info(f'Skipped record {i}, already sampled')
+            logger.info('Skipped record %s, already sampled', i)
 
         # Loop until we break
         while True:
@@ -63,7 +63,7 @@ def perplexity_ratio_score(output_file_name: str) -> None:
             # If we have batches, run the scoring functions
             if len(batches) != 0:
 
-                logger.info(f'Have {len(batches)} batches of {len(batches[0])} lines for run.')
+                logger.info('Have %s batches of %s lines for run.', len(batches), len(batches[0]))
 
                 # Instantiate pool with one worker per batch
                 pool = mp.Pool(
@@ -77,7 +77,7 @@ def perplexity_ratio_score(output_file_name: str) -> None:
                 # Loop on jobs for this run
                 for i, batch in enumerate(batches):
 
-                    logger.info(f'Submitting batch {i}')
+                    logger.info('Submitting batch %s', i)
 
                     async_results.append(
                         pool.apply_async(score_batch,
