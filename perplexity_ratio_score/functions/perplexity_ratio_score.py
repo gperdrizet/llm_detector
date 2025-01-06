@@ -251,7 +251,7 @@ def score_shard(
 
         for _, row in data_df.iterrows():
 
-            # Fence to catch CUDA OOM
+            # Fence to catch errors - mostly CUDA OOM
             try:
 
                 # Encode the text with the reader's tokenizer
@@ -296,7 +296,14 @@ def score_shard(
 
             except RuntimeError as runtime_error:
 
-                logger.error('Worker %s: %s', worker_num, runtime_error)
+                # If it's CUDA OOM, log text input length and shortened error string
+                if 'CUDA out of memory' in str(runtime_error):
+                    logger.error('Worker %s: CUDA OOM with input length: %s words, %s tokens', word_length, token_length)
+
+                # If it's something else, log the error string
+                else:
+                    logger.error('Worker %s: %s', worker_num, runtime_error)
+
                 scores.append(np.nan)
                 word_lengths.append(np.nan)
                 token_lengths.append(np.nan)
