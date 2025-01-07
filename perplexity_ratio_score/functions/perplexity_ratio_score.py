@@ -69,7 +69,7 @@ def run() -> None:
         )
     )
 
-    logger.info('initialized result collector process')
+    logger.info('Initialized result collector process')
     result_collector.start()
     logger.info('Started result collector process')
 
@@ -251,6 +251,9 @@ def score_shard(
 
         for _, row in data_df.iterrows():
 
+            # Get the text length in words by splitting on whitespace
+            word_length=len(row['Text'].split())
+
             # Fence to catch errors - mostly CUDA OOM
             try:
 
@@ -281,20 +284,16 @@ def score_shard(
                 # Get the perplexity ratio score
                 score=ppl / x_ppl
 
-                # Get the text length in words by splitting on whitespace
-                word_length=len(row['Text'].split())
-
                 # Get the text length in tokens
                 token_length=encodings['input_ids'].shape[1]
 
-                # Collect everything
-                scores.append(score[0])
-                word_lengths.append(word_length)
-                token_lengths.append(token_length)
-                perplexities.append(ppl)
-                cross_perplexities.append(x_ppl)
-
             except RuntimeError as runtime_error:
+
+                # Set np.NAN for the missing outputs
+                ppl=[np.nan]
+                x_ppl=[np.nan]
+                score=[np.nan]
+                token_length=np.nan
 
                 # If it's CUDA OOM, log text input length and shortened error string
                 if 'CUDA out of memory' in str(runtime_error):
@@ -309,18 +308,19 @@ def score_shard(
                 else:
                     logger.error('Worker %s: %s', worker_num, runtime_error)
 
-                scores.append(np.nan)
-                word_lengths.append(np.nan)
-                token_lengths.append(np.nan)
-                perplexities.append(np.nan)
-                cross_perplexities.append(np.nan)
+            # Collect everything
+            word_lengths.append(word_length)
+            token_lengths.append(token_length)
+            perplexities.append(ppl[0])
+            cross_perplexities.append(x_ppl[0])
+            scores.append(score[0])
 
-        # Add the perplexity ratio scores back to the dataframe as a new column
-        data_df['Perplexity ratio score']=scores
-        data_df['Cross-perplexity']=cross_perplexities
-        data_df['Perplexity']=perplexities
+        # Add the new features back to the dataframe
         data_df['Text length (words)']=word_length
         data_df['Text length (tokens)']=token_length
+        data_df['Perplexity']=perplexities
+        data_df['Cross-perplexity']=cross_perplexities
+        data_df['Perplexity ratio score']=scores
 
         # Put the result in the output queue along with it's corresponding file name
         output_queue.put([input_file_name, data_df])
