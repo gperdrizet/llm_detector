@@ -232,6 +232,11 @@ def score_shard(
         # Unpack the workunit
         input_file_name=workunit[0]
         data_df=workunit[1]
+
+        # Add the text length in words by splitting on white space
+        # then drop any rows with length <= 1
+        data_df['Text length words']=data_df['Text'].apply(lambda x: len(x.split()))
+        data_df=data_df[data_df['Text length words'] > 1]
         data_df.reset_index(inplace=True, drop=True)
 
         logger.info(
@@ -244,15 +249,11 @@ def score_shard(
         # Loop on the dataframe rows, scoring each text and collecting the
         # scores in a list so that we can add them as a new column later
         scores=[]
-        word_lengths=[]
         token_lengths=[]
         perplexities=[]
         cross_perplexities=[]
 
         for _, row in data_df.iterrows():
-
-            # Get the text length in words by splitting on whitespace
-            word_length=len(row['Text'].split())
 
             # Fence to catch errors - mostly CUDA OOM
             try:
@@ -298,10 +299,9 @@ def score_shard(
                 # If it's CUDA OOM, log text input length and shortened error string
                 if 'CUDA out of memory' in str(runtime_error):
                     logger.error(
-                        'Worker %s: CUDA OOM with input length: %s words, %s tokens',
+                        'Worker %s: CUDA OOM with input length: %s words',
                         worker_num,
-                        word_length,
-                        token_length
+                        row['Text length words']
                     )
 
                 # If it's something else, log the error string
@@ -309,14 +309,12 @@ def score_shard(
                     logger.error('Worker %s: %s', worker_num, runtime_error)
 
             # Collect everything
-            word_lengths.append(word_length)
             token_lengths.append(token_length)
             perplexities.append(ppl[0])
             cross_perplexities.append(x_ppl[0])
             scores.append(score[0])
 
         # Add the new features back to the dataframe
-        data_df['Text length (words)']=word_length
         data_df['Text length (tokens)']=token_length
         data_df['Perplexity']=perplexities
         data_df['Cross-perplexity']=cross_perplexities
