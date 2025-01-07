@@ -235,14 +235,16 @@ def score_shard(
 
         # Add the text length in words by splitting on white space
         # then drop any rows with length <= 1
-        data_df['Text length words']=data_df['Text'].apply(lambda x: len(x.split()))
-        data_df=data_df[data_df['Text length words'] > 1]
-        data_df.reset_index(inplace=True, drop=True)
+        word_length=data_df['Text'].apply(lambda x: len(x.split()))
+        working_data_df=data_df.copy()
+        working_data_df['Text length (words)']=word_length
+        working_data_df=working_data_df[working_data_df['Text length (words)'] > 1]
+        working_data_df.reset_index(inplace=True, drop=True)
 
         logger.info(
             'Worker %s received workunit with %s rows from %s',
             worker_num,
-            len(data_df),
+            len(working_data_df),
             input_file_name
         )
 
@@ -253,7 +255,7 @@ def score_shard(
         perplexities=[]
         cross_perplexities=[]
 
-        for _, row in data_df.iterrows():
+        for _, row in working_data_df.iterrows():
 
             # Fence to catch errors - mostly CUDA OOM
             try:
@@ -287,6 +289,13 @@ def score_shard(
 
                 # Get the text length in tokens
                 token_length=encodings['input_ids'].shape[1]
+                logger.debug('Worker %s token length: %s', worker_num, token_length)
+                logger.debug(
+                    'Worker %s encodings shape: %s',
+                    worker_num,
+                    encodings['input_ids'].shape
+                )
+                logger.debug('Worker %s encodings: %s', worker_num, encodings)
 
             except RuntimeError as runtime_error:
 
@@ -301,7 +310,7 @@ def score_shard(
                     logger.error(
                         'Worker %s: CUDA OOM with input length: %s words',
                         worker_num,
-                        row['Text length words']
+                        row['Text length (words)']
                     )
 
                 # If it's something else, log the error string
@@ -315,13 +324,13 @@ def score_shard(
             scores.append(score[0])
 
         # Add the new features back to the dataframe
-        data_df['Text length (tokens)']=token_length
-        data_df['Perplexity']=perplexities
-        data_df['Cross-perplexity']=cross_perplexities
-        data_df['Perplexity ratio score']=scores
+        working_data_df['Text length (tokens)']=token_lengths
+        working_data_df['Perplexity']=perplexities
+        working_data_df['Cross-perplexity']=cross_perplexities
+        working_data_df['Perplexity ratio score']=scores
 
         # Put the result in the output queue along with it's corresponding file name
-        output_queue.put([input_file_name, data_df])
+        output_queue.put([input_file_name, working_data_df])
 
 
 def collect_results(output_queue: mp.Queue, num_scoring_workers: int, num_fragments: int) -> None:
