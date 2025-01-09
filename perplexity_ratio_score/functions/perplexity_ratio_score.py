@@ -385,6 +385,8 @@ def collect_results(output_queue: mp.Queue, num_scoring_workers: int, num_fragme
         # Check if the output file already exists
         if Path(output_file).is_file():
 
+            logger.info('Already have output for %s', output_file_name)
+
             # Read the data from disk
             old_data_df=pd.read_parquet(output_file)
 
@@ -422,7 +424,7 @@ def collect_results(output_queue: mp.Queue, num_scoring_workers: int, num_fragme
         logger.info('Estimated time remaining: %s hours',int(time_remaining))
 
         # If we are finished with this input file, reset the timer and fragment count
-        if len(fragment_count) == num_fragments:
+        if fragment_count == num_fragments:
             fragment_count=0
             start_time=time.time()
 
