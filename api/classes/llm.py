@@ -6,7 +6,7 @@ from typing import Callable
 import gc
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
-import api.configuration as config
+import configuration as config
 
 class Llm:
     '''LLM class to bundle configuration options, model and tokenizer
@@ -25,6 +25,7 @@ class Llm:
         bnb_4bit_compute_dtype: str = config.DEFAULT_BNB_4BIT_COMPUTE_DTYPE,
         max_new_tokens: str = config.DEFAULT_MAX_NEW_TOKENS,
         cpu_cores: int = config.DEFAULT_CPU_CORES,
+        #hf_token: str = config.HF_TOKEN,
         logger: Callable = None
     ) -> None:
 
@@ -45,6 +46,7 @@ class Llm:
         self.bnb_4bit_compute_dtype = bnb_4bit_compute_dtype
         self.cpu_cores = cpu_cores
         self.max_new_tokens = max_new_tokens
+        #self.hf_token = hf_token
 
         # Reserve loading the tokenizer and model for the load method to
         # give the user a chance to override default parameter values
@@ -73,7 +75,8 @@ class Llm:
             self.hf_model_string,
             cache_dir = self.cache_dir,
             device_map = self.device_map,
-            quantization_config = self.quantization_config
+            quantization_config = self.quantization_config,
+            #token = self.hf_token
         )
 
         # Set the model to evaluation mode to deactivate any dropout
@@ -89,6 +92,7 @@ class Llm:
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.hf_model_string,
             cache_dir = self.cache_dir
+            #token = self.hf_token
         )
 
         # Add end of sequence for the pad token if one has not been defined
