@@ -83,31 +83,32 @@ def force_after(task_name: str = None):
             pathlib.Path(output_file).unlink(missing_ok = True)
 
 
-# def add_perplexity_ratio_kl_divergence_score(
-#         data_chunk: pd.DataFrame = None,
-#         kl_kde = None,
-#         return_list = None
-# ):
-#     '''Calculates and adds perplexity ratio Kullback-Leibler divergence to a
-#     dataframe chunk. Added result to shared memory list.'''
+def add_perplexity_ratio_kl_divergence_score(
+        data_chunk: pd.DataFrame = None,
+        kl_kde = None,
+        return_list = None
+):
+    '''Calculates and adds perplexity ratio Kullback-Leibler divergence to a
+    dataframe chunk. Added result to shared memory list.'''
 
-#     kl_scores = kl_kde.pdf(data_chunk['Perplexity ratio score'])
-#     data_chunk['Perplexity ratio Kullback-Leibler score'] = kl_scores
+    kl_scores = kl_kde.pdf(data_chunk['Perplexity ratio score'])
+    data_chunk['Perplexity ratio Kullback-Leibler score'] = kl_scores
 
-#     return_list.append(data_chunk)
+    return_list.append(data_chunk)
 
-# def add_tfidf_kl_divergence_score(
-#         data_chunk: pd.DataFrame = None,
-#         kl_kde = None,
-#         return_list = None
-# ):
-#     '''Calculates and adds tfidf Kullback-Leibler divergence to a
-#     dataframe chunk. Added result to shared memory list.'''
 
-#     kl_scores = kl_kde.pdf(data_chunk['TF-IDF score'])
-#     data_chunk['TF-IDF Kullback-Leibler score'] = kl_scores
+def add_tfidf_kl_divergence_score(
+        data_chunk: pd.DataFrame=None,
+        kl_kde=None,
+        return_list=None
+):
+    '''Calculates and adds tfidf Kullback-Leibler divergence to a
+    dataframe chunk. Added result to shared memory list.'''
 
-#     return_list.append(data_chunk)
+    kl_scores=kl_kde.pdf(data_chunk['TF-IDF score'])
+    data_chunk['TF-IDF Kullback-Leibler score']=kl_scores
+
+    return_list.append(data_chunk)
 
 
 def clean_ooms(dataframe: pd.DataFrame = None) -> pd.DataFrame:
@@ -121,18 +122,35 @@ def clean_ooms(dataframe: pd.DataFrame = None) -> pd.DataFrame:
     return dataframe
 
 
-# def fix_dtypes(dataframe: pd.DataFrame = None) -> pd.DataFrame:
-#     '''Enforces correct dtypes on feature columns'''
+def fix_dtypes(dataframe: pd.DataFrame=None) -> pd.DataFrame:
+    '''Enforces correct dtypes on feature columns'''
 
-#     # Set dtypes
-#     dataframe = dataframe.astype({
-#         'Fragment length (tokens)': int, 
-#         'Perplexity': float,
-#         'Cross-perplexity': float,
-#         'Perplexity ratio score': float
-#     })
+    # Set dtypes
+    dataframe=dataframe.astype({
+        'Fragment length (tokens)': int, 
+        'Perplexity': float,
+        'Cross-perplexity': float,
+        'Perplexity ratio score': float
+    })
 
-#     return dataframe
+    return dataframe
+
+
+
+def kl_divergence(p: list, q: list) -> np.ndarray:
+    '''Takes two lists, calculates Kullback-Leibler divergence.'''
+
+    # Convert inputs to numpy
+    p=np.asarray(p)
+    q=np.asarray(q)
+
+    # Set handling for overflows/underflows - just ignore. We will handle infinite
+    # or nan values later by just filtering them out.
+    with np.errstate(over='ignore', under='ignore', divide='ignore', invalid='ignore'):
+        kld_values=p * np.log2(p/q)
+
+    return kld_values
+
 
 # def submitt_text_for_cleaning(texts_chunk: list = None, return_list = None):
 #     '''Submits chunk of texts for cleaning, adds results to shared memory list.'''

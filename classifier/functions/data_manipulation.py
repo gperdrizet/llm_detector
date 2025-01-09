@@ -81,129 +81,130 @@ def load_data() -> dict:
 
     return results
 
-# def perplexity_ratio_kld_kde() -> gaussian_kde:
-#     '''Makes gaussian kernel density estimate of the Kullback-Leibler divergence
-#     between the perplexity ratio score distributions of human and synthetic
-#     text fragments in the scored Hans data. Returns KDE model.'''
+def perplexity_ratio_kld_kde() -> gaussian_kde:
+    '''Makes gaussian kernel density estimate of the Kullback-Leibler divergence
+    between the perplexity ratio score distributions of human and synthetic
+    text fragments in the scored Hans data. Returns KDE model.'''
 
-#     # Load the data
-#     with open(config.LOADED_DATA, 'r', encoding='utf-8') as input_file:
-#         data = json.load(input_file)
+    # Load the data
+    with open(config.LOADED_DATA, 'r', encoding='utf-8') as input_file:
+        data = json.load(input_file)
 
-#     # Pull out just the training data
-#     training_data_df = pd.DataFrame.from_dict(json.loads(data['training']))
+    # Pull out just the training data
+    training_data_df = pd.DataFrame.from_dict(json.loads(data['training']))
 
-#     # Replace and remove string 'OOM' and 'NAN' values
-#     training_data_df = helper_funcs.clean_ooms(training_data_df)
+    # Replace and remove string 'OOM' and 'NAN' values
+    training_data_df = helper_funcs.clean_ooms(training_data_df)
 
-#     # Fix some d-types
-#     training_data_df = helper_funcs.fix_dtypes(training_data_df)
+    # Fix some d-types
+    training_data_df = helper_funcs.fix_dtypes(training_data_df)
 
-#     # Get a list of points covering the range of score values
-#     scores = training_data_df['Perplexity ratio score']
-#     x = np.arange(min(scores) - 0.25, max(scores) + 0.25, 0.001).tolist()
+    # Get a list of points covering the range of score values
+    scores = training_data_df['Perplexity ratio score']
+    x = np.arange(min(scores) - 0.25, max(scores) + 0.25, 0.001).tolist()
 
-#     # Do the exponential gaussian fits on the human and synthetic
-#     # scores and get fit values for f(x)
+    # Do the exponential gaussian fits on the human and synthetic
+    # scores and get fit values for f(x)
 
-#     # Separate human and synthetic perplexity ratio scores
-#     human = training_data_df[training_data_df['Source'] == 'human']
-#     synthetic = training_data_df[training_data_df['Source'] == 'synthetic']
-#     human_scores = human['Perplexity ratio score']
-#     synthetic_scores = synthetic['Perplexity ratio score']
+    # Separate human and synthetic perplexity ratio scores
+    human = training_data_df[training_data_df['Source'] == 'human']
+    synthetic = training_data_df[training_data_df['Source'] == 'synthetic']
+    human_scores = human['Perplexity ratio score']
+    synthetic_scores = synthetic['Perplexity ratio score']
 
-#     # Set approximate bounds for fit
-#     bounds = [[0.0,2.0],[0.0,2.0],[0.0,1.0]]
+    # Set approximate bounds for fit
+    bounds = [[0.0,2.0],[0.0,2.0],[0.0,1.0]]
 
-#     # Do the fit on the human data
-#     human_exponnorm = fit(exponnorm, human_scores, bounds = bounds)
+    # Do the fit on the human data
+    human_exponnorm = fit(exponnorm, human_scores, bounds = bounds)
 
-#     # Use the fitted parameters to calculate values 
-#     human_exponnorm_fit = exponnorm(
-#         human_exponnorm.params.K,
-#         human_exponnorm.params.loc,
-#         human_exponnorm.params.scale
-#     ).pdf(x)
+    # Use the fitted parameters to calculate values 
+    human_exponnorm_fit = exponnorm(
+        human_exponnorm.params.K,
+        human_exponnorm.params.loc,
+        human_exponnorm.params.scale
+    ).pdf(x)
 
-#     # Do the fit on the synthetic data
-#     synthetic_exponnorm = fit(exponnorm, synthetic_scores, bounds = bounds)
+    # Do the fit on the synthetic data
+    synthetic_exponnorm = fit(exponnorm, synthetic_scores, bounds = bounds)
     
-#     # Use the fitted parameters to calculate values
-#     synthetic_exponnorm_fit = exponnorm(
-#         synthetic_exponnorm.params.K,
-#         synthetic_exponnorm.params.loc,
-#         synthetic_exponnorm.params.scale
-#     ).pdf(x)
+    # Use the fitted parameters to calculate values
+    synthetic_exponnorm_fit = exponnorm(
+        synthetic_exponnorm.params.K,
+        synthetic_exponnorm.params.loc,
+        synthetic_exponnorm.params.scale
+    ).pdf(x)
 
-#     # Get the Kullback-Leibler divergence of the fitted values
-#     kl = helper_funcs.kl_divergence(synthetic_exponnorm_fit, human_exponnorm_fit)
+    # Get the Kullback-Leibler divergence of the fitted values
+    kl = helper_funcs.kl_divergence(synthetic_exponnorm_fit, human_exponnorm_fit)
 
-#     # Convert the kl values into integer 'count' values
-#     kl = kl + abs(min(kl))
-#     kl = kl * 100
-#     kl_counts = [int(density) for density in kl]
+    # Convert the kl values into integer 'count' values
+    kl = kl + abs(min(kl))
+    kl = kl * 100
+    kl_counts = [int(density) for density in kl]
 
-#     # Now, construct a list where each value of x appears a number of times
-#     # equal to it's kl 'count'
-#     kl_scores = []
+    # Now, construct a list where each value of x appears a number of times
+    # equal to it's kl 'count'
+    kl_scores = []
 
-#     for i, _ in enumerate(kl_counts):
-#         kl_scores.extend([x[i]] * kl_counts[i])
+    for i, _ in enumerate(kl_counts):
+        kl_scores.extend([x[i]] * kl_counts[i])
 
-#     # Finally, run a KDE on the reconstructed KL scores
-#     kl_kde = gaussian_kde(kl_scores)
+    # Finally, run a KDE on the reconstructed KL scores
+    kl_kde = gaussian_kde(kl_scores)
 
-#     return kl_kde
+    return kl_kde
 
-# def add_perplexity_ratio_kld_score() -> dict:
-#     '''Uses multiprocessing to split text fragment data
-#     and add perpleixty ratio Kullback-Leibler divergence
-#     score to the chunks in parallel. Returns concatenated
-#     dataframes as training testing dict of JSON.'''
 
-#     # Load the data
-#     with open(config.LOADED_DATA, 'r', encoding='utf-8') as input_file:
-#         datasets = json.load(input_file)
+def add_perplexity_ratio_kld_score() -> dict:
+    '''Uses multiprocessing to split text fragment data
+    and add perpleixty ratio Kullback-Leibler divergence
+    score to the chunks in parallel. Returns concatenated
+    dataframes as training testing dict of JSON.'''
 
-#     # Load the Kullback-Leibler divergence kernel density estimate
-#     with open(config.PERPLEXITY_RATIO_KLD_KDE, 'rb') as input_file:
-#         kl_kde = pickle.load(input_file)
+    # Load the data
+    with open(config.LOADED_DATA, 'r', encoding='utf-8') as input_file:
+        datasets=json.load(input_file)
 
-#     # Empty dict for results
-#     results = {}
+    # Load the Kullback-Leibler divergence kernel density estimate
+    with open(config.PERPLEXITY_RATIO_KLD_KDE, 'rb') as input_file:
+        kl_kde=pickle.load(input_file)
 
-#     # Loop on the training & testing datasets
-#     for dataset, data in datasets.items():
+    # Empty dict for results
+    results={}
 
-#         data_df = pd.DataFrame.from_dict(json.loads(data))
+    # Loop on the training & testing datasets
+    for dataset, data in datasets.items():
 
-#         # Split the data up for n workers
-#         data_chunks = np.array_split(data_df, config.KL_SCORE_WORKERS)
+        data_df=pd.DataFrame.from_dict(json.loads(data))
 
-#         # Start multiprocessing manager and use it to create and empty list
-#         # in shard memory to get data back from workers
-#         manager = multiprocessing.Manager()
-#         return_list = manager.list()
+        # Split the data up for n workers
+        data_chunks=np.array_split(data_df, config.KL_SCORE_WORKERS)
+
+        # Start multiprocessing manager and use it to create and empty list
+        # in shard memory to get data back from workers
+        manager=multiprocessing.Manager()
+        return_list=manager.list()
         
-#         # Loop on data chunks, submitting each for processing
-#         jobs = []
+        # Loop on data chunks, submitting each for processing
+        jobs=[]
 
-#         for data_chunk in data_chunks:
-#             p = multiprocessing.Process(target = helper_funcs.add_perplexity_ratio_kl_divergence_score, args=(data_chunk, kl_kde, return_list))
-#             jobs.append(p)
-#             p.start()
+        for data_chunk in data_chunks:
+            p=multiprocessing.Process(target=helper_funcs.add_perplexity_ratio_kl_divergence_score, args=(data_chunk, kl_kde, return_list))
+            jobs.append(p)
+            p.start()
 
-#         # Call join on each worker in the jobs list
-#         for proc in jobs:
-#             proc.join()
+        # Call join on each worker in the jobs list
+        for proc in jobs:
+            proc.join()
 
-#         # Concatenate the return chunks from the shared memory list into a single dataframe
-#         # and add it to the result as json
-#         result = pd.concat(return_list, axis = 0)
-#         result.reset_index(inplace = True, drop = True)
-#         results[dataset] = result.to_json()
+        # Concatenate the return chunks from the shared memory list into a single dataframe
+        # and add it to the result as json
+        result=pd.concat(return_list, axis=0)
+        result.reset_index(inplace=True, drop=True)
+        results[dataset] = result.to_json()
 
-#     return results
+    return results
 
 
 # def make_tfidf_lut() -> dict:
