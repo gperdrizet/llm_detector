@@ -393,6 +393,9 @@ def collect_results(output_queue: mp.Queue, num_scoring_workers: int, num_fragme
             # Add tne new data to the old
             data_df=pd.concat([old_data_df, data_df])
 
+            # Fix the index
+            data_df.reset_index(inplace=True, drop=True)
+
             # Save the new data frame
             data_df.to_parquet(output_file)
 
