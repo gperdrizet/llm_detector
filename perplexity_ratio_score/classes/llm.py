@@ -6,13 +6,13 @@ import gc
 import logging
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
-import benchmarking.configuration as config
+import configuration as config # pylint: disable=import-error
 
 class Llm:
-    '''LLM class to bundle configuration options, model and tokenizer
-    together in once place. Initialize a class instance, override
-    default values for loading, quantization or generation, if desired
-    then, load model and tokenizer with load method.'''
+    '''LLM class to bundle configuration options, model and
+    tokenizer together in once place. Initialize a class
+    instance, override default values for loading, quantization
+    or generation, if desired then, load model and tokenizer with load method.'''
 
     def __init__(
         self,
@@ -29,9 +29,9 @@ class Llm:
         cpu_cores: int=config.CPU_CORES
     ) -> None:
 
-        '''Initial class setup, takes default values from configuration file
-        creates placeholders for LLM and tokenizer to be loaded later and
-        adds logger'''
+        '''Initial class setup, takes default values from
+        configuration file creates placeholders for LLM and
+        tokenizer to be loaded later and adds logger'''
 
         # Add the logger
         self.logger = logging.getLogger(f'{experiment_name}.LLM')
@@ -73,6 +73,7 @@ class Llm:
         # Set quantization configuration with current values under self
         self.set_quantization_config()
 
+
         # Load model
         self.model = AutoModelForCausalLM.from_pretrained(
             self.hf_model_string,
@@ -89,6 +90,15 @@ class Llm:
             self.hf_model_string,
             cache_dir=self.cache_dir
         )
+
+        # Set the model to evaluation mode to deactivate any dropout
+        # modules to ensure reproducibility of results during evaluation
+        self.model.eval()
+
+        # Add end of sequence for the pad token if one has not been defined
+        if not self.tokenizer.pad_token:
+            self.tokenizer.pad_token=self.tokenizer.eos_token
+
 
     def clear(self) -> None:
         '''Removes model and tokenizer, clears GPU memory'''

@@ -7,10 +7,10 @@ import time
 import random
 from random import sample
 
-import torch
-import benchmarking.configuration as config
-import benchmarking.functions.helper as helper_funcs
-from benchmarking.functions.metrics import perplexity, entropy
+#import torch
+import configuration as config
+import functions.helper as helper_funcs
+from functions.metrics import perplexity, entropy
 
 # Comment ##############################################################
 # Code ########################################################################

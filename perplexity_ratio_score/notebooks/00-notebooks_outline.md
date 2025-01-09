@@ -1,6 +1,20 @@
 # Benchmarking/optimization notebooks outline
 
-## [01-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/01-LLaMA3-8B.ipynb)
+## [01-data_wrangling.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/01-data_wrangling.ipynb)
+
+## [02-text_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/02-text_data_exploration.ipynb)
+
+## [03-sentence_splitting.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/03-sentence_splittingipynb)
+
+## [04-sentence_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/04-sentence_data_exploration.ipynb)
+
+## [05-semantic_splitting.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/05-semantic_splitting.ipynb)
+
+## [06-semantic_chunk_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/06-semantic_chunk_data_exploration.ipynb)
+
+## [07-semantic_chunk_score_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/07-semantic_chunk_score_exploration.ipynb)
+
+## [08-LLaMA3-8B.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/08-LLaMA3-8B.ipynb)
 
 ### LLaMA3-8B Benchmarking
 
@@ -64,7 +78,7 @@
 
 ##### 3.3. Conclusion
 
-## [02-logit_calculation.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/02-logit_calculation.ipynb)
+## [09-logit_calculation.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/09-logit_calculation.ipynb)
 
 ### Logit calculation benchmarking
 
@@ -92,7 +106,9 @@
 
 ##### 2.3. Plot: encoding rate for device map & input sequence length
 
-## [03-perplexity_ratio_score.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/03-perplexity_ratio_score.ipynb)
+## [10-Hans_2024_data_exploration.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/10-perplexity_ratio_score.ipynb)
+
+## [11-perplexity_ratio_score.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/11-perplexity_ratio_score.ipynb)
 
 ### Perplexity ratio score exploratory data analysis
 
@@ -125,3 +141,5 @@
 #### Fragment length distribution
 
 #### Thresholding
+
+## [12-kullback-leibler.ipynb](https://github.com/gperdrizet/llm_detector/blob/benchmarking/benchmarking/notebooks/12-kullback-leibler.ipynb)

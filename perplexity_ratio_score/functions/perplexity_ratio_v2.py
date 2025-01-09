@@ -1,23 +1,26 @@
 '''Second generation functions for perplexity ratio scoring 
 of data from https://arxiv.org/abs/2401.12070'''
 
+# Standard library imports
 from __future__ import annotations
-from typing import Callable
 
 import os
 import time
 import json
 import random
-import torch
 import logging
 import tracemalloc
 import multiprocessing as mp
 from pathlib import Path
 
-import benchmarking.configuration as config
-import benchmarking.functions.helper as helper_funcs
-import benchmarking.classes.llm as llm_class
-from benchmarking.functions.metrics import perplexity, entropy
+# PyIP imports
+import torch
+
+# Internal imports
+import configuration as config # pylint: disable=import-error
+import functions.helper as helper_funcs # pylint: disable=import-error
+import classes.llm as llm_class # pylint: disable=import-error
+from functions.metrics import perplexity, entropy # pylint: disable=import-error
 
 os.environ['TRANSFORMERS_OFFLINE'] = '1'
 
@@ -45,7 +48,7 @@ def perplexity_ratio_score(output_file_name: str) -> None:
         # Skip already completed records
         for i in range(record_number):
             _ = f.readline()
-            logger.info(f'Skipped record {i}, already sampled')
+            logger.info('Skipped record %s, already sampled', i)
 
         # Loop until we break
         while True:
@@ -60,7 +63,7 @@ def perplexity_ratio_score(output_file_name: str) -> None:
             # If we have batches, run the scoring functions
             if len(batches) != 0:
 
-                logger.info(f'Have {len(batches)} batches of {len(batches[0])} lines for run.')
+                logger.info('Have %s batches of %s lines for run.', len(batches), len(batches[0]))
 
                 # Instantiate pool with one worker per batch
                 pool = mp.Pool(
@@ -74,12 +77,12 @@ def perplexity_ratio_score(output_file_name: str) -> None:
                 # Loop on jobs for this run
                 for i, batch in enumerate(batches):
 
-                    logger.info(f'Submitting batch {i}')
+                    logger.info('Submitting batch %s', i)
 
                     async_results.append(
                         pool.apply_async(score_batch,
                             args = (
-                                i, 
+                                i,
                                 batch
                             )
                         )
@@ -88,7 +91,7 @@ def perplexity_ratio_score(output_file_name: str) -> None:
                 # Clean up
                 pool.close()
                 pool.join()
-                
+
                 ##### Collect and save the results #########################################
 
                 # Get the results
@@ -115,11 +118,11 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
     results = make_empty_results_dict()
 
     ##### Sample text fragments from each record in the batch ##########
-    logger.info(f'Worker {worker_num} - Sampling from batch')
+    logger.info('Worker %s - Sampling from batch', worker_num)
 
     # Loop on each record in the batch
     for element in batch:
-        
+
         # Get the record number and content
         record_number = element['record_number']
         record = element['record']
@@ -132,28 +135,28 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
         texts['human'] = record['Human text']
         texts['synthetic'] = record['Synthetic text']
 
-        ##### Generate text fragment samples from the batch's human 
+        ##### Generate text fragment samples from the batch's human
         ##### and synthetic text and add them to the results
         results = make_text_fragment_samples(
-            texts, 
-            worker_num, 
-            record_number, 
-            record, 
+            texts,
+            worker_num,
+            record_number,
+            record,
             results
         )
-    
+
     num_samples = len(results['Dataset'])
-    logger.info(f'Worker {worker_num} - Generated {num_samples} samples from record')
+    logger.info('Worker %s - Generated %s samples from record', worker_num, num_samples)
 
     ##### Calculate perplexity scores for each fragment from batch
 
     # Set available CPU cores
     torch.set_num_threads(config.CPUS_PER_WORKER)
-    logger.info(f'Worker {worker_num} - {config.CPUS_PER_WORKER} CPU threads avalible')
+    logger.info('Worker %s - %s CPU threads available', worker_num, config.CPUS_PER_WORKER)
 
     # Load the models
     reader_model, writer_model = load_models()
-    logger.info(f'Worker {worker_num} - Reader and writer models ready')
+    logger.info('Worker %s - Reader and writer models ready', worker_num)
 
     ##### Fragment loop #######################################################
 
@@ -183,9 +186,14 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
             reader_logits = reader_model.model(**encodings).logits
 
             # Stop timer
-            reader_dT = time.time() - start_time
+            reader_dt = time.time() - start_time
 
-            logger.info(f'Worker {worker_num} - Reader encoded fragment {i + 1} of {num_samples}')
+            logger.info(
+                'Worker %s - Reader encoded fragment %s of %s',
+                worker_num,
+                i+1,
+                num_samples
+            )
 
             # Get length of input in tokens
             fragment_length_tokens = encodings['input_ids'].shape[1]
@@ -205,9 +213,14 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
             writer_logits = writer_model.model(**encodings).logits
 
             # Stop timer
-            writer_dT = time.time() - start_time
+            writer_dt = time.time() - start_time
 
-            logger.info(f'Worker {worker_num} - Writer encoded fragment {i + 1} of {num_samples}')
+            logger.info(
+                'Worker %s - Writer encoded fragment %s of %s',
+                worker_num,
+                i+1,
+                num_samples
+            )
 
             # Get writer peak memory in GB
             writer_peak_memory = collect_memory_data(config.WRITER_DEVICE)
@@ -223,7 +236,7 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                 reader_model.tokenizer.pad_token_id
             )
 
-            perplexity_ratio_score = ppl / x_ppl
+            score = ppl / x_ppl
 
         except RuntimeError as runtime_error:
 
@@ -238,25 +251,25 @@ def score_batch(worker_num: int = None, batch: list = None) -> dict:
                 error_string = 'NAN'
 
             # Set variables we didn't get values for to the error string
-            reader_dT = error_string
-            writer_dT = error_string
+            reader_dt = error_string
+            writer_dt = error_string
             fragment_length_tokens = error_string
             reader_peak_memory = error_string
             writer_peak_memory = error_string
             ppl = [error_string]
             x_ppl = [error_string]
-            perplexity_ratio_score = [error_string]
+            score = [error_string]
 
         # Add everything to results
-        results['Reader time (seconds)'].append(str(reader_dT))
-        results['Writer time (seconds)'].append(str(writer_dT))
+        results['Reader time (seconds)'].append(str(reader_dt))
+        results['Writer time (seconds)'].append(str(writer_dt))
         results['Fragment length (tokens)'].append(str(fragment_length_tokens))
         results['Reader peak memory (GB)'].append(str(reader_peak_memory))
         results['Writer peak memory (GB)'].append(str(writer_peak_memory))
         results['Perplexity'].append(str(ppl[0]))
         results['Cross-perplexity'].append(str(x_ppl[0]))
-        results['Perplexity ratio score'].append(str(perplexity_ratio_score[0]))
-    
+        results['Perplexity ratio score'].append(str(score[0]))
+
     return results
 
 
@@ -286,7 +299,7 @@ def initialize_results(results_datafile: str = None):
     sampled_record_numbers = list(set(results['Source record num']))
     sampled_record_numbers = list(map(int, sampled_record_numbers))
 
-    # Initialize the record number to the highest already completed 
+    # Initialize the record number to the highest already completed
     # sample, or zero if we don't have prior data
     if len(sampled_record_numbers) > 0:
         record_number = max(sampled_record_numbers) + 1
@@ -322,7 +335,7 @@ def make_batches(f, record_number):
 
             batch.append({'record_number': record_number, 'record': next_line})
             record_number += 1
-        
+
         if next_line == '':
             logger.info('End of input data file')
             break
@@ -350,10 +363,10 @@ def make_empty_results_dict():
 
 
 def make_text_fragment_samples(
-        texts: dict = None, 
-        worker_num: int = None, 
-        record_number: int = None, 
-        record: dict = None, 
+        texts: dict = None,
+        worker_num: int = None,
+        record_number: int = None,
+        record: dict = None,
         results: dict = None
 ) -> dict:
 
@@ -380,12 +393,12 @@ def make_text_fragment_samples(
     human_text_length = len(human_text_list)
     synthetic_text_length = len(synthetic_text_list)
 
-    logger.info(f'Worker {worker_num} - Total human text: {human_text_length} words')
-    logger.info(f'Worker {worker_num} - Total synthetic text: {synthetic_text_length} words')
+    logger.info('Worker %s - Total human text: %s words', worker_num, human_text_length)
+    logger.info('Worker %s - Total synthetic text: %s words', worker_num, synthetic_text_length)
 
     # Get the total lengths, choose the shortest of the two
     total_length = min(human_text_length, synthetic_text_length)
-    logger.info(f'Worker {worker_num} - Apparent length: {total_length} words')
+    logger.info('Worker %s - Apparent length: %s words', worker_num, total_length)
 
     # Make sure the fragment is at least as long as the short limit
     if total_length > config.SHORT_FRAGMENT_LIMIT:
@@ -408,7 +421,12 @@ def make_text_fragment_samples(
                 long_limit = total_length
 
             slice_length = random.randint(config.SHORT_FRAGMENT_LIMIT, long_limit)
-            logger.info(f'Worker {worker_num} - Sample {sample_count} - Sample fragment length: {slice_length} words')
+            logger.info(
+                'Worker %s - Sample %s - Sample fragment length: %s words', 
+                worker_num,
+                sample_count,
+                slice_length
+            )
 
             # Set the slice window
             j = i + slice_length
@@ -424,8 +442,18 @@ def make_text_fragment_samples(
                 human_text_length_words = len(human_text_slice)
                 synthetic_text_length_words = len(synthetic_text_slice)
 
-                logger.info(f'Worker {worker_num} - Sample {sample_count} - Human fragment length: {human_text_length_words} words')
-                logger.info(f'Worker {worker_num} - Sample {sample_count} - Synthetic fragment length: {synthetic_text_length_words} words')
+                logger.info(
+                    'Worker %s - Sample %s - Human fragment length: %s words',
+                    worker_num,
+                    sample_count,
+                    human_text_length_words
+                )
+                logger.info(
+                    'Worker %s - Sample %s - Synthetic fragment length: %s words',
+                    worker_num,
+                    sample_count,
+                    synthetic_text_length_words
+                )
 
                 # Reset for the next loop
                 i = j
@@ -433,7 +461,7 @@ def make_text_fragment_samples(
 
                 # If we reversed the string to sample from the end, reverse it
                 # back so the result is always the same strand
-                if reverse_sample == True:
+                if reverse_sample is True:
                     human_text_slice = list(reversed(human_text_slice))
                     synthetic_text_slice = list(reversed(synthetic_text_slice))
 
@@ -455,9 +483,13 @@ def make_text_fragment_samples(
                 results['Generator'].append(record['Generation model'])
                 results['Fragment length (words)'].append(str(synthetic_text_length_words))
                 results['String'].append(synthetic_text_string)
-            
+
             else:
-                logger.info(f'Worker {worker_num} - Sample {sample_count} - Remaining text too short for sample')
+                logger.info(
+                    'Worker %s - Sample %s - Remaining text too short for sample',
+                    worker_num,
+                    sample_count
+                )
 
     return results
 

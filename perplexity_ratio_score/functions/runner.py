@@ -7,11 +7,10 @@ import os
 import logging
 from multiprocessing import Manager, Process
 
-import torch
-import benchmarking.classes.llm as llm_class
-import benchmarking.classes.experiment as experiment_class
-import benchmarking.functions.benchmarks as benchmark_funcs
-import benchmarking.functions.helper as helper_funcs
+import classes.llm as llm_class
+import classes.experiment as experiment_class
+import functions.benchmarks as benchmark_funcs
+import functions.helper as helper_funcs
 
 # Comment ##############################################################
 # Code ########################################################################

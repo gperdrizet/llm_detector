@@ -5,22 +5,44 @@ import os
 import torch
 
 ######################################################################
-# Project meta-stuff: paths, logging, etc. ###########################
+# Perplexity ratio scoring globals ###################################
 ######################################################################
 
 # Get path to this config file so that we can define
 # other paths relative to it
 PROJECT_ROOT_PATH=os.path.dirname(os.path.realpath(__file__))
 
+# Data paths
+RAW_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/raw_data'
+INTERMEDIATE_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/intermediate_data'
+SCORED_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/scored_data'
+
+# Logs path
+LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
+
+# Max size of log file before rotation
+LOGFILE_SIZE=20 * 1024 * 1024,  # 20 MiB
+
+# Number of log files to keep when rotating
+MAX_LOGFILES=5
+
+# Path to save notebook plots
+PLOT_PATH=f'{PROJECT_ROOT_PATH}/notebooks/plots'
+
+######################################################################
+# Old v1.1.0 classifier stuff, left in temporarily for compatibility #
+######################################################################
+
 # Other project paths
 DATA_PATH=f'{PROJECT_ROOT_PATH}/data'
 BENCHMARKING_DATA_PATH=f'{DATA_PATH}/benchmarking'
 HANS_DATA_PATH=f'{DATA_PATH}/hans_2024'
 EXPERIMENT_CONFIGS_PATH=f'{PROJECT_ROOT_PATH}/experiments'
-LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
+#LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
+PERPLEXITY_OUTPUT_FILE_NAME='old_hans_perplexity_ratio_score_data.json'
 
 # Logging stuff
-LOG_LEVEL='DEBUG'
+LOG_LEVEL='INFO'
 LOG_PREFIX='%(levelname)s - %(name)s - %(message)s'
 CLEAR_LOGS=True
 
