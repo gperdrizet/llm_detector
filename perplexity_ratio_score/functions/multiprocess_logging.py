@@ -20,7 +20,11 @@ def configure_listener(logfile: str) -> None:
             os.remove(file)
 
     root=logging.getLogger()
-    handler=logging.handlers.RotatingFileHandler(logfile, maxBytes=100000, backupCount=10)
+    handler=logging.handlers.RotatingFileHandler(
+        logfile,
+        maxBytes=config.LOGFILE_SIZE,
+        backupCount=config.MAX_LOGFILES
+    )
     formatter=logging.Formatter(config.LOG_PREFIX)
     handler.setFormatter(formatter)
     root.addHandler(handler)

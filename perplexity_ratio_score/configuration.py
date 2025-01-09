@@ -20,6 +20,12 @@ SCORED_DATA_PATH=f'{PROJECT_ROOT_PATH}/data/scored_data'
 # Logs path
 LOG_PATH=f'{PROJECT_ROOT_PATH}/logs'
 
+# Max size of log file before rotation
+LOGFILE_SIZE=20 * 1024 * 1024,  # 20 MiB
+
+# Number of log files to keep when rotating
+MAX_LOGFILES=5
+
 # Path to save notebook plots
 PLOT_PATH=f'{PROJECT_ROOT_PATH}/notebooks/plots'
 
