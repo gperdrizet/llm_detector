@@ -1,5 +1,8 @@
 __pycache__
 .venv
 .vscode
+.locks
 data
 logs
+bitsandbytes*
+models--*
