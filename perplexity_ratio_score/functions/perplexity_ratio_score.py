@@ -177,160 +177,177 @@ def score_shard(
     writer_model_string='tiiuae/falcon-7b-instruct'
     cpu_cores=2
 
-    # Load the models
-    reader_model=llm_class.Llm(
-        hf_model_string=reader_model_string,
-        device_map=gpu,
-        cache_dir='/home/siderealyear/projects/huggingface_cache',
-        cpu_cores=cpu_cores
-    )
+    # Turn gradient accumulation off
+    with torch.no_grad():
 
-    writer_model=llm_class.Llm(
-        hf_model_string=writer_model_string,
-        device_map=gpu,
-        cache_dir='/home/siderealyear/projects/huggingface_cache',
-        cpu_cores=cpu_cores
-    )
-
-    reader_model.load()
-    logger.info(
-        'Worker %s reader loaded %s on %s',
-        worker_num,
-        reader_model_string,
-        gpu
-    )
-
-    writer_model.load()
-    logger.info(
-        'Worker %s writer loaded %s on %s',
-        worker_num,
-        writer_model_string,
-        gpu
-    )
-
-    # Set the models to evaluation mode to deactivate any dropout
-    # modules to ensure reproducibility of results during evaluation
-    reader_model.model.eval()
-    writer_model.model.eval()
-
-    # Add end of sequence for the pad token if one has not been defined
-    if not reader_model.tokenizer.pad_token:
-        reader_model.tokenizer.pad_token=reader_model.tokenizer.eos_token
-
-    # Start the main loop
-    while True:
-
-        # Get the next workunit from the queue
-        workunit=input_queue.get()
-
-        # Check for 'Done' signal
-        if workunit[0] == 'Done':
-            output_queue.put(['Done', None])
-            logger.info('Worker %s received stop signal', worker_num)
-            return
-
-        # Unpack the workunit
-        input_file_name=workunit[0]
-        data_df=workunit[1]
-
-        # Add the text length in words by splitting on white space
-        # then drop any rows with length <= 1
-        word_length=data_df['Text'].apply(lambda x: len(x.split()))
-        working_data_df=data_df.copy()
-        working_data_df['Text length (words)']=word_length
-        working_data_df=working_data_df[working_data_df['Text length (words)'] > 1]
-        working_data_df.reset_index(inplace=True, drop=True)
-
-        logger.info(
-            'Worker %s received workunit with %s rows from %s',
-            worker_num,
-            len(working_data_df),
-            input_file_name
+        # Load the models
+        reader_model=llm_class.Llm(
+            hf_model_string=reader_model_string,
+            device_map=gpu,
+            cache_dir='/home/siderealyear/projects/huggingface_cache',
+            cpu_cores=cpu_cores
         )
 
-        # Loop on the dataframe rows, scoring each text and collecting the
-        # scores in a list so that we can add them as a new column later
-        scores=[]
-        token_lengths=[]
-        perplexities=[]
-        cross_perplexities=[]
+        writer_model=llm_class.Llm(
+            hf_model_string=writer_model_string,
+            device_map=gpu,
+            cache_dir='/home/siderealyear/projects/huggingface_cache',
+            cpu_cores=cpu_cores
+        )
 
-        for _, row in working_data_df.iterrows():
+        reader_model.load()
+        logger.info(
+            'Worker %s reader loaded %s on %s',
+            worker_num,
+            reader_model_string,
+            gpu
+        )
 
-            # Fence to catch errors - mostly CUDA OOM
-            try:
+        writer_model.load()
+        logger.info(
+            'Worker %s writer loaded %s on %s',
+            worker_num,
+            writer_model_string,
+            gpu
+        )
 
-                # Encode the text with the reader's tokenizer
-                encodings=reader_model.tokenizer(
-                    row['Text'],
-                    return_tensors='pt',
-                    return_token_type_ids=False
-                ).to(gpu)
+        # Start the main loop
+        while True:
 
-                # Get reader's logits
-                reader_logits=reader_model.model(**encodings).logits
+            # Get the next workunit from the queue
+            workunit=input_queue.get()
 
-                # Get the writer's logits
-                writer_logits=writer_model.model(**encodings).logits
+            # Check for 'Done' signal
+            if workunit[0] == 'Done':
+                output_queue.put(['Done', None])
+                logger.info('Worker %s received stop signal', worker_num)
+                return
 
-                # Calculate perplexity using the reader's encoding and the writer's logits
-                ppl=perplexity(encodings, writer_logits)
+            # Unpack the workunit
+            input_file_name=workunit[0]
+            data_df=workunit[1]
 
-                # Calculate the cross-perplexity
-                x_ppl=entropy(
-                    reader_logits,
-                    writer_logits.to(gpu),
-                    encodings,
-                    reader_model.tokenizer.pad_token_id
-                )
+            # Add the text length in words by splitting on white space
+            # then drop any rows with length <= 1
+            word_length=data_df['Text'].apply(lambda x: len(x.split()))
+            working_data_df=data_df.copy()
+            working_data_df['Text length (words)']=word_length
+            working_data_df=working_data_df[working_data_df['Text length (words)'] > 1]
+            working_data_df.reset_index(inplace=True, drop=True)
 
-                # Get the perplexity ratio score
-                score=ppl / x_ppl
+            logger.info(
+                'Worker %s received workunit with %s rows from %s',
+                worker_num,
+                len(working_data_df),
+                input_file_name
+            )
 
-                # Get the text length in tokens
-                token_length=encodings['input_ids'].shape[1]
-                logger.debug('Worker %s token length: %s', worker_num, token_length)
-                logger.debug(
-                    'Worker %s encodings shape: %s',
-                    worker_num,
-                    encodings['input_ids'].shape
-                )
-                logger.debug('Worker %s encodings: %s', worker_num, encodings)
+            # Loop on the dataframe rows, scoring each text and collecting the
+            # scores in a list so that we can add them as a new column later
+            scores=[]
+            token_lengths=[]
+            perplexities=[]
+            cross_perplexities=[]
 
-            except RuntimeError as runtime_error:
+            for _, row in working_data_df.iterrows():
 
-                # Set np.NAN for the missing outputs
-                ppl=[np.nan]
-                x_ppl=[np.nan]
-                score=[np.nan]
-                token_length=np.nan
+                # Fence to catch errors - mostly CUDA OOM
+                try:
 
-                # If it's CUDA OOM, log text input length and shortened error string
-                if 'CUDA out of memory' in str(runtime_error):
-                    logger.error(
-                        'Worker %s: CUDA OOM with input length: %s words',
-                        worker_num,
-                        row['Text length (words)']
+                    # Encode the text with the reader's tokenizer
+                    encodings=reader_model.tokenizer(
+                        row['Text'],
+                        return_tensors='pt',
+                        return_token_type_ids=False
+                    ).to(gpu)
+
+                    # Get reader's logits
+                    reader_logits=reader_model.model(**encodings).logits
+
+                    # Get the writer's logits
+                    writer_logits=writer_model.model(**encodings).logits
+
+                    # Calculate perplexity using the reader's encoding and the writer's logits
+                    ppl=perplexity(encodings, writer_logits)
+
+                    # Calculate the cross-perplexity
+                    x_ppl=entropy(
+                        reader_logits,
+                        writer_logits.to(gpu),
+                        encodings,
+                        reader_model.tokenizer.pad_token_id
                     )
 
-                # If it's something else, log the error string
-                else:
-                    logger.error('Worker %s: %s', worker_num, runtime_error)
+                    # Get the perplexity ratio score
+                    score=ppl / x_ppl
 
-            # Collect everything
-            token_lengths.append(token_length)
-            perplexities.append(ppl[0])
-            cross_perplexities.append(x_ppl[0])
-            scores.append(score[0])
+                    # Get the text length in tokens
+                    token_length=encodings['input_ids'].shape[1]
+                    logger.debug('Worker %s token length: %s', worker_num, token_length)
+                    logger.debug(
+                        'Worker %s encodings shape: %s',
+                        worker_num,
+                        encodings['input_ids'].shape
+                    )
+                    logger.debug('Worker %s encodings: %s', worker_num, encodings)
 
-        # Add the new features back to the dataframe
-        working_data_df['Text length (tokens)']=token_lengths
-        working_data_df['Perplexity']=perplexities
-        working_data_df['Cross-perplexity']=cross_perplexities
-        working_data_df['Perplexity ratio score']=scores
+                except RuntimeError as runtime_error:
 
-        # Put the result in the output queue along with it's corresponding file name
-        output_queue.put([input_file_name, working_data_df])
+                    # Set np.NAN for the missing outputs
+                    ppl=[np.nan]
+                    x_ppl=[np.nan]
+                    score=[np.nan]
+                    token_length=np.nan
+
+                    # Clear and re-start the models
+                    reader_model.clear()
+                    writer_model.clear()
+
+                    # Load the models
+                    reader_model=llm_class.Llm(
+                        hf_model_string=reader_model_string,
+                        device_map=gpu,
+                        cache_dir='/home/siderealyear/projects/huggingface_cache',
+                        cpu_cores=cpu_cores
+                    )
+
+                    reader_model.load()
+
+                    writer_model=llm_class.Llm(
+                        hf_model_string=writer_model_string,
+                        device_map=gpu,
+                        cache_dir='/home/siderealyear/projects/huggingface_cache',
+                        cpu_cores=cpu_cores
+                    )
+
+                    writer_model.load()
+
+                    # If it was CUDA OOM, log text input length and shortened error string
+                    if 'CUDA out of memory' in str(runtime_error):
+                        logger.error(
+                            'Worker %s: CUDA OOM with input length: %s words',
+                            worker_num,
+                            row['Text length (words)']
+                        )
+
+                    # If it was something else, log the full error string
+                    else:
+                        logger.error('Worker %s: %s', worker_num, runtime_error)
+
+                # Collect everything
+                token_lengths.append(token_length)
+                perplexities.append(ppl[0])
+                cross_perplexities.append(x_ppl[0])
+                scores.append(score[0])
+
+            # Add the new features back to the dataframe
+            working_data_df['Text length (tokens)']=token_lengths
+            working_data_df['Perplexity']=perplexities
+            working_data_df['Cross-perplexity']=cross_perplexities
+            working_data_df['Perplexity ratio score']=scores
+
+            # Put the result in the output queue along with it's corresponding file name
+            output_queue.put([input_file_name, working_data_df])
 
 
 def collect_results(output_queue: mp.Queue, num_scoring_workers: int, num_fragments: int) -> None:
@@ -340,8 +357,10 @@ def collect_results(output_queue: mp.Queue, num_scoring_workers: int, num_fragme
     logger=logging.getLogger(f'{__name__}.collect_results')
 
     # Main loop to collect results
-    results=[]
     done_count=0
+
+    # Count how many input file fragments we have saved
+    fragment_count=0
 
     # Start the timer
     start_time=time.time()
@@ -359,23 +378,39 @@ def collect_results(output_queue: mp.Queue, num_scoring_workers: int, num_fragme
 
         # Unpack the output
         output_file_name=output[0]
+        output_file=f'{config.SCORED_DATA_PATH}/{output_file_name}'
         data_df=output[1]
         logger.info('Got result fragment from %s', output_file_name)
 
-        # Add the new data to the results and concatenate
-        results.append(data_df)
-        results_df=pd.concat(results)
-        results_df.reset_index(inplace=True, drop=True)
+        # Check if the output file already exists
+        if Path(output_file).is_file():
 
-        # Save the result
-        output_file=f'{config.SCORED_DATA_PATH}/{output_file_name}'
-        results_df.to_parquet(output_file)
-        logger.info('Saved %s result %s of %s', output_file_name, len(results), num_fragments)
+            # Read the data from disk
+            old_data_df=pd.read_parquet(output_file)
+
+            # Add tne new data to the old
+            data_df=pd.concat([old_data_df, data_df])
+
+            # Save the new data frame
+            data_df.to_parquet(output_file)
+
+            # Increment the fragment count
+            fragment_count+=1
+
+        else:
+
+            # If the output file does not already exist, save the data
+            data_df.to_parquet(output_file)
+
+            # Also, increment the fragment count
+            fragment_count+=1
+
+        logger.info('Saved %s result %s of %s', output_file_name, fragment_count, num_fragments)
 
         # Get the average scoring rate and predicted time remaining
         dt=time.time() - start_time
 
-        scored_fragments=len(results)
+        scored_fragments=fragment_count
         rate=scored_fragments / dt
 
         fragments_remaining=num_fragments - scored_fragments
@@ -386,9 +421,9 @@ def collect_results(output_queue: mp.Queue, num_scoring_workers: int, num_fragme
         logger.info('Scoring rate: %s fragments per hour',round(rate*60*60,1))
         logger.info('Estimated time remaining: %s hours',int(time_remaining))
 
-        # If we are finished with this input file, clear the results and reset the timer
-        if len(results) == num_fragments:
-            results=[]
+        # If we are finished with this input file, reset the timer and fragment count
+        if len(fragment_count) == num_fragments:
+            fragment_count=0
             start_time=time.time()
 
         # Wait one second before checking the queue again
