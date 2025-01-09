@@ -1,85 +1,85 @@
-# '''Collection of top level functions for Luigi tasks in the 
-# data & feature engineering pipeline'''
+'''Collection of top level functions for Luigi tasks in the 
+data & feature engineering pipeline'''
 
-# from __future__ import annotations
+from __future__ import annotations
 
-# import gc
-# import pickle
-# import json
-# import multiprocessing
-# import nltk
-# import xgboost
-# #from math import log2
+import gc
+import pickle
+import json
+import multiprocessing
+import nltk
+import xgboost
+#from math import log2
 
-# import numpy as np
-# import pandas as pd
-# from scipy.stats import fit, exponnorm, gaussian_kde
-# from sklearn.preprocessing import LabelEncoder
-# from sklearn.metrics import accuracy_score, confusion_matrix
+import numpy as np
+import pandas as pd
+from scipy.stats import fit, exponnorm, gaussian_kde
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score, confusion_matrix
 
-# import classifier.functions.helper as helper_funcs
-# import classifier.configuration as config
+import functions.helper as helper_funcs
+import configuration as config
 
-# nltk.download('stopwords')
-# nltk.download('wordnet')
+nltk.download('stopwords')
+nltk.download('wordnet')
 
-# def load_data() -> dict:
-#     '''Parses and combines perplexity ratio scored text fragments from
-#     all three Hans 2024 datasets. Returns results as training testing
-#     dict of JSON.'''
+def load_data() -> dict:
+    '''Parses and combines perplexity ratio scored text fragments from
+    all three Hans 2024 datasets. Returns results as training testing
+    dict of JSON.'''
 
-#     # Holder for each parsed dataset
-#     dataframes = []
+    # Holder for each parsed dataset
+    dataframes=[]
 
-#     for _, filename in config.SCORED_HANS_DATASETS.items():
+    for _, filename in config.SCORED_HANS_DATASETS.items():
 
-#         # Load the data
-#         dataframe = pd.read_json(f'{config.HANS_DATA_PATH}/{filename}')
+        # Load the data
+        dataframe=pd.read_json(f'{config.HANS_DATA_PATH}/{filename}')
 
-#         # Update name of some columns, some scoring runs used the earlier names
-#         dataframe.rename(columns = {
-#             'Binoculars score': 'Perplexity ratio score',
-#             'Observer peak memory (GB)': 'Reader peak memory (GB)',
-#             'Performer peak memory (GB)': 'Writer peak memory (GB)'
-#         }, inplace = True)
+        # Update name of some columns, some scoring runs used the earlier names
+        dataframe.rename(columns={
+            'Binoculars score': 'Perplexity ratio score',
+            'Observer peak memory (GB)': 'Reader peak memory (GB)',
+            'Performer peak memory (GB)': 'Writer peak memory (GB)'
+        }, inplace=True)
 
-#         # get rid of some unnecessary columns
-#         dataframe.drop([
-#             'Fragment', 
-#             'Reader peak memory (GB)', 
-#             'Writer peak memory (GB)'
-#         ], axis = 1, inplace = True)
+        # get rid of some unnecessary columns
+        dataframe.drop([
+            'Fragment', 
+            'Reader peak memory (GB)', 
+            'Writer peak memory (GB)'
+        ], axis=1, inplace=True)
 
-#         # Replace and remove string 'OOM' and 'NAN' values
-#         dataframe = helper_funcs.clean_ooms(dataframe)
+        # Replace and remove string 'OOM' and 'NAN' values
+        dataframe=helper_funcs.clean_ooms(dataframe)
 
-#         # Fix some d-types
-#         dataframe = helper_funcs.fix_dtypes(dataframe)
+        # Fix some d-types
+        dataframe=helper_funcs.fix_dtypes(dataframe)
 
-#         # Add this dataframe to the list
-#         dataframes.append(dataframe)
+        # Add this dataframe to the list
+        dataframes.append(dataframe)
 
-#     # Combine the individual datasets and reset the index
-#     data_df = pd.concat(dataframes, axis = 0)
-#     data_df.reset_index(inplace = True, drop = True)
+    # Combine the individual datasets and reset the index
+    data_df=pd.concat(dataframes, axis=0)
+    data_df.reset_index(inplace=True, drop=True)
 
-#     # Set length threshold
-#     data_df = data_df[data_df['Fragment length (tokens)'] > 50]
+    # Set length threshold
+    data_df=data_df[data_df['Fragment length (tokens)'] > 50]
 
-#     # Split the data in to training and testing subsets.
-#     training_df = data_df.sample(frac = config.TRAIN_TEST_SPLIT, random_state = 42)
-#     testing_df = data_df.drop(training_df.index)
-#     training_df.reset_index(inplace = True, drop = True)
-#     testing_df.reset_index(inplace = True, drop = True)
+    # Split the data in to training and testing subsets.
+    training_df=data_df.sample(frac=config.TRAIN_TEST_SPLIT, random_state=42)
+    testing_df=data_df.drop(training_df.index)
+    training_df.reset_index(inplace=True, drop=True)
+    testing_df.reset_index(inplace=True, drop=True)
 
-#     # Construct a single dictionary containing the JSON of the training
-#     # and testing dataframes
-#     results = {
-#         'training': training_df.to_json(),
-#         'testing': testing_df.to_json()
-#     }
+    # Construct a single dictionary containing the JSON of the training
+    # and testing dataframes
+    results={
+        'training': training_df.to_json(),
+        'testing': testing_df.to_json()
+    }
 
-#     return results
+    return results
 
 # def perplexity_ratio_kld_kde() -> gaussian_kde:
 #     '''Makes gaussian kernel density estimate of the Kullback-Leibler divergence

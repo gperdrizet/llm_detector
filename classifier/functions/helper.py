@@ -1,22 +1,22 @@
-# '''Helper functions for running jobs'''
+'''Helper functions for running jobs'''
 
-# from __future__ import annotations
-# from typing import Callable
+from __future__ import annotations
+from typing import Callable
 
-# import re
-# import pathlib
-# import logging
-# from math import log2
+import re
+import pathlib
+import logging
+from math import log2
 
-# import numpy as np
-# import pandas as pd
-# from nltk.corpus import stopwords
-# from nltk.stem import WordNetLemmatizer
-# from sklearn.feature_extraction.text import TfidfVectorizer
-# from sklearn.model_selection import train_test_split
-# from sklearn.neighbors import KernelDensity
+import numpy as np
+import pandas as pd
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KernelDensity
 
-# import configuration as config
+import configuration as config
 
 # def start_logger(
 #         logfile_name: str='llm_detector.log',
@@ -52,35 +52,35 @@
 #     return logger
 
 
-# def force_after(task_name: str = None):
-#     '''Forces all to be re-run starting with given task by removing their output'''
+def force_after(task_name: str = None):
+    '''Forces all to be re-run starting with given task by removing their output'''
 
-#     # Dictionary of string task names and their output files
-#     tasks = {
-#         'LoadData': config.LOADED_DATA,
-#         'PerplexityRatioKLD': config.PERPLEXITY_RATIO_KLD_KDE,
-#         'AddPerplexityRatioKLDScore': config.PERPLEXITY_RATIO_KLD_SCORE_ADDED,
-#         'MakeTFIDFLut': config.TFIDF_LUT,
-#         'AddTFIDFScore': config.TFIDF_SCORE_ADDED,
-#         'TFIDFScoreKLD': config.TFIDF_SCORE_KLD_KDE,
-#         'AddTFIDFKLDScore': config.TFIDF_KLD_SCORE_ADDED,
-#         'TrainXGBoost': config.XGBOOST_CLASSIFIER
-#     }
+    # Dictionary of string task names and their output files
+    tasks = {
+        'LoadData': config.LOADED_DATA,
+        'PerplexityRatioKLD': config.PERPLEXITY_RATIO_KLD_KDE,
+        'AddPerplexityRatioKLDScore': config.PERPLEXITY_RATIO_KLD_SCORE_ADDED,
+        'MakeTFIDFLut': config.TFIDF_LUT,
+        'AddTFIDFScore': config.TFIDF_SCORE_ADDED,
+        'TFIDFScoreKLD': config.TFIDF_SCORE_KLD_KDE,
+        'AddTFIDFKLDScore': config.TFIDF_KLD_SCORE_ADDED,
+        'TrainXGBoost': config.XGBOOST_CLASSIFIER
+    }
 
-#     # Loop on the task dictionary
-#     remove_output = False
+    # Loop on the task dictionary
+    remove_output = False
 
-#     for task, output_file in tasks.items():
+    for task, output_file in tasks.items():
 
-#         # When we find the task, flip the value of remove_output to True
-#         # so that we will remove the output files for this and all
-#         # subsequent tasks
-#         if task == task_name:
-#             remove_output = True
+        # When we find the task, flip the value of remove_output to True
+        # so that we will remove the output files for this and all
+        # subsequent tasks
+        if task == task_name:
+            remove_output = True
 
-#         # If the flag has been flipped remove the output file
-#         if remove_output is True:
-#             pathlib.Path(output_file).unlink(missing_ok = True)
+        # If the flag has been flipped remove the output file
+        if remove_output is True:
+            pathlib.Path(output_file).unlink(missing_ok = True)
 
 
 # def add_perplexity_ratio_kl_divergence_score(
@@ -110,15 +110,15 @@
 #     return_list.append(data_chunk)
 
 
-# def clean_ooms(dataframe: pd.DataFrame = None) -> pd.DataFrame:
-#     '''Removes string NAN and OOM error placeholders.'''
+def clean_ooms(dataframe: pd.DataFrame = None) -> pd.DataFrame:
+    '''Removes string NAN and OOM error placeholders.'''
 
-#     # Replace and remove string 'OOM' and 'NAN' values
-#     dataframe.replace('NAN', np.nan, inplace = True)
-#     dataframe.replace('OOM', np.nan, inplace = True)
-#     dataframe.dropna(inplace = True)
+    # Replace and remove string 'OOM' and 'NAN' values
+    dataframe.replace('NAN', np.nan, inplace = True)
+    dataframe.replace('OOM', np.nan, inplace = True)
+    dataframe.dropna(inplace = True)
 
-#     return dataframe
+    return dataframe
 
 
 # def fix_dtypes(dataframe: pd.DataFrame = None) -> pd.DataFrame:

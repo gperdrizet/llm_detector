@@ -1,13 +1,17 @@
 '''Luigi feature engineering and XGBoost classifier training pipeline'''
 
+# Standard imports
 import json
-import luigi
 from pickle import dump
+
+# PyPI imports
+import luigi
 from luigi.format import Nop
 
-import classifier.functions.helper as helper_funcs
-import classifier.functions.data_manipulation as data_funcs
-import classifier.configuration as config
+# Internal imports
+import functions.helper as helper_funcs
+import functions.data_manipulation as data_funcs
+import configuration as config
 
 class LoadData(luigi.Task):
 
@@ -15,7 +19,7 @@ class LoadData(luigi.Task):
         return luigi.LocalTarget(config.LOADED_DATA)
 
     def run(self):
-        data = data_funcs.load_data()
+        data=data_funcs.load_data()
 
         with self.output().open('w') as output_file:
             json.dump(data, output_file)
