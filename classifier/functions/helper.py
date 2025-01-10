@@ -152,151 +152,151 @@ def kl_divergence(p: list, q: list) -> np.ndarray:
     return kld_values
 
 
-# def submitt_text_for_cleaning(texts_chunk: list = None, return_list = None):
-#     '''Submits chunk of texts for cleaning, adds results to shared memory list.'''
+def submit_text_for_cleaning(texts_chunk: list = None, return_list = None):
+    '''Submits chunk of texts for cleaning, adds results to shared memory list.'''
 
-#     sw = stopwords.words('english')
-#     lemmatizer = WordNetLemmatizer()
+    sw = stopwords.words('english')
+    lemmatizer = WordNetLemmatizer()
 
-#     cleaned_texts = []
+    cleaned_texts = []
 
-#     for text in texts_chunk:
+    for text in texts_chunk:
 
-#         cleaned_texts.append(
-#             clean_text(
-#                 text = text,
-#                 sw = sw,
-#                 lemmatizer = lemmatizer
-#             )
-#         )
+        cleaned_texts.append(
+            clean_text(
+                text = text,
+                sw = sw,
+                lemmatizer = lemmatizer
+            )
+        )
 
-#     return_list.extend(cleaned_texts)
-
-
-# def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
-#     '''Cleans up text string for TF-IDF'''
-
-#     # Lowercase everything
-#     text = text.lower()
-
-#     # Replace everything with space except (a-z, A-Z, ".", "?", "!", ",")
-#     text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
-
-#     # Remove URLs
-#     text = re.sub(r"http\S+", "",text)
-
-#     # Remove html tags
-#     html = re.compile(r'<.*?>')
-#     text = html.sub(r'',text)
-
-#     punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
-
-#     # Remove punctuations
-#     for p in punctuations:
-#         text = text.replace(p,'')
-
-#     # Remove stopwords
-#     text = [word.lower() for word in text.split() if word.lower() not in sw]
-#     text = [lemmatizer.lemmatize(word) for word in text]
-#     text = " ".join(text)
-
-#     # Remove emojis
-#     emoji_pattern = re.compile("["
-#         u"\U0001F600-\U0001F64F"  # emoticons
-#         u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-#         u"\U0001F680-\U0001F6FF"  # transport & map symbols
-#         u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
-#         u"\U00002702-\U000027B0"
-#         u"\U000024C2-\U0001F251"
-#     "]+", flags=re.UNICODE)
-
-#     text = emoji_pattern.sub(r'', text)
-
-#     return text
+    return_list.extend(cleaned_texts)
 
 
-# def make_tfidf_lut(texts: list = None, text_source: str = None, return_dict = None) -> dict:
-#     '''Takes a list of text fragments, calculates TF-IDF and returns
-#     a dictionary look-up table with words as keys and TF-IDF value.'''
+def clean_text(text: str = None, sw = None, lemmatizer = None) -> str:
+    '''Cleans up text string for TF-IDF'''
 
-#     # Fit the TF-IDF vectorizer
-#     tfidf_vectorizer = TfidfVectorizer()
-#     tfidf_vectors = tfidf_vectorizer.fit_transform(texts)
+    # Lowercase everything
+    text = text.lower()
 
-#     # Convert the vectors to numpy and replace zeros with NAN
-#     tfidf = tfidf_vectors.toarray()
-#     tfidf[tfidf == 0] = np.nan
+    # Replace everything with space except (a-z, A-Z, ".", "?", "!", ",")
+    text = re.sub(r"[^a-zA-Z?.!,¿]+", " ", text)
 
-#     # Take the log2 and average the columns (i.e. get average TF-IDF per word)
-#     log_tfidf = np.log2(tfidf)
-#     log_tfidf_mean = np.nanmean(log_tfidf, axis = 0)
+    # Remove URLs
+    text = re.sub(r"http\S+", "",text)
 
-#     # Get the words
-#     features = tfidf_vectorizer.get_feature_names_out()
+    # Remove html tags
+    html = re.compile(r'<.*?>')
+    text = html.sub(r'',text)
 
-#     return_dict[text_source] = dict(zip(features, log_tfidf_mean))
+    punctuations = '@#!?+&*[]-%.:/();$=><|{}^' + "'`" + '_'
+
+    # Remove punctuations
+    for p in punctuations:
+        text = text.replace(p,'')
+
+    # Remove stopwords
+    text = [word.lower() for word in text.split() if word.lower() not in sw]
+    text = [lemmatizer.lemmatize(word) for word in text]
+    text = " ".join(text)
+
+    # Remove emojis
+    emoji_pattern = re.compile("["
+        u"\U0001F600-\U0001F64F"  # emoticons
+        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        u"\U00002702-\U000027B0"
+        u"\U000024C2-\U0001F251"
+    "]+", flags=re.UNICODE)
+
+    text = emoji_pattern.sub(r'', text)
+
+    return text
 
 
-# def tfidf_score_text_fragments(
-#         data_chunk: pd.DataFrame,
-#         tfidf_luts: dict = None,
-#         return_list = None
-# ) -> dict:
-#     '''Scores text fragments with product normalized difference in
-#     log2 TF-IDF mean.'''
+def make_tfidf_lut(texts: list = None, text_source: str = None, return_dict = None) -> dict:
+    '''Takes a list of text fragments, calculates TF-IDF and returns
+    a dictionary look-up table with words as keys and TF-IDF value.'''
 
-#     # Holders for TF-IDF values
-#     human_tfidf_means = []
-#     synthetic_tfidf_means = []
-#     product_normalized_dmean_tfidfs = []
+    # Fit the TF-IDF vectorizer
+    tfidf_vectorizer = TfidfVectorizer()
+    tfidf_vectors = tfidf_vectorizer.fit_transform(texts)
 
-#     # Stop words and lemmatizer for text cleaning
-#     sw = stopwords.words('english')
-#     lemmatizer = WordNetLemmatizer()
+    # Convert the vectors to numpy and replace zeros with NAN
+    tfidf = tfidf_vectors.toarray()
+    tfidf[tfidf == 0] = np.nan
 
-#     # Loop on dataframe rows
-#     for _, row in data_chunk.iterrows():
+    # Take the log2 and average the columns (i.e. get average TF-IDF per word)
+    log_tfidf = np.log2(tfidf)
+    log_tfidf_mean = np.nanmean(log_tfidf, axis = 0)
 
-#         human_tfidf_sum = 0
-#         synthetic_tfidf_sum = 0
+    # Get the words
+    features = tfidf_vectorizer.get_feature_names_out()
 
-#         # Get the text from this row
-#         text = row['String']
+    return_dict[text_source] = dict(zip(features, log_tfidf_mean))
 
-#         # Clean the text
-#         text = clean_text(
-#             text = text,
-#             sw = sw,
-#             lemmatizer = lemmatizer
-#         )
 
-#         # Split the text into words
-#         words = text.split(' ')
+def tfidf_score_text_fragments(
+        data_chunk: pd.DataFrame,
+        tfidf_luts: dict=None,
+        return_list=None
+) -> dict:
+    '''Scores text fragments with product normalized difference in
+    log2 TF-IDF mean.'''
 
-#         # Score the words using the human and synthetic luts
-#         for word in words:
+    # Holders for TF-IDF values
+    human_tfidf_means=[]
+    synthetic_tfidf_means=[]
+    product_normalized_dmean_tfidfs=[]
 
-#             if word in tfidf_luts['human'].keys():
-#                 human_tfidf_sum += tfidf_luts['human'][word]
+    # Stop words and lemmatizer for text cleaning
+    sw=stopwords.words('english')
+    lemmatizer=WordNetLemmatizer()
 
-#             if word in tfidf_luts['synthetic'].keys():
-#                 synthetic_tfidf_sum += tfidf_luts['synthetic'][word]
+    # Loop on dataframe rows
+    for _, row in data_chunk.iterrows():
 
-#         # Get the means
-#         human_tfidf_mean = human_tfidf_sum / len(words)
-#         synthetic_tfidf_mean = synthetic_tfidf_sum / len(words)
-#         dmean_tfidf = human_tfidf_mean - synthetic_tfidf_mean
-#         product_normalized_dmean_tfidf = dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
+        human_tfidf_sum=0
+        synthetic_tfidf_sum=0
 
-#         human_tfidf_means.append(human_tfidf_mean)
-#         synthetic_tfidf_means.append(synthetic_tfidf_mean)
-#         product_normalized_dmean_tfidfs.append(product_normalized_dmean_tfidf)
+        # Get the text from this row
+        text=row['String']
 
-#     data_chunk['Human TF-IDF'] = human_tfidf_means
-#     data_chunk['Synthetic TF-IDF'] = synthetic_tfidf_means
-#     data_chunk['TF-IDF score'] = product_normalized_dmean_tfidfs
+        # Clean the text
+        text=clean_text(
+            text=text,
+            sw=sw,
+            lemmatizer=lemmatizer
+        )
 
-#     return_list.append(data_chunk)
+        # Split the text into words
+        words=text.split(' ')
+
+        # Score the words using the human and synthetic luts
+        for word in words:
+
+            if word in tfidf_luts['human'].keys():
+                human_tfidf_sum += tfidf_luts['human'][word]
+
+            if word in tfidf_luts['synthetic'].keys():
+                synthetic_tfidf_sum += tfidf_luts['synthetic'][word]
+
+        # Get the means
+        human_tfidf_mean=human_tfidf_sum / len(words)
+        synthetic_tfidf_mean=synthetic_tfidf_sum / len(words)
+        dmean_tfidf=human_tfidf_mean - synthetic_tfidf_mean
+        product_normalized_dmean_tfidf=dmean_tfidf * (human_tfidf_mean + synthetic_tfidf_mean)
+
+        human_tfidf_means.append(human_tfidf_mean)
+        synthetic_tfidf_means.append(synthetic_tfidf_mean)
+        product_normalized_dmean_tfidfs.append(product_normalized_dmean_tfidf)
+
+    data_chunk['Human TF-IDF']=human_tfidf_means
+    data_chunk['Synthetic TF-IDF']=synthetic_tfidf_means
+    data_chunk['TF-IDF score']=product_normalized_dmean_tfidfs
+
+    return_list.append(data_chunk)
 
 
 # def make_padded_range(data: np.array, n_points: int = 100) -> np.array:
