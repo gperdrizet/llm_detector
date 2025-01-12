@@ -406,3 +406,72 @@ nostalgia-for-infinity-data  us-central1-c  256      pd-standard  READY
 Now, use Google Cloud Console to create a new VM in the new region/zone and attach the disks. Then be sure to clean up old persistent disks and snapshots once everything is running.
 
 A N1 machine with 4 cores and 16 GB RAM costs a few hundred dollars a month with 4 T4 GPUs attached. To get 4 P100s costs a few thousand dollars a month and needs a quota increase request.
+
+## 3. Transfer files to/from a VM
+
+Sounds like the best solution for this is a shared Google Cloud Storage bucket. The bucket is mounted on the Compute Engine VM and wherever else file access is needed. The following instructions should work on the VM and any other Debian based Linux machine.
+
+### 3.1. Create a Cloud Storage bucket
+
+[Create buckets](https://cloud.google.com/storage/docs/creating-buckets)
+
+From Google Cloud Console:
+
+- Navigation menu ⇾ Cloud Storage ⇾ Buckets ⇾ 'CREATE BUCKET'
+- Set the name and pick single region
+- Set autoclass and enable Coldline and Archive classes
+- Set the region to match the VM's
+- Use uniform, bucket level permissions
+- Use default security settings
+- 'CREATE', make sure 'prevent public access' is selects and continue
+
+### 3.2. Mount the bucket
+
+- [Mount a Cloud Storage bucket using Cloud Storage FUSE](https://cloud.google.com/storage/docs/cloud-storage-fuse/quickstart-mount-bucket)
+
+#### 3.2.1. Install Cloud Storage FUSE
+
+Set up the Google Cloud Storage APT repository:
+
+```bash
+export GCSFUSE_REPO=gcsfuse-`lsb_release -c -s`
+echo "deb https://packages.cloud.google.com/apt $GCSFUSE_REPO main" | sudo tee /etc/apt/sources.list.d/gcsfuse.list
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+```
+
+Install Cloud Storage FUSE
+
+```bash
+sudo apt update
+sudo apt upgrade
+sudo apt-get install fuse gcsfuse
+```
+
+Check the installation:
+
+```bash
+gcsfuse -v
+$ gcsfuse version 2.7.0 (Go version go1.23.4)
+```
+
+### 3.2.2. Mount the bucket
+
+Generate credentials:
+
+```bash
+gcloud auth application-default login
+```
+
+Make a mount directory:
+
+```bash
+mkdir /path/to/mount
+```
+
+Depending on where you make the directory, you may need chown it with `username:username`. Then you can mount the bucket:
+
+```bash
+gcsfuse BUCKET_NAME "/path/to/mount"
+```
+
+Done!
